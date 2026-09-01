@@ -245,6 +245,7 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
     `<D:propfind><D:prop><D:getetag/><C:calendar-data><C:comp name="VCALENDAR"/></C:calendar-data></D:prop></D:propfind>` +
     `<C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT">${timeRange}</C:comp-filter></C:comp-filter></C:filter>` +
     `</C:calendar-query>`;
+  console.debug('[caldav] REPORT body:', body);
   const res = await fetch(toRequestUrl(url), {
     method: 'REPORT',
     headers: headers(settings, { Depth: '1', 'Content-Type': 'application/xml' }),
@@ -264,7 +265,6 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
   }
   const text = await res.text();
   const doc = new DOMParser().parseFromString(text, 'application/xml');
-  const items: RemoteItem[] = [];
   if (doc.getElementsByTagName('parsererror').length > 0) {
     throw new Error('Malformed multistatus response');
   }
@@ -272,6 +272,7 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
   let withHref = 0;
   let withCalendarData = 0;
   let sampleResponse = '';
+  const candidates: Array<{ href: string; etag: string; cd?: string }> = [];
   for (const resp of responses) {
     let href = '';
     let etag = '';
@@ -286,16 +287,41 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
     if (href) withHref++;
     if (cd) withCalendarData++;
     if (!sampleResponse) {
-      sampleResponse = new XMLSerializer().serializeToString(resp).slice(0, 400);
+      sampleResponse = new XMLSerializer().serializeToString(resp).slice(0, 600);
     }
-    if (href && cd) {
-      items.push({ href, etag, ics: cd });
-    }
+    if (href) candidates.push({ href, etag, cd: cd || undefined });
   }
-  console.debug(`[caldav] REPORT ${toRequestUrl(url)} -> ${res.status}, ${responses.length} responses, ${withHref} hrefs, ${withCalendarData} calendar-data, ${items.length} kept`);
+  console.debug(`[caldav] REPORT ${toRequestUrl(url)} -> ${res.status}, ${responses.length} responses, ${withHref} hrefs, ${withCalendarData} calendar-data`);
   if (responses.length > 0 && withCalendarData === 0) {
     console.debug('[caldav] first response XML:', sampleResponse);
   }
+
+  // Phase 2: if the REPORT didn't return calendar-data for any event, fetch each one via GET
+  const items: RemoteItem[] = [];
+  const needGet = candidates.filter(c => !c.cd);
+  if (needGet.length > 0) {
+    console.debug(`[caldav] calendar-data missing for all responses, fetching ${needGet.length} events via GET`);
+    const results = await Promise.allSettled(
+      needGet.map(async ({ href, etag }) => {
+        const res = await fetch(resolveHref(settings, href), {
+          method: 'GET',
+          headers: headers(settings),
+          credentials: 'omit',
+        });
+        if (!res.ok) throw new Error(`GET ${href} failed: ${res.status}`);
+        return { href, etag, ics: await res.text() };
+      })
+    );
+    for (const r of results) {
+      if (r.status === 'fulfilled') items.push(r.value);
+    }
+  } else {
+    for (const c of candidates) {
+      items.push({ href: c.href, etag: c.etag, ics: c.cd! });
+    }
+  }
+
+  console.debug(`[caldav] reportOn result: ${items.length} usable events`);
   return { items, responses: responses.length, withHref, withCalendarData, sampleResponse };
 }
 
