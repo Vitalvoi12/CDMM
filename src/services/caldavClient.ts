@@ -157,9 +157,7 @@ export interface DiscoveryResult {
 }
 
 function hasCalendarResourceType(resp: Element): boolean {
-  const rt = resp.getElementsByTagName('resourcetype')[0];
-  if (!rt) return false;
-  for (const el of rt.getElementsByTagName('*')) {
+  for (const el of resp.getElementsByTagName('*')) {
     if (el.localName === 'calendar') return true;
   }
   return false;
