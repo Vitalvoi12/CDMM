@@ -130,20 +130,48 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     tombstoneRepo.remove(uid);
   }
 
-  // 2) Push local events not on the server (skip tombstoned).
+  // 2) External deletions: a local event that was previously synced (has an
+  //    etag) but is no longer on the server was deleted on another device.
+  //    Remove it locally BEFORE pushing, so it never gets resurrected.
+  for (const ev of [...localByUid.values()]) {
+    if (ev.etag && !remoteByUid.has(ev.uid)) {
+      eventRepo.delete(ev.id);
+      localByUid.delete(ev.uid);
+      result.deleted++;
+    }
+  }
+
+  // 3) Push local events that were never uploaded (no etag) but are not
+  //    tombstoned and not already on the server.
   for (const ev of localByUid.values()) {
     if (tombstoneRepo.has(ev.uid)) continue;
+    if (ev.etag) continue;
+    if (remoteByUid.has(ev.uid)) {
+      remoteItemByUid.delete(ev.uid);
+      continue;
+    }
+    try {
+      await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+      result.created++;
+    } catch {
+      result.errors++;
+    }
+    remoteItemByUid.delete(ev.uid);
+  }
+
+  // 4) Update conflicts / server-side changes: local events that exist on the
+  //    server and differ from the remote version. Push local if we changed
+  //    it; otherwise the remote wins and we pull it below.
+  for (const ev of localByUid.values()) {
     const remoteItem = remoteItemByUid.get(ev.uid);
-    const needPush = !remoteItem || remoteItem.etag !== ev.etag;
-    if (needPush) {
+    if (!remoteItem || !ev.etag) continue;
+    if (remoteItem.etag !== ev.etag) {
+      // Local copy has not been edited since its last sync if etag matches;
+      // a mismatched etag means the server copy changed or our local edit
+      // was never confirmed. Push our version and refresh the etag.
       try {
-        const ics = eventToCalDavIcs(ev);
-        await putCalDavEvent(settings, ics, ev.uid, ev.href);
-        if (remoteItem) {
-          result.updated++;
-        } else {
-          result.created++;
-        }
+        await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+        result.updated++;
       } catch {
         result.errors++;
       }
@@ -151,7 +179,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     remoteItemByUid.delete(ev.uid);
   }
 
-  // 3) Import remaining remote events not seen locally.
+  // 5) Import remaining remote events not seen locally (new on the server).
   for (const [uid, item] of remoteItemByUid) {
     let parsed: ReturnType<typeof parseIcs>[number] | null = null;
     try {
@@ -197,16 +225,6 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       etag: item.etag,
     });
     result.imported++;
-  }
-
-  // 4) Local events that were synced (etag) but are no longer on the server
-  //    were deleted on another device -> drop them locally.
-  const finalLocal = eventRepo.getAll();
-  for (const ev of finalLocal) {
-    if (ev.etag && !remoteByUid.has(ev.uid)) {
-      eventRepo.delete(ev.id);
-      result.deleted++;
-    }
   }
 
   result.message = [

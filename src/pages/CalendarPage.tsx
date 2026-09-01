@@ -106,7 +106,7 @@ export function CalendarPage() {
     (id: string) => {
       const event = eventRepo.getById(id);
       eventRepo.delete(id);
-      if (event && settings.calDav.connected && event.href) {
+      if (event && settings.calDav.connected) {
         void deleteOnCalDav(settings, event);
       }
       setEditingEvent(null);
