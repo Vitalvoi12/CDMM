@@ -45,6 +45,18 @@ function baseUrl(settings: UserSettings): string {
   return toRequestUrl(url);
 }
 
+/**
+ * The calendar collection we push events into and query events from.
+ * - When the calendar setting names a calendar, it's <serverUrl>/<calendar>.
+ * - When set to 'default' (the URL already points at a collection), it's the
+ *   configured URL itself.
+ */
+function collectionUrl(settings: UserSettings): string {
+  const base = baseUrl(settings) || settings.calDav.serverUrl.trim().replace(/\/+$/, '');
+  const name = settings.calDav.calendar;
+  return name && name !== 'default' ? `${base.replace(/\/+$/, '')}/${encodeURIComponent(name)}` : base;
+}
+
 function originOf(serverUrl: string): string {
   try {
     const u = new URL(serverUrl.trim());
@@ -204,7 +216,7 @@ export async function createCalDavCalendar(settings: UserSettings, name: string)
   return target;
 }
 
-export async function fetchCalDavEvents(settings: UserSettings, range?: { start: Date; end: Date }): Promise<RemoteItem[]> {
+async function reportOn(settings: UserSettings, url: string, range?: { start: Date; end: Date }): Promise<RemoteItem[]> {
   const timeRange = range
     ? `<C:time-range start="${range.start.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}" end="${range.end.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}"/>`
     : '';
@@ -214,10 +226,23 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
     `<D:propfind><D:prop><D:getetag/><C:calendar-data/></D:prop></D:propfind>` +
     `<C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT">${timeRange}</C:comp-filter></C:comp-filter></C:filter>` +
     `</C:calendar-query>`;
-  const res = await davRequest(settings, 'REPORT', body, {
-    Depth: '1',
-    'Content-Type': 'application/xml',
+  const res = await fetch(toRequestUrl(url), {
+    method: 'REPORT',
+    headers: headers(settings, { Depth: '1', 'Content-Type': 'application/xml' }),
+    body,
+    credentials: 'omit',
   });
+  if (res.status >= 300) {
+    let detail = '';
+    try {
+      detail = (await res.text()).slice(0, 300);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(
+      `CalDAV REPORT failed: HTTP ${res.status} ${res.statusText}${detail && detail.trim() ? ` — ${detail.trim()}` : ''}`
+    );
+  }
   const text = await res.text();
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   const items: RemoteItem[] = [];
@@ -236,6 +261,68 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
   return items;
 }
 
+/**
+ * Fetch remote calendar events. The query runs against the resolved calendar
+ * collection (see collectionUrl). Because the configured URL may point at a
+ * calendar home rather than a collection, an empty result triggers a fallback
+ * that discovers child calendar collections and queries each of them.
+ */
+export async function fetchCalDavEvents(settings: UserSettings, range?: { start: Date; end: Date }): Promise<RemoteItem[]> {
+  const targets: string[] = [];
+  try {
+    const url = collectionUrl(settings);
+    if (url) targets.push(url);
+  } catch {
+    /* fall through to discovery */
+  }
+  if (targets.length === 0) {
+    const unit = settings.calDav.serverUrl.trim().replace(/\/+$/, '');
+    if (unit) targets.push(unit);
+  }
+
+  const all: RemoteItem[] = [];
+  const seen = new Set<string>();
+  const add = (items: RemoteItem[]) => {
+    for (const item of items) {
+      if (seen.has(item.href)) continue;
+      seen.add(item.href);
+      all.push(item);
+    }
+  };
+
+  let directError: unknown = null;
+  for (const target of targets) {
+    try {
+      add(await reportOn(settings, target, range));
+    } catch (err) {
+      directError = directError || err;
+    }
+  }
+
+  if (all.length === 0) {
+    try {
+      const disc = await discoverCalendars(settings);
+      for (const c of disc.calendars) {
+        try {
+          const url = /^https?:\/\//.test(c.href)
+            ? c.href
+            : originOf(settings.calDav.serverUrl) + (c.href.startsWith('/') ? c.href : '/' + c.href);
+          add(await reportOn(settings, url, range));
+        } catch {
+          /* skip collections that fail */
+        }
+      }
+    } catch (err) {
+      directError = directError || err;
+    }
+  }
+
+  if (all.length === 0 && directError) {
+    throw directError instanceof Error ? directError : new Error('CalDAV REPORT failed');
+  }
+  return all;
+}
+
 export async function putCalDavEvent(
   settings: UserSettings,
   ics: string,
@@ -244,7 +331,7 @@ export async function putCalDavEvent(
 ): Promise<{ href: string; etag: string }> {
   const href = targetHref
     ? resolveHref(settings, targetHref)
-    : `${baseUrl(settings)}${settings.calDav.calendar === 'default' ? '' : '/' + settings.calDav.calendar}/${encodeURIComponent(uid)}.ics`;
+    : `${collectionUrl(settings)}/${encodeURIComponent(uid)}.ics`;
   const res = await fetch(href, {
     method: 'PUT',
     headers: headers(settings, { 'Content-Type': 'text/calendar; charset=utf-8' }),

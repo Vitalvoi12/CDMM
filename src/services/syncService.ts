@@ -11,6 +11,7 @@ export interface SyncResult {
   errors: number;
   message: string;
   removedUids: string[];
+  remoteCount: number;
 }
 
 export interface SyncCallbacks {
@@ -83,6 +84,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     errors: 0,
     message: '',
     removedUids: [],
+    remoteCount: 0,
   };
 
   const from = new Date();
@@ -98,6 +100,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     result.message = err instanceof Error ? err.message : 'Sync failed';
     return result;
   }
+  result.remoteCount = remote.length;
 
   const local = eventRepo.getAll();
   const localByUid = new Map<string, CalendarEvent>();
@@ -256,6 +259,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     result.imported ? `${result.imported} imported` : '',
     result.errors ? `${result.errors} failed` : '',
   ].filter(Boolean).join(', ') || 'All up to date';
+  result.message += `. Server returned ${result.remoteCount} event(s).`;
   if (result.deleted > 0) {
     result.message += `. Removed ${result.deleted}: ${result.removedUids.join(', ')}`;
   }
