@@ -320,9 +320,15 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
 
   const all: RemoteItem[] = [];
   let totalResponses = 0;
+  let totalHref = 0;
+  let totalCalData = 0;
+  let sampleResponse = '';
   const seen = new Set<string>();
   const add = (query: RemoteQuery) => {
     totalResponses += query.responses;
+    totalHref += query.withHref;
+    totalCalData += query.withCalendarData;
+    if (!sampleResponse) sampleResponse = query.sampleResponse;
     for (const item of query.items) {
       if (seen.has(item.href)) continue;
       seen.add(item.href);
@@ -360,7 +366,7 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
   if (all.length === 0 && directError) {
     throw directError instanceof Error ? directError : new Error('CalDAV REPORT failed');
   }
-  return { items: all, responses: totalResponses };
+  return { items: all, responses: totalResponses, withHref: totalHref, withCalendarData: totalCalData, sampleResponse };
 }
 
 export async function putCalDavEvent(
