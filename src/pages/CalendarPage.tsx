@@ -37,6 +37,7 @@ export function CalendarPage() {
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [creatingEvent, setCreatingEvent] = useState(false);
+  const [dayPanel, setDayPanel] = useState<'timeline' | 'stats'>('timeline');
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
   const stats = useMemo(
@@ -123,14 +124,32 @@ export function CalendarPage() {
   );
 
   const renderToolbar = () => {
-    const visibleViews = isMobile ? VIEWS.filter((v) => v.id === 'day') : VIEWS;
+    if (isMobile) {
+      return (
+        <div className="mb-3 flex gap-1 flex-wrap">
+          {(['timeline', 'stats'] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setDayPanel(p)}
+              className={`px-4 py-1 rounded font-label-sm text-label-sm max-lg:!text-[11px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
+                dayPanel === p
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
+              }`}
+            >
+              {p === 'timeline' ? 'Day' : 'Stats'}
+            </button>
+          ))}
+        </div>
+      );
+    }
     return (
-      <div className="mb-8 max-lg:mb-3 flex gap-2 max-lg:gap-1 flex-wrap">
-        {visibleViews.map((v) => (
+      <div className="mb-8 flex gap-2 flex-wrap">
+        {VIEWS.map((v) => (
         <button
           key={v.id}
           onClick={() => setView(v.id)}
-          className={`px-4 py-1 max-lg:px-3 max-lg:py-0.5 max-lg:!text-[9px] max-lg:tracking-normal rounded font-label-sm text-label-sm uppercase tracking-widest transition-colors ${
+          className={`px-4 py-1 rounded font-label-sm text-label-sm uppercase tracking-widest transition-colors ${
             view === v.id
               ? 'bg-primary text-on-primary'
               : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
@@ -163,24 +182,47 @@ export function CalendarPage() {
       />
       {renderToolbar()}
 
-      {view === 'day' && (
-        <div className="grid grid-cols-12 gap-4 lg:gap-16 flex-1 lg:pb-24">
-          <Timeline
-            events={dayEvents}
-            subjects={subjects}
-            date={currentDate}
-            onEventClick={handleEventClick}
-            onEventMove={handleEventMove}
-            onEventResize={handleEventResize}
-          />
-          <StatsSidebar
-            events={dayEvents}
-            subjects={subjects}
-            totalMinutes={stats.totalMinutes}
-            dailyGoalMinutes={settings.dailyGoalMinutes}
-          />
-        </div>
-      )}
+      {view === 'day' &&
+        (isMobile ? (
+          dayPanel === 'stats' ? (
+            <div className="flex-1 overflow-y-auto">
+              <StatsSidebar
+                events={dayEvents}
+                subjects={subjects}
+                totalMinutes={stats.totalMinutes}
+                dailyGoalMinutes={settings.dailyGoalMinutes}
+              />
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <Timeline
+                events={dayEvents}
+                subjects={subjects}
+                date={currentDate}
+                onEventClick={handleEventClick}
+                onEventMove={handleEventMove}
+                onEventResize={handleEventResize}
+              />
+            </div>
+          )
+        ) : (
+          <div className="grid grid-cols-12 gap-16 flex-1 lg:pb-24">
+            <Timeline
+              events={dayEvents}
+              subjects={subjects}
+              date={currentDate}
+              onEventClick={handleEventClick}
+              onEventMove={handleEventMove}
+              onEventResize={handleEventResize}
+            />
+            <StatsSidebar
+              events={dayEvents}
+              subjects={subjects}
+              totalMinutes={stats.totalMinutes}
+              dailyGoalMinutes={settings.dailyGoalMinutes}
+            />
+          </div>
+        ))}
 
       {view === '3day' && (
         <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventMove={handleEventMove} onEventResize={handleEventResize} />

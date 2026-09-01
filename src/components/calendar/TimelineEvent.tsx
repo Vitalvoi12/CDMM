@@ -32,7 +32,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
         onClick={onClick}
         onMouseDown={onDragStart}
       >
-        <div className="flex items-center h-full px-2 min-w-0">
+        <div className="flex items-start h-full px-2 pt-1 min-w-0">
           <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || '#111' }}>
             {subject?.name || 'Unknown'}
           </span>
@@ -49,7 +49,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
         onClick={onClick}
         onMouseDown={onDragStart}
       >
-        <div className="flex items-center h-full px-2 gap-2 min-w-0">
+        <div className="flex items-start h-full px-2 pt-1 gap-2 min-w-0">
           <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || '#111' }}>
             {subject?.name || 'Unknown'}
           </span>
@@ -69,7 +69,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
         onClick={onClick}
         onMouseDown={onDragStart}
       >
-        <div className="flex items-center justify-between h-full px-3 gap-2 min-w-0">
+        <div className="flex items-start justify-between h-full px-3 pt-1 gap-2 min-w-0">
           <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || '#111' }}>
             {subject?.name || 'Unknown'}
           </span>

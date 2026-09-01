@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 
 interface CurrentTimeIndicatorProps {
   startHour?: number;
+  endHour?: number;
   hourHeight?: number;
 }
 
-export function CurrentTimeIndicator({ startHour = 8, hourHeight = 96 }: CurrentTimeIndicatorProps) {
+export function CurrentTimeIndicator({ startHour = 8, endHour = 24, hourHeight = 96 }: CurrentTimeIndicatorProps) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -17,7 +18,7 @@ export function CurrentTimeIndicator({ startHour = 8, hourHeight = 96 }: Current
   const startMinutes = startHour * 60;
   const top = ((totalMinutes - startMinutes) / 60) * hourHeight;
 
-  const visible = totalMinutes >= startMinutes && totalMinutes <= startHour * 60 + 12 * 60;
+  const visible = totalMinutes >= startMinutes && totalMinutes <= endHour * 60;
 
   if (!visible) return null;
 

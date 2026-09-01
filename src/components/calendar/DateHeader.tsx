@@ -42,21 +42,21 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view }: DateH
           onClick={onPrev}
           className="p-1 text-on-background hover:bg-surface-container-low transition-colors rounded"
         >
-          <span className="material-symbols-outlined text-[20px] max-lg:text-[16px]">chevron_left</span>
+          <span className="material-symbols-outlined text-[20px] max-lg:text-[18px]">chevron_left</span>
         </button>
-        <h1 className="font-headline-lg text-headline-lg max-lg:!text-[15px] max-lg:leading-tight text-on-background tracking-tight">
+        <h1 className="font-headline-lg text-headline-lg max-lg:!text-[17px] max-lg:leading-tight text-on-background tracking-tight">
           {getViewTitle()}
         </h1>
         <button
           onClick={onNext}
           className="p-1 text-on-background hover:bg-surface-container-low transition-colors rounded"
         >
-          <span className="material-symbols-outlined text-[20px] max-lg:text-[16px]">chevron_right</span>
+          <span className="material-symbols-outlined text-[20px] max-lg:text-[18px]">chevron_right</span>
         </button>
       </div>
       <button
         onClick={onToday}
-        className="px-4 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[9px] max-lg:tracking-normal bg-surface-container-lowest border border-outline-variant text-on-background font-label-md text-label-md rounded hover:bg-surface-container-low transition-colors uppercase tracking-widest"
+        className="px-4 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[11px] max-lg:tracking-normal bg-surface-container-lowest border border-outline-variant text-on-background font-label-md text-label-md rounded hover:bg-surface-container-low transition-colors uppercase tracking-widest"
       >
         Today
       </button>

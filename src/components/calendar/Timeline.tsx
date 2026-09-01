@@ -15,11 +15,12 @@ interface TimelineProps {
   onEventResize?: (eventId: string, newEnd: Date) => void;
 }
 
-const START_HOUR = 8;
-const END_HOUR = 20;
+const START_HOUR_DESKTOP = 8;
+const END_HOUR_DESKTOP = 20;
+const START_HOUR_MOBILE = 6;
+const END_HOUR_MOBILE = 24;
 const HOUR_HEIGHT_DESKTOP = 96;
 const MOBILE_SCALE = 2.5;
-const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SNAP = 15;
 
 function snapToGrid(minutes: number): number {
@@ -28,6 +29,9 @@ function snapToGrid(minutes: number): number {
 
 export function Timeline({ events, subjects, date, onEventClick, onEventMove, onEventResize }: TimelineProps) {
   const isMobile = useIsMobile();
+  const START_HOUR = isMobile ? START_HOUR_MOBILE : START_HOUR_DESKTOP;
+  const END_HOUR = isMobile ? END_HOUR_MOBILE : END_HOUR_DESKTOP;
+  const TOTAL_HOURS = END_HOUR - START_HOUR;
   const HOUR_HEIGHT = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
   const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
   const [dragOffset, setDragOffset] = useState<{ eventId: string; deltaY: number } | null>(null);
@@ -45,7 +49,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
     const ticks: number[] = [];
     for (let h = START_HOUR; h <= END_HOUR; h++) ticks.push(h);
     return ticks;
-  }, []);
+  }, [START_HOUR, END_HOUR]);
 
   const eventBlocks = useMemo(() => {
     return events.map((event) => {
@@ -54,7 +58,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
       const height = Math.max(endPx - top, 16);
       return { event, top, height };
     });
-  }, [events]);
+  }, [events, START_HOUR, HOUR_HEIGHT]);
 
   const gapIndicators = useMemo(() => {
     const indicators: { top: number; height: number; duration: number }[] = [];
@@ -74,7 +78,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
       }
     }
     return indicators;
-  }, [events]);
+  }, [events, START_HOUR, HOUR_HEIGHT]);
 
   const handleDragStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     e.preventDefault();
@@ -170,13 +174,13 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
               style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
             >
               <span className="absolute -top-3 -left-12 max-lg:-top-1 max-lg:!text-[9px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant">
-                {String(hour).padStart(2, '0')}:00
+                {String(hour % 24).padStart(2, '0')}:00
               </span>
             </div>
           ))}
 
           {/* Current time indicator */}
-          {isToday(date) && <CurrentTimeIndicator startHour={START_HOUR} hourHeight={HOUR_HEIGHT} />}
+          {isToday(date) && <CurrentTimeIndicator startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />}
 
           {/* Gap indicators */}
           {gapIndicators.map((gap, i) => (
