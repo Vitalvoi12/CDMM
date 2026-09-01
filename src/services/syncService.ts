@@ -1,6 +1,6 @@
 import type { CalendarEvent, Subject, UserSettings } from '../types';
 import { eventRepo, tombstoneRepo } from './repositories';
-import { fetchCalDavEvents, putCalDavEvent, deleteCalDavEvent } from './caldavClient';
+import { fetchCalDavEvents, putCalDavEvent, deleteCalDavEvent, probeCalDavEvent } from './caldavClient';
 import { parseIcs } from './ics';
 
 export interface SyncResult {
@@ -145,13 +145,21 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
 
   // 2) External deletions: a local event that was previously synced (has an
   //    etag) but is no longer on the server was deleted on another device.
-  //    Remove it locally BEFORE pushing, so it never gets resurrected.
-  for (const ev of [...localByUid.values()]) {
-    if (ev.etag && !remoteByUid.has(ev.uid)) {
-      eventRepo.delete(ev.id);
-      result.removedUids.push(ev.uid);
-      localByUid.delete(ev.uid);
-      result.deleted++;
+  //    Remove it locally ONLY after confirming its absence server-side with a
+  //    direct PROPFIND, so a freshly pushed event is never pruned because the
+  //    REPORT query happened to miss it. If the remote fetch returned nothing
+  //    at all, we can't trust the comparison — skip pruning.
+  if (remote.length > 0) {
+    for (const ev of [...localByUid.values()]) {
+      if (!ev.etag || !ev.href) continue;
+      if (remoteByUid.has(ev.uid)) continue;
+      const exists = await probeCalDavEvent(settings, ev.href);
+      if (exists === false) {
+        eventRepo.delete(ev.id);
+        result.removedUids.push(ev.uid);
+        localByUid.delete(ev.uid);
+        result.deleted++;
+      }
     }
   }
 

@@ -269,6 +269,27 @@ export async function deleteCalDavEvent(settings: UserSettings, href: string): P
   }
 }
 
+/**
+ * Confirm a resource really exists server-side (PROPFIND Depth:0 on its exact
+ * href). Returns true when the resource exists, false when it's gone (404),
+ * and null when the outcome is unknown (network/auth/other errors) — callers
+ * must NOT delete locally in that case.
+ */
+export async function probeCalDavEvent(settings: UserSettings, href: string): Promise<boolean | null> {
+  try {
+    const res = await fetch(resolveHref(settings, href), {
+      method: 'PROPFIND',
+      headers: headers(settings, { Depth: '0' }),
+      credentials: 'omit',
+    });
+    if (res.status === 404) return false;
+    if (res.status === 207 || res.status === 200) return true;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function eventToIcs(event: {
   uid: string;
   title: string;
