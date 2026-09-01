@@ -32,8 +32,8 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
   const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
   const [dragOffset, setDragOffset] = useState<{ eventId: string; deltaY: number } | null>(null);
   const [resizeInfo, setResizeInfo] = useState<{ eventId: string; deltaY: number } | null>(null);
-  const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '' });
-  const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventEnd: '' });
+  const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
+  const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventEnd: '', minDelta: 0, maxDelta: 0 });
 
   const subjectMap = useMemo(() => {
     const map: Record<string, Subject> = {};
@@ -79,20 +79,29 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
   const handleDragStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const origStart = new Date(event.start);
+    const origEnd = new Date(event.end);
+    const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const minDelta = -startPx;
+    const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
     dragRef.current = {
       eventId: event.id,
       startY: e.clientY,
       deltaY: 0,
       eventStart: event.start,
       eventEnd: event.end,
+      minDelta,
+      maxDelta,
     };
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
 
     const onMove = (ev: MouseEvent) => {
       const delta = ev.clientY - dragRef.current.startY;
-      dragRef.current.deltaY = delta;
-      setDragOffset({ eventId: dragRef.current.eventId, deltaY: delta });
+      const clamped = Math.max(dragRef.current.minDelta, Math.min(dragRef.current.maxDelta, delta));
+      dragRef.current.deltaY = clamped;
+      setDragOffset({ eventId: dragRef.current.eventId, deltaY: clamped });
     };
 
     const onUp = () => {
@@ -104,11 +113,12 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
       if (dragRef.current.eventId && onEventMove) {
         const minsDelta = snapToGrid(Math.round(dragRef.current.deltaY * MINUTES_PER_PIXEL));
         if (minsDelta !== 0) {
-          const origStart = new Date(dragRef.current.eventStart);
-          const origEnd = new Date(dragRef.current.eventEnd);
-          const newStart = new Date(origStart.getTime() + minsDelta * 60000);
-          const newEnd = new Date(origEnd.getTime() + minsDelta * 60000);
-          onEventMove(dragRef.current.eventId, newStart, newEnd);
+          const origStartMs = origStart.getTime();
+          const origEndMs = origEnd.getTime();
+          const durationMs = origEndMs - origStartMs;
+          let newStartMs = origStartMs + minsDelta * 60000;
+          newStartMs = Math.max(START_HOUR * 3600000, Math.min(END_HOUR * 3600000 - durationMs, newStartMs));
+          onEventMove(dragRef.current.eventId, new Date(newStartMs), new Date(newStartMs + durationMs));
         }
         setDragOffset(null);
       }
@@ -116,24 +126,31 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [onEventMove]);
+  }, [onEventMove, HOUR_HEIGHT]);
 
   const handleResizeStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const origEnd = new Date(event.end);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const minDelta = -(SNAP * HOUR_HEIGHT / 60);
+    const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
     resizeRef.current = {
       eventId: event.id,
       startY: e.clientY,
       deltaY: 0,
       eventEnd: event.end,
+      minDelta,
+      maxDelta,
     };
     document.body.style.cursor = 'ns-resize';
     document.body.style.userSelect = 'none';
 
     const onMove = (ev: MouseEvent) => {
       const delta = ev.clientY - resizeRef.current.startY;
-      resizeRef.current.deltaY = delta;
-      setResizeInfo({ eventId: resizeRef.current.eventId, deltaY: delta });
+      const clamped = Math.max(resizeRef.current.minDelta, Math.min(resizeRef.current.maxDelta, delta));
+      resizeRef.current.deltaY = clamped;
+      setResizeInfo({ eventId: resizeRef.current.eventId, deltaY: clamped });
     };
 
     const onUp = () => {
@@ -145,9 +162,10 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
       if (resizeRef.current.eventId && onEventResize) {
         const minsDelta = snapToGrid(Math.round(resizeRef.current.deltaY * MINUTES_PER_PIXEL));
         if (minsDelta !== 0) {
-          const origEnd = new Date(resizeRef.current.eventEnd);
-          const newEnd = new Date(origEnd.getTime() + minsDelta * 60000);
-          onEventResize(resizeRef.current.eventId, newEnd);
+          let newEndMs = origEnd.getTime() + minsDelta * 60000;
+          newEndMs = Math.max(newEndMs, origEnd.getTime() - origEnd.getTime() % 60000 + SNAP * 60000);
+          newEndMs = Math.min(newEndMs, END_HOUR * 3600000);
+          onEventResize(resizeRef.current.eventId, new Date(newEndMs));
         }
         setResizeInfo(null);
       }
@@ -155,7 +173,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [onEventResize]);
+  }, [onEventResize, HOUR_HEIGHT]);
 
   return (
     <section className="col-span-12 lg:col-span-8 flex flex-col relative">

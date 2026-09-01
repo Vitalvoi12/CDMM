@@ -34,8 +34,8 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
     return m;
   }, [subjects]);
 
-  const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '' });
-  const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventEnd: '' });
+  const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
+  const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventEnd: '', minDelta: 0, maxDelta: 0 });
   const [dragPos, setDragPos] = useState<{ eventId: string; deltaY: number } | null>(null);
   const [resizePos, setResizePos] = useState<{ eventId: string; deltaY: number } | null>(null);
 
@@ -52,13 +52,20 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
   const handleDragStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    dragRef.current = { eventId: event.id, startY: e.clientY, deltaY: 0, eventStart: event.start, eventEnd: event.end };
+    const origStart = new Date(event.start);
+    const origEnd = new Date(event.end);
+    const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const minDelta = -startPx;
+    const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
+    dragRef.current = { eventId: event.id, startY: e.clientY, deltaY: 0, eventStart: event.start, eventEnd: event.end, minDelta, maxDelta };
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
     const onMove = (ev: MouseEvent) => {
       const delta = ev.clientY - dragRef.current.startY;
-      dragRef.current.deltaY = delta;
-      setDragPos({ eventId: dragRef.current.eventId, deltaY: delta });
+      const clamped = Math.max(dragRef.current.minDelta, Math.min(dragRef.current.maxDelta, delta));
+      dragRef.current.deltaY = clamped;
+      setDragPos({ eventId: dragRef.current.eventId, deltaY: clamped });
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
@@ -68,27 +75,35 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
       if (dragRef.current.eventId && onEventMove) {
         const minsDelta = snapToGrid(Math.round(dragRef.current.deltaY * MINUTES_PER_PIXEL));
         if (minsDelta !== 0) {
-          const origStart = new Date(dragRef.current.eventStart);
-          const origEnd = new Date(dragRef.current.eventEnd);
-          onEventMove(dragRef.current.eventId, new Date(origStart.getTime() + minsDelta * 60000), new Date(origEnd.getTime() + minsDelta * 60000));
+          const origStartMs = origStart.getTime();
+          const origEndMs = origEnd.getTime();
+          const durationMs = origEndMs - origStartMs;
+          let newStartMs = origStartMs + minsDelta * 60000;
+          newStartMs = Math.max(START_HOUR * 3600000, Math.min(END_HOUR * 3600000 - durationMs, newStartMs));
+          onEventMove(dragRef.current.eventId, new Date(newStartMs), new Date(newStartMs + durationMs));
         }
         setDragPos(null);
       }
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [onEventMove]);
+  }, [onEventMove, HOUR_HEIGHT]);
 
   const handleResizeStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    resizeRef.current = { eventId: event.id, startY: e.clientY, deltaY: 0, eventEnd: event.end };
+    const origEnd = new Date(event.end);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const minDelta = -(SNAP * HOUR_HEIGHT / 60);
+    const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
+    resizeRef.current = { eventId: event.id, startY: e.clientY, deltaY: 0, eventEnd: event.end, minDelta, maxDelta };
     document.body.style.cursor = 'ns-resize';
     document.body.style.userSelect = 'none';
     const onMove = (ev: MouseEvent) => {
       const delta = ev.clientY - resizeRef.current.startY;
-      resizeRef.current.deltaY = delta;
-      setResizePos({ eventId: resizeRef.current.eventId, deltaY: delta });
+      const clamped = Math.max(resizeRef.current.minDelta, Math.min(resizeRef.current.maxDelta, delta));
+      resizeRef.current.deltaY = clamped;
+      setResizePos({ eventId: resizeRef.current.eventId, deltaY: clamped });
     };
     const onUp = () => {
       document.removeEventListener('mousemove', onMove);
@@ -98,15 +113,17 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
       if (resizeRef.current.eventId && onEventResize) {
         const minsDelta = snapToGrid(Math.round(resizeRef.current.deltaY * MINUTES_PER_PIXEL));
         if (minsDelta !== 0) {
-          const origEnd = new Date(resizeRef.current.eventEnd);
-          onEventResize(resizeRef.current.eventId, new Date(origEnd.getTime() + minsDelta * 60000));
+          let newEndMs = origEnd.getTime() + minsDelta * 60000;
+          newEndMs = Math.max(newEndMs, origEnd.getTime() + SNAP * 60000);
+          newEndMs = Math.min(newEndMs, END_HOUR * 3600000);
+          onEventResize(resizeRef.current.eventId, new Date(newEndMs));
         }
         setResizePos(null);
       }
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [onEventResize]);
+  }, [onEventResize, HOUR_HEIGHT]);
 
   return (
     <div className="flex-1 overflow-x-auto pb-2">
