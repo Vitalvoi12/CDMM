@@ -1,0 +1,8 @@
+services:
+  studytracker:
+    build: .
+    image: studytracker:latest
+    container_name: studytracker
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
