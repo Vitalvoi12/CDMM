@@ -242,7 +242,7 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
   const body =
     `<?xml version="1.0"?>` +
     `<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` +
-    `<D:propfind><D:prop><D:getetag/><C:calendar-data/></D:prop></D:propfind>` +
+    `<D:propfind><D:prop><D:getetag/><C:calendar-data><C:comp name="VCALENDAR"/></C:calendar-data></D:prop></D:propfind>` +
     `<C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT">${timeRange}</C:comp-filter></C:comp-filter></C:filter>` +
     `</C:calendar-query>`;
   const res = await fetch(toRequestUrl(url), {
