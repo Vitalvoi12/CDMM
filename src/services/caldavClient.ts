@@ -250,6 +250,7 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
     );
   }
   const text = await res.text();
+  console.debug('[caldav] REPORT raw:', toRequestUrl(url), res.status, text.slice(0, 1200));
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   const items: RemoteItem[] = [];
   if (doc.getElementsByTagName('parsererror').length > 0) {
@@ -259,9 +260,12 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
   for (const resp of Array.from(responses)) {
     const href = resp.getElementsByTagNameNS('DAV:', 'href')[0]?.textContent?.trim() || '';
     const etag = resp.getElementsByTagNameNS('DAV:', 'getetag')[0]?.textContent?.trim() || '';
-    const cd = resp.getElementsByTagNameNS('urn:ietf:params:xml:ns:caldav', 'calendar-data')[0]?.textContent || '';
+    const cdEls = resp.getElementsByTagNameNS('urn:ietf:params:xml:ns:caldav', 'calendar-data');
+    const cd = cdEls.item(0)?.textContent || '';
     if (href && cd) {
       items.push({ href, etag, ics: cd });
+    } else if (responses.length <= 3) {
+      console.debug('[caldav] REPORT skipped resp:', { href, etag: !!etag, cdLen: cd.length, cdEls: cdEls.length });
     }
   }
   console.debug(`[caldav] REPORT ${toRequestUrl(url)} -> ${res.status}, ${responses.length} responses, ${items.length} kept`);
