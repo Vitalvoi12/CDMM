@@ -264,7 +264,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     result.imported ? `${result.imported} imported` : '',
     result.errors ? `${result.errors} failed` : '',
   ].filter(Boolean).join(', ') || 'All up to date';
-  result.message += `. Server returned ${result.remoteCount} usable event(s) of ${remote.responses} response(s).`;
+  result.message += `. Server returned ${result.remoteCount} usable event(s) of ${remote.responses} response(s) (${remote.withHref} hrefs, ${remote.withCalendarData} calendar-data).`;
   if (result.deleted > 0) {
     result.message += `. Removed ${result.deleted}: ${result.removedUids.join(', ')}`;
   }

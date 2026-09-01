@@ -16,6 +16,12 @@ export interface RemoteQuery {
   items: RemoteItem[];
   /** Number of DAV:<response> elements returned by the server. */
   responses: number;
+  /** Diagnostic: responses that contained an href. */
+  withHref: number;
+  /** Diagnostic: responses that contained a calendar-data element. */
+  withCalendarData: number;
+  /** Diagnostic: first response's outer XML (truncated). */
+  sampleResponse: string;
 }
 
 const CALDAV_PREFIX = '/caldav/';
@@ -262,8 +268,11 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
   if (doc.getElementsByTagName('parsererror').length > 0) {
     throw new Error('Malformed multistatus response');
   }
-  const responses = doc.getElementsByTagNameNS('DAV:', 'response');
-  for (const resp of Array.from(responses)) {
+  const responses = Array.from(doc.getElementsByTagNameNS('DAV:', 'response'));
+  let withHref = 0;
+  let withCalendarData = 0;
+  let sampleResponse = '';
+  for (const resp of responses) {
     let href = '';
     let etag = '';
     let cd = '';
@@ -274,12 +283,20 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
       else if (ln === 'calendar-data' && !cd) cd = el.textContent || '';
       if (href && etag && cd) break;
     }
+    if (href) withHref++;
+    if (cd) withCalendarData++;
+    if (!sampleResponse) {
+      sampleResponse = new XMLSerializer().serializeToString(resp).slice(0, 400);
+    }
     if (href && cd) {
       items.push({ href, etag, ics: cd });
     }
   }
-  console.debug(`[caldav] REPORT ${toRequestUrl(url)} -> ${res.status}, ${responses.length} responses, ${items.length} kept`);
-  return { items, responses: responses.length };
+  console.debug(`[caldav] REPORT ${toRequestUrl(url)} -> ${res.status}, ${responses.length} responses, ${withHref} hrefs, ${withCalendarData} calendar-data, ${items.length} kept`);
+  if (responses.length > 0 && withCalendarData === 0) {
+    console.debug('[caldav] first response XML:', sampleResponse);
+  }
+  return { items, responses: responses.length, withHref, withCalendarData, sampleResponse };
 }
 
 /**
