@@ -6,7 +6,7 @@ import {
   createCalDavCalendar,
   type CalendarInfo,
 } from '../../services/caldavClient';
-import { pullFromCalDav, pushToCalDav } from '../../services/syncService';
+import { syncAll } from '../../services/syncService';
 import { subjectRepo } from '../../services/repositories';
 
 interface CalDavFormProps {
@@ -153,8 +153,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
     setMessage(null);
     const fullSettings = formSettings(settings, serverUrl, username, password, calendar);
     const subjects = subjectRepo.getAll();
-    const pull = await pullFromCalDav(fullSettings, subjects);
-    const push = await pushToCalDav(fullSettings);
+    const sync = await syncAll(fullSettings, subjects);
     setSyncing(false);
     onSave({
       calDav: {
@@ -166,7 +165,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
         lastSync: new Date().toISOString(),
       },
     });
-    setMessage(`${pull.message} · ${push.message}`);
+    setMessage(sync.message);
   }, [serverUrl, username, password, calendar, onSave, settings]);
 
   const lastSyncText = settings.calDav.lastSync

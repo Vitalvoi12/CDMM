@@ -5,6 +5,8 @@ const STORAGE_KEYS = {
   subjects: 'studytracker.subjects',
   events: 'studytracker.events',
   settings: 'studytracker.settings',
+  tombstones: 'studytracker.tombstones',
+  lastSyncHash: 'studytracker.lastSyncHash',
 } as const;
 
 function load<T>(key: string, fallback: T): T {
@@ -122,6 +124,34 @@ class SettingsRepository {
   }
 }
 
+/**
+ * Tombstones: UIDs of events deleted locally, so a full push never
+ * re-uploads them and the deletion propagates to other devices.
+ */
+class TombstoneRepository {
+  private uids: Set<string> = new Set(load<string[]>(STORAGE_KEYS.tombstones, []));
+
+  getAll(): string[] {
+    return [...this.uids];
+  }
+
+  add(uid: string): void {
+    if (!uid) return;
+    this.uids.add(uid);
+    save(STORAGE_KEYS.tombstones, [...this.uids]);
+  }
+
+  has(uid: string): boolean {
+    return this.uids.has(uid);
+  }
+
+  remove(uid: string): void {
+    if (!this.uids.delete(uid)) return;
+    save(STORAGE_KEYS.tombstones, [...this.uids]);
+  }
+}
+
 export const subjectRepo = new SubjectRepository();
 export const eventRepo = new EventRepository();
 export const settingsRepo = new SettingsRepository();
+export const tombstoneRepo = new TombstoneRepository();

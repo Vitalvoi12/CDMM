@@ -11,7 +11,9 @@ import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useCalDavSync } from '../hooks/useCalDavSync';
 import { eventRepo, subjectRepo, settingsRepo } from '../services/repositories';
+import { deleteOnCalDav } from '../services/syncService';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
 import type { CalendarEvent } from '../types';
 
@@ -46,6 +48,8 @@ export function CalendarPage() {
   );
 
   const refreshEvents = useCallback(() => setEvents(eventRepo.getAll()), []);
+
+  useCalDavSync(refreshEvents);
 
   useEffect(() => {
     refreshEvents();
@@ -100,11 +104,15 @@ export function CalendarPage() {
 
   const handleEventDelete = useCallback(
     (id: string) => {
+      const event = eventRepo.getById(id);
       eventRepo.delete(id);
+      if (event && settings.calDav.connected && event.href) {
+        void deleteOnCalDav(settings, event);
+      }
       setEditingEvent(null);
       refreshEvents();
     },
-    [refreshEvents]
+    [settings, refreshEvents]
   );
 
   const handleEventMove = useCallback(
