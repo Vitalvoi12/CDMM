@@ -16,7 +16,7 @@ export function useCalDavSync(onAfterSync?: () => void) {
   const run = useCallback(async (): Promise<SyncResult> => {
     const settings = settingsRepo.get();
     if (!settings.calDav.connected || !settings.calDav.serverUrl) {
-      const idle: SyncResult = { created: 0, updated: 0, imported: 0, deleted: 0, errors: 0, message: 'CalDAV not configured' };
+      const idle: SyncResult = { created: 0, updated: 0, imported: 0, deleted: 0, errors: 0, message: 'CalDAV not configured', removedUids: [] };
       setResult(idle);
       return idle;
     }

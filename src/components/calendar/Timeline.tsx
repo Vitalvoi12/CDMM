@@ -15,10 +15,8 @@ interface TimelineProps {
   onEventResize?: (eventId: string, newEnd: Date) => void;
 }
 
-const START_HOUR_DESKTOP = 8;
-const END_HOUR_DESKTOP = 20;
-const START_HOUR_MOBILE = 6;
-const END_HOUR_MOBILE = 24;
+const START_HOUR = 6;
+const END_HOUR = 24;
 const HOUR_HEIGHT_DESKTOP = 96;
 const MOBILE_SCALE = 2.5;
 const SNAP = 15;
@@ -29,8 +27,6 @@ function snapToGrid(minutes: number): number {
 
 export function Timeline({ events, subjects, date, onEventClick, onEventMove, onEventResize }: TimelineProps) {
   const isMobile = useIsMobile();
-  const START_HOUR = isMobile ? START_HOUR_MOBILE : START_HOUR_DESKTOP;
-  const END_HOUR = isMobile ? END_HOUR_MOBILE : END_HOUR_DESKTOP;
   const TOTAL_HOURS = END_HOUR - START_HOUR;
   const HOUR_HEIGHT = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
   const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;

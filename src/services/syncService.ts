@@ -10,6 +10,7 @@ export interface SyncResult {
   deleted: number;
   errors: number;
   message: string;
+  removedUids: string[];
 }
 
 export interface SyncCallbacks {
@@ -74,7 +75,15 @@ function sameEvent(a: CalendarEvent, b: { title: string; description?: string; s
  * - Local events never uploaded (no etag) are pushed.
  */
 export async function syncAll(settings: UserSettings, subjects: Subject[]): Promise<SyncResult> {
-  const result: SyncResult = { created: 0, updated: 0, imported: 0, deleted: 0, errors: 0, message: '' };
+  const result: SyncResult = {
+    created: 0,
+    updated: 0,
+    imported: 0,
+    deleted: 0,
+    errors: 0,
+    message: '',
+    removedUids: [],
+  };
 
   const from = new Date();
   from.setFullYear(from.getFullYear() - 1);
@@ -113,10 +122,13 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
   // 1) Apply tombstones: delete on server if still present, drop local copy.
   for (const uid of tombstoneRepo.getAll()) {
     const remoteItem = remoteItemByUid.get(uid);
+    let serverDeleteOk = !remoteItem;
     if (remoteItem) {
       try {
         await deleteCalDavEvent(settings, remoteItem.href);
+        serverDeleteOk = true;
         result.deleted++;
+        result.removedUids.push(uid);
       } catch {
         result.errors++;
       }
@@ -125,9 +137,10 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     if (localByUid.has(uid)) {
       const ev = localByUid.get(uid)!;
       eventRepo.delete(ev.id);
+      result.removedUids.push(uid);
       localByUid.delete(uid);
     }
-    tombstoneRepo.remove(uid);
+    if (serverDeleteOk) tombstoneRepo.remove(uid);
   }
 
   // 2) External deletions: a local event that was previously synced (has an
@@ -136,6 +149,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
   for (const ev of [...localByUid.values()]) {
     if (ev.etag && !remoteByUid.has(ev.uid)) {
       eventRepo.delete(ev.id);
+      result.removedUids.push(ev.uid);
       localByUid.delete(ev.uid);
       result.deleted++;
     }
@@ -232,42 +246,13 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     result.created ? `${result.created} pushed` : '',
     result.updated ? `${result.updated} updated` : '',
     result.imported ? `${result.imported} imported` : '',
-    result.deleted ? `${result.deleted} removed` : '',
+    result.errors ? `${result.errors} failed` : '',
   ].filter(Boolean).join(', ') || 'All up to date';
+  if (result.deleted > 0) {
+    result.message += `. Removed ${result.deleted}: ${result.removedUids.join(', ')}`;
+  }
 
   return result;
-}
-
-/** @deprecated Use syncAll for full bidirectional sync. */
-export async function pullFromCalDav(settings: UserSettings, subjects: Subject[]): Promise<SyncResult> {
-  return syncAll(settings, subjects);
-}
-
-/** @deprecated Use syncAll for full bidirectional sync. */
-export async function pushToCalDav(settings: UserSettings): Promise<SyncResult> {
-  const events = eventRepo.getAll();
-  const result: SyncResult = { created: 0, updated: 0, imported: 0, deleted: 0, errors: 0, message: '' };
-  try {
-    for (const event of events) {
-      try {
-        const ics = eventToCalDavIcs(event);
-        await putCalDavEvent(settings, ics, event.uid, event.href);
-        if (event.href) {
-          result.updated++;
-        } else {
-          result.created++;
-        }
-      } catch {
-        result.errors++;
-      }
-    }
-    result.message = `Pushed ${result.created} new, ${result.updated} updated to CalDAV`;
-    return result;
-  } catch (err) {
-    result.errors++;
-    result.message = err instanceof Error ? err.message : 'Push failed';
-    return result;
-  }
 }
 
 export async function deleteOnCalDav(settings: UserSettings, event: CalendarEvent): Promise<void> {
