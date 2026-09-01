@@ -12,11 +12,53 @@ export interface RemoteItem {
   ics: string;
 }
 
+const CALDAV_PREFIX = '/caldav/';
+
+function b64url(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * CalDAV servers don't send CORS headers, so browsers can't call them
+ * directly. Same-origin requests pass through untouched; cross-origin ones
+ * are routed via the Vite dev proxy at `/caldav/<b64 origin>/<path>`.
+ */
+function toRequestUrl(serverUrl: string): string {
+  if (typeof window === 'undefined' || !window.location) return serverUrl;
+  try {
+    const u = new URL(serverUrl);
+    const origin = `${u.protocol}//${u.host}`;
+    if (window.location.origin === origin) return serverUrl;
+    return `${window.location.origin}${CALDAV_PREFIX}${b64url(origin)}${u.pathname}${u.search}`;
+  } catch {
+    return serverUrl;
+  }
+}
+
 function baseUrl(settings: UserSettings): string {
   let url = settings.calDav.serverUrl.trim();
   if (!url) return '';
   if (url.endsWith('/')) url = url.slice(0, -1);
-  return url;
+  return toRequestUrl(url);
+}
+
+function originOf(serverUrl: string): string {
+  try {
+    const u = new URL(serverUrl.trim());
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return serverUrl.trim();
+  }
+}
+
+/** Convert a DAV href (full URL or server-relative path) into a fetchable URL. */
+export function resolveHref(settings: UserSettings, href: string): string {
+  if (/^https?:\/\//.test(href)) return toRequestUrl(href);
+  if (href.startsWith('/')) return toRequestUrl(originOf(settings.calDav.serverUrl) + href);
+  return toRequestUrl(baseUrl(settings) + '/' + href);
 }
 
 function headers(settings: UserSettings, extra: Record<string, string> = {}): Record<string, string> {
@@ -40,14 +82,29 @@ async function davRequest(
 ): Promise<Response> {
   const url = baseUrl(settings);
   if (!url) throw new Error('Server URL is empty');
-  const res = await fetch(url, {
-    method,
-    headers: headers(settings, extraHeaders),
-    body,
-    credentials: 'omit',
-  });
-  if (res.status >= 300 && res.status !== 0 && res.status !== 207) {
-    throw new Error(`DAV ${method} failed: HTTP ${res.status} ${res.statusText}`.trim());
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: headers(settings, extraHeaders),
+      body,
+      credentials: 'omit',
+    });
+  } catch (err) {
+    throw new Error(
+      `Network error: could not reach CalDAV server (${err instanceof Error ? err.message : 'unreachable'}). Check the URL and your internet connection.`
+    );
+  }
+  if (res.status >= 300) {
+    let detail = '';
+    try {
+      detail = (await res.text()).slice(0, 300);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(
+      `DAV ${method} failed: HTTP ${res.status} ${res.statusText}${detail && detail.trim() ? ` — ${detail.trim()}` : ''}`
+    );
   }
   return res;
 }
@@ -103,9 +160,9 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
 }
 
 export async function putCalDavEvent(settings: UserSettings, ics: string, uid: string, targetHref?: string): Promise<void> {
-  const href =
-    targetHref ||
-    `${baseUrl(settings)}${settings.calDav.calendar === 'default' ? '' : '/' + settings.calDav.calendar}/${encodeURIComponent(uid)}.ics`;
+  const href = targetHref
+    ? resolveHref(settings, targetHref)
+    : `${baseUrl(settings)}${settings.calDav.calendar === 'default' ? '' : '/' + settings.calDav.calendar}/${encodeURIComponent(uid)}.ics`;
   const res = await fetch(href, {
     method: 'PUT',
     headers: headers(settings, { 'Content-Type': 'text/calendar; charset=utf-8' }),
@@ -118,7 +175,7 @@ export async function putCalDavEvent(settings: UserSettings, ics: string, uid: s
 }
 
 export async function deleteCalDavEvent(settings: UserSettings, href: string): Promise<void> {
-  const res = await fetch(href, {
+  const res = await fetch(resolveHref(settings, href), {
     method: 'DELETE',
     headers: headers(settings),
     credentials: 'omit',

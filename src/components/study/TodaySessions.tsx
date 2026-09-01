@@ -44,7 +44,7 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId }
               {isCurrent && (
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
               )}
-              <div className="flex items-center justify-between pl-xs">
+              <div className="flex items-center justify-between pl-1">
                 <div className="flex items-center gap-4">
                   <span className={`font-label-md text-label-md tabular-nums ${isCurrent ? 'text-primary' : 'text-on-secondary-container'}`}>
                     {String(i + 1).padStart(2, '0')}

@@ -155,7 +155,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
 
   return (
     <section className="col-span-12 lg:col-span-8 flex flex-col relative">
-      <div className="flex-1 relative border-l border-outline-variant ml-lg pr-4 lg:pr-6" style={{ paddingBottom: '64px' }}>
+      <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: '64px' }}>
         {/* Events/grid container - shared coordinate system */}
         <div className="relative w-full" style={{ height: `${TOTAL_HOURS * HOUR_HEIGHT}px` }}>
           {/* Hour ticks at fixed positions */}

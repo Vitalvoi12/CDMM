@@ -111,7 +111,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
             {settings.calDav.connected ? 'Connected' : 'Disconnected'}
           </span>
-          <span className="font-body-sm text-body-sm text-on-surface-variant opacity-70 ml-xs">
+          <span className="font-body-sm text-body-sm text-on-surface-variant opacity-70 ml-1">
             ({lastSyncText})
           </span>
         </div>
@@ -132,7 +132,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-[40px] pr-md font-body-md text-body-md text-on-surface outline-none transition-colors"
+                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-[40px] pr-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
               />
             </div>
           </div>
@@ -151,7 +151,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Username"
-                  className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-[40px] pr-md font-body-md text-body-md text-on-surface outline-none transition-colors"
+                  className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-[40px] pr-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
                 />
               </div>
             </div>
@@ -169,7 +169,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
-                  className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-[40px] pr-md font-body-md text-body-md text-on-surface outline-none transition-colors"
+                  className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-[40px] pr-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
                 />
               </div>
             </div>
@@ -183,7 +183,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
                 id="calendar-select"
                 value={calendar}
                 onChange={(e) => setCalendar(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-md pr-xl font-body-md text-body-md text-on-surface outline-none appearance-none transition-colors cursor-pointer"
+                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-4 pr-8 font-body-md text-body-md text-on-surface outline-none appearance-none transition-colors cursor-pointer"
               >
                 <option value="default">Default Study Calendar</option>
                 <option value="personal">Personal</option>

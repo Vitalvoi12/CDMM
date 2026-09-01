@@ -48,7 +48,7 @@ export function StatsSidebar({ events, subjects, totalMinutes, dailyGoalMinutes 
         </div>
       </div>
 
-      <hr className="border-t border-outline-variant my-md" />
+      <hr className="border-t border-outline-variant my-4" />
 
       {/* Subject Distribution */}
       <div>

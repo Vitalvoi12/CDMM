@@ -155,7 +155,7 @@ export function CalendarPage() {
       {renderToolbar()}
 
       {view === 'day' && (
-        <div className="grid grid-cols-12 gap-16 flex-1">
+        <div className="grid grid-cols-12 gap-8 lg:gap-16 flex-1">
           <Timeline
             events={dayEvents}
             subjects={subjects}
