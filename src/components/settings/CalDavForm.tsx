@@ -1,9 +1,25 @@
 import { useState, useCallback } from 'react';
 import type { UserSettings } from '../../types';
+import { testCalDavConnection } from '../../services/caldavClient';
+import { pullFromCalDav, pushToCalDav } from '../../services/syncService';
+import { subjectRepo } from '../../services/repositories';
 
 interface CalDavFormProps {
   settings: UserSettings;
   onSave: (data: Partial<UserSettings>) => void;
+}
+
+function formSettings(
+  settings: UserSettings,
+  serverUrl: string,
+  username: string,
+  password: string,
+  calendar: string
+): UserSettings {
+  return {
+    ...settings,
+    calDav: { ...settings.calDav, serverUrl, username, password, calendar },
+  };
 }
 
 export function CalDavForm({ settings, onSave }: CalDavFormProps) {
@@ -12,17 +28,31 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
   const [password, setPassword] = useState(settings.calDav.password);
   const [calendar, setCalendar] = useState(settings.calDav.calendar);
   const [testing, setTesting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  const handleTest = useCallback(() => {
+  const handleTest = useCallback(async () => {
     setTesting(true);
     setTestResult(null);
-    setTimeout(() => {
-      setTesting(false);
-      setTestResult('success');
-      setTimeout(() => setTestResult(null), 3000);
-    }, 1500);
-  }, []);
+    setMessage(null);
+    const result = await testCalDavConnection(formSettings(settings, serverUrl, username, password, calendar));
+    setTesting(false);
+    setTestResult(result.ok ? 'success' : 'error');
+    setMessage(result.message);
+    if (result.ok) {
+      onSave({
+        calDav: {
+          serverUrl,
+          username,
+          password,
+          calendar,
+          connected: true,
+          lastSync: settings.calDav.lastSync,
+        },
+      });
+    }
+  }, [serverUrl, username, password, calendar, onSave, settings]);
 
   const handleSave = useCallback(() => {
     onSave({
@@ -35,7 +65,29 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
         lastSync: new Date().toISOString(),
       },
     });
+    setMessage('Configuration saved');
   }, [serverUrl, username, password, calendar, onSave]);
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    setMessage(null);
+    const fullSettings = formSettings(settings, serverUrl, username, password, calendar);
+    const subjects = subjectRepo.getAll();
+    const pull = await pullFromCalDav(fullSettings, subjects);
+    const push = await pushToCalDav(fullSettings);
+    setSyncing(false);
+    onSave({
+      calDav: {
+        serverUrl,
+        username,
+        password,
+        calendar,
+        connected: true,
+        lastSync: new Date().toISOString(),
+      },
+    });
+    setMessage(`${pull.message} · ${push.message}`);
+  }, [serverUrl, username, password, calendar, onSave, settings]);
 
   const lastSyncText = settings.calDav.lastSync
     ? `${Math.round((Date.now() - new Date(settings.calDav.lastSync).getTime()) / 60000)}m ago`
@@ -55,7 +107,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 bg-surface-container-low px-4 py-1 rounded border border-outline-variant">
-          <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+          <div className={`w-2 h-2 rounded-full ${settings.calDav.connected ? 'bg-[#10b981]' : 'bg-outline'}`} />
           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
             {settings.calDav.connected ? 'Connected' : 'Disconnected'}
           </span>
@@ -155,7 +207,15 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
               <span className={`material-symbols-outlined text-[18px] transition-transform duration-500 ${testing ? 'animate-spin' : 'group-hover:rotate-180'}`}>
                 sync
               </span>
-              {testing ? 'Testing...' : testResult === 'success' ? 'Connected!' : 'Test Connection'}
+              {testing ? 'Testing...' : 'Test Connection'}
+            </button>
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={syncing || testing}
+              className="px-6 py-2 bg-surface-container-low border border-outline-variant hover:border-primary text-on-surface font-label-md text-label-md uppercase tracking-wider rounded transition-colors w-full sm:w-auto text-center"
+            >
+              {syncing ? 'Syncing...' : 'Sync Now'}
             </button>
             <button
               type="button"
@@ -165,6 +225,17 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
               Save Configuration
             </button>
           </div>
+          {(message || testResult === 'success') && (
+            <div
+              className={`mt-4 px-4 py-3 rounded font-body-sm text-body-sm border ${
+                testResult === 'error' || (message && /failed|error|empty|denied/i.test(message))
+                  ? 'bg-error-container text-on-error-container border-error/20'
+                  : 'bg-surface-container-low text-on-surface border-outline-variant'
+              }`}
+            >
+              {testResult === 'success' ? 'Connected' : message}
+            </div>
+          )}
         </form>
       </div>
       <div className="mt-8 opacity-50 flex items-center gap-2 p-8 pt-0">

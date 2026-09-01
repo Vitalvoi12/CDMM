@@ -43,12 +43,12 @@ class EventRepository {
     return this.events.find((e) => e.id === id);
   }
 
-  create(event: Omit<CalendarEvent, 'id' | 'uid'>): CalendarEvent {
-    const id = String(Date.now());
+  create(event: Omit<CalendarEvent, 'id' | 'uid'> & { id?: string; uid?: string }): CalendarEvent {
+    const id = event.id || String(Date.now());
     const newEvent: CalendarEvent = {
       ...event,
       id,
-      uid: `evt-${id}@studycore`,
+      uid: event.uid || `evt-${id}@studycore`,
     };
     this.events.push(newEvent);
     return newEvent;

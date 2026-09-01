@@ -15,6 +15,8 @@ export interface CalendarEvent {
   description?: string;
   start: string;
   end: string;
+  href?: string;
+  etag?: string;
 }
 
 export interface StudySession {
