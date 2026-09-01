@@ -185,7 +185,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
               className="absolute right-0 w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] flex items-center justify-center"
               style={{ top: `${gap.top}px`, height: `${gap.height}px` }}
             >
-              <span className="font-label-sm text-label-sm text-on-surface-variant italic">
+              <span className="font-label-sm text-label-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant italic">
                 {gap.duration} min gap
               </span>
             </div>

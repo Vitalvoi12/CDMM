@@ -18,24 +18,24 @@ export function StatsSidebar({ events, subjects, totalMinutes, dailyGoalMinutes 
   const goalPercent = Math.min(Math.round((totalMinutes / dailyGoalMinutes) * 100), 100);
 
   return (
-    <aside className="col-span-12 lg:col-span-4 flex flex-col gap-8">
+    <aside className="col-span-12 lg:col-span-4 flex flex-col gap-8 max-lg:gap-3 max-lg:mt-1">
       {/* Total Time */}
       <div>
-        <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-1">
+        <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:tracking-normal text-on-surface-variant uppercase tracking-widest mb-1">
           Total Focus Time
         </h2>
-        <div className="font-display-lg text-display-lg text-on-background">
+        <div className="font-display-lg text-display-lg max-lg:!text-[24px] max-lg:leading-none text-on-background">
           {formatDuration(totalMinutes)}
         </div>
       </div>
 
       {/* Goal Progress */}
       <div>
-        <div className="flex justify-between items-baseline mb-2">
-          <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
+        <div className="flex justify-between items-baseline mb-2 max-lg:mb-1">
+          <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:tracking-normal text-on-surface-variant uppercase tracking-widest">
             Daily Goal
           </h2>
-          <span className="font-label-sm text-label-sm text-on-background">
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-background">
             {goalPercent}% of {formatDuration(dailyGoalMinutes)}
           </span>
         </div>
@@ -48,24 +48,24 @@ export function StatsSidebar({ events, subjects, totalMinutes, dailyGoalMinutes 
         </div>
       </div>
 
-      <hr className="border-t border-outline-variant my-4" />
+      <hr className="border-t border-outline-variant my-4 max-lg:my-2" />
 
       {/* Subject Distribution */}
       <div>
-        <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-6">
+        <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:tracking-normal text-on-surface-variant uppercase tracking-widest mb-6 max-lg:mb-2">
           Subject Distribution
         </h2>
-        <ul className="flex flex-col gap-4">
+        <ul className="flex flex-col gap-4 max-lg:gap-2">
           {subjectStats.map((stat) => {
             const subject = subjectMap[stat.subjectId];
             const barWidth = Math.round((stat.minutes / totalMinutes) * 100);
             return (
               <li key={stat.subjectId} className="group">
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="font-label-md text-label-md text-on-background group-hover:text-primary transition-colors">
+                <div className="flex justify-between items-baseline mb-1 max-lg:mb-0.5">
+                  <span className="font-label-md text-label-md max-lg:!text-[10px] max-lg:leading-none text-on-background group-hover:text-primary transition-colors">
                     {subject?.name || stat.subjectId}
                   </span>
-                  <span className="font-body-sm text-body-sm text-on-surface-variant">
+                  <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant">
                     {formatDuration(stat.minutes)}
                   </span>
                 </div>

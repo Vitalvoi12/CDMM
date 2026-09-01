@@ -10,6 +10,7 @@ import { EventForm } from '../components/calendar/EventForm';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { eventRepo, subjectRepo, settingsRepo } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
 import type { CalendarEvent } from '../types';
@@ -25,6 +26,7 @@ const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[]
 export function CalendarPage() {
   const { currentDate, setCurrentDate, view, setView, goToToday, goToPrevious, goToNext } =
     useCalendarNavigation();
+  const isMobile = useIsMobile();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
   const { startSession } = useActiveSession();
@@ -47,6 +49,10 @@ export function CalendarPage() {
   useEffect(() => {
     refreshEvents();
   }, [refreshEvents]);
+
+  useEffect(() => {
+    if (isMobile && view !== 'day') setView('day');
+  }, [isMobile, view, setView]);
 
   const handleStartStudying = useCallback(() => {
     setShowSubjectPicker(true);
@@ -116,13 +122,15 @@ export function CalendarPage() {
     [refreshEvents]
   );
 
-  const renderToolbar = () => (
-    <div className="mb-8 flex gap-2 flex-wrap">
-      {VIEWS.map((v) => (
+  const renderToolbar = () => {
+    const visibleViews = isMobile ? VIEWS.filter((v) => v.id === 'day') : VIEWS;
+    return (
+      <div className="mb-8 max-lg:mb-3 flex gap-2 max-lg:gap-1 flex-wrap">
+        {visibleViews.map((v) => (
         <button
           key={v.id}
           onClick={() => setView(v.id)}
-          className={`px-4 py-1 rounded font-label-sm text-label-sm uppercase tracking-widest transition-colors ${
+          className={`px-4 py-1 max-lg:px-3 max-lg:py-0.5 max-lg:!text-[9px] max-lg:tracking-normal rounded font-label-sm text-label-sm uppercase tracking-widest transition-colors ${
             view === v.id
               ? 'bg-primary text-on-primary'
               : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
@@ -131,8 +139,9 @@ export function CalendarPage() {
           {v.label}
         </button>
       ))}
-    </div>
-  );
+      </div>
+    );
+  };
 
   const renderSubjectPicker = () =>
     showSubjectPicker && (
@@ -155,7 +164,7 @@ export function CalendarPage() {
       {renderToolbar()}
 
       {view === 'day' && (
-        <div className="grid grid-cols-12 gap-8 lg:gap-16 flex-1 lg:pb-24">
+        <div className="grid grid-cols-12 gap-4 lg:gap-16 flex-1 lg:pb-24">
           <Timeline
             events={dayEvents}
             subjects={subjects}
@@ -198,7 +207,7 @@ export function CalendarPage() {
       )}
 
       {view === 'day' && (
-        <div className="mt-auto pt-8 flex gap-4 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:left-8 lg:z-10">
+        <div className="mt-auto pt-8 max-lg:pt-2 flex gap-4 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10">
           <button
             onClick={() => setCreatingEvent(true)}
             className="px-6 py-3 bg-surface-container-lowest border border-outline-variant text-on-background font-label-md text-label-md rounded hover:bg-surface-container-low transition-colors uppercase tracking-widest flex items-center justify-center gap-2"
