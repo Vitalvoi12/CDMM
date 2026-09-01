@@ -12,6 +12,12 @@ export interface RemoteItem {
   ics: string;
 }
 
+export interface RemoteQuery {
+  items: RemoteItem[];
+  /** Number of DAV:<response> elements returned by the server. */
+  responses: number;
+}
+
 const CALDAV_PREFIX = '/caldav/';
 
 function b64url(input: string): string {
@@ -216,7 +222,7 @@ export async function createCalDavCalendar(settings: UserSettings, name: string)
   return target;
 }
 
-async function reportOn(settings: UserSettings, url: string, range?: { start: Date; end: Date }): Promise<RemoteItem[]> {
+async function reportOn(settings: UserSettings, url: string, range?: { start: Date; end: Date }): Promise<RemoteQuery> {
   const timeRange = range
     ? `<C:time-range start="${range.start.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}" end="${range.end.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}"/>`
     : '';
@@ -258,7 +264,8 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
       items.push({ href, etag, ics: cd });
     }
   }
-  return items;
+  console.debug(`[caldav] REPORT ${toRequestUrl(url)} -> ${res.status}, ${responses.length} responses, ${items.length} kept`);
+  return { items, responses: responses.length };
 }
 
 /**
@@ -267,7 +274,7 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
  * calendar home rather than a collection, an empty result triggers a fallback
  * that discovers child calendar collections and queries each of them.
  */
-export async function fetchCalDavEvents(settings: UserSettings, range?: { start: Date; end: Date }): Promise<RemoteItem[]> {
+export async function fetchCalDavEvents(settings: UserSettings, range?: { start: Date; end: Date }): Promise<RemoteQuery> {
   const targets: string[] = [];
   try {
     const url = collectionUrl(settings);
@@ -281,9 +288,11 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
   }
 
   const all: RemoteItem[] = [];
+  let totalResponses = 0;
   const seen = new Set<string>();
-  const add = (items: RemoteItem[]) => {
-    for (const item of items) {
+  const add = (query: RemoteQuery) => {
+    totalResponses += query.responses;
+    for (const item of query.items) {
       if (seen.has(item.href)) continue;
       seen.add(item.href);
       all.push(item);
@@ -320,7 +329,7 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
   if (all.length === 0 && directError) {
     throw directError instanceof Error ? directError : new Error('CalDAV REPORT failed');
   }
-  return all;
+  return { items: all, responses: totalResponses };
 }
 
 export async function putCalDavEvent(

@@ -14,6 +14,11 @@ export interface SyncResult {
   remoteCount: number;
 }
 
+export interface SyncDiag {
+  /** Raw DAV responses returned by the REPORT queries. */
+  responses: number;
+}
+
 export interface SyncCallbacks {
   settings: UserSettings;
   subjects: Subject[];
@@ -100,14 +105,14 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     result.message = err instanceof Error ? err.message : 'Sync failed';
     return result;
   }
-  result.remoteCount = remote.length;
+  result.remoteCount = remote.items.length;
 
   const local = eventRepo.getAll();
   const localByUid = new Map<string, CalendarEvent>();
   local.forEach((e) => localByUid.set(e.uid, e));
 
   const remoteByUid = new Map<string, Array<{ href: string; etag: string; ics: string }>>();
-  for (const item of remote) {
+  for (const item of remote.items) {
     const vevents = parseIcs(item.ics).filter((v) => v.uid);
     for (const v of vevents ?? []) {
       const arr = remoteByUid.get(v.uid) || [];
@@ -152,7 +157,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
   //    direct PROPFIND, so a freshly pushed event is never pruned because the
   //    REPORT query happened to miss it. If the remote fetch returned nothing
   //    at all, we can't trust the comparison — skip pruning.
-  if (remote.length > 0) {
+  if (remote.responses > 0) {
     for (const ev of [...localByUid.values()]) {
       if (!ev.etag || !ev.href) continue;
       if (remoteByUid.has(ev.uid)) continue;
@@ -259,7 +264,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     result.imported ? `${result.imported} imported` : '',
     result.errors ? `${result.errors} failed` : '',
   ].filter(Boolean).join(', ') || 'All up to date';
-  result.message += `. Server returned ${result.remoteCount} event(s).`;
+  result.message += `. Server returned ${result.remoteCount} usable event(s) of ${remote.responses} response(s).`;
   if (result.deleted > 0) {
     result.message += `. Removed ${result.deleted}: ${result.removedUids.join(', ')}`;
   }
