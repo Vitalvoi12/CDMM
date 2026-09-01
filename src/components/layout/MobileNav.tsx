@@ -1,0 +1,32 @@
+import { NavLink } from 'react-router-dom';
+
+const navItems = [
+  { path: '/', label: 'Calendar', icon: 'calendar_today' },
+  { path: '/study', label: 'Study', icon: 'menu_book' },
+  { path: '/subjects', label: 'Subjects', icon: 'category' },
+  { path: '/settings', label: 'Settings', icon: 'settings' },
+];
+
+export function MobileNav() {
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 bg-surface-container-lowest border-t border-outline-variant z-50 lg:hidden safe-area-bottom">
+      <div className="flex items-center justify-around h-16">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.path === '/'}
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center gap-1 px-3 py-1 transition-colors ${
+                isActive ? 'text-primary' : 'text-on-surface-variant'
+              }`
+            }
+          >
+            <span className="material-symbols-outlined text-[24px]">{item.icon}</span>
+            <span className="font-label-sm text-label-sm">{item.label}</span>
+          </NavLink>
+        ))}
+      </div>
+    </nav>
+  );
+}
