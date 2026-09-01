@@ -1,8 +1,32 @@
 import type { Subject, CalendarEvent, UserSettings } from '../types';
 import { mockSubjects, mockEvents, mockSettings } from './mockData';
 
+const STORAGE_KEYS = {
+  subjects: 'studytracker.subjects',
+  events: 'studytracker.events',
+  settings: 'studytracker.settings',
+} as const;
+
+function load<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function save<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // storage unavailable — ignore
+  }
+}
+
 class SubjectRepository {
-  private subjects: Subject[] = [...mockSubjects];
+  private subjects: Subject[] = load<Subject[]>(STORAGE_KEYS.subjects, [...mockSubjects]);
 
   getAll(): Subject[] {
     return [...this.subjects];
@@ -15,6 +39,7 @@ class SubjectRepository {
   create(subject: Omit<Subject, 'id'>): Subject {
     const newSubject: Subject = { ...subject, id: `sub-${Date.now()}` };
     this.subjects.push(newSubject);
+    save(STORAGE_KEYS.subjects, this.subjects);
     return newSubject;
   }
 
@@ -22,18 +47,20 @@ class SubjectRepository {
     const idx = this.subjects.findIndex((s) => s.id === id);
     if (idx === -1) return undefined;
     this.subjects[idx] = { ...this.subjects[idx], ...data };
+    save(STORAGE_KEYS.subjects, this.subjects);
     return this.subjects[idx];
   }
 
   delete(id: string): boolean {
     const before = this.subjects.length;
     this.subjects = this.subjects.filter((s) => s.id !== id);
+    save(STORAGE_KEYS.subjects, this.subjects);
     return this.subjects.length < before;
   }
 }
 
 class EventRepository {
-  private events: CalendarEvent[] = [...mockEvents];
+  private events: CalendarEvent[] = load<CalendarEvent[]>(STORAGE_KEYS.events, [...mockEvents]);
 
   getAll(): CalendarEvent[] {
     return [...this.events];
@@ -51,6 +78,7 @@ class EventRepository {
       uid: event.uid || `evt-${id}@studycore`,
     };
     this.events.push(newEvent);
+    save(STORAGE_KEYS.events, this.events);
     return newEvent;
   }
 
@@ -58,18 +86,25 @@ class EventRepository {
     const idx = this.events.findIndex((e) => e.id === id);
     if (idx === -1) return undefined;
     this.events[idx] = { ...this.events[idx], ...data };
+    save(STORAGE_KEYS.events, this.events);
     return this.events[idx];
   }
 
   delete(id: string): boolean {
     const before = this.events.length;
     this.events = this.events.filter((e) => e.id !== id);
+    save(STORAGE_KEYS.events, this.events);
     return this.events.length < before;
+  }
+
+  replaceAll(events: CalendarEvent[]): void {
+    this.events = events;
+    save(STORAGE_KEYS.events, this.events);
   }
 }
 
 class SettingsRepository {
-  private settings: UserSettings = { ...mockSettings };
+  private settings: UserSettings = load<UserSettings>(STORAGE_KEYS.settings, { ...mockSettings });
 
   get(): UserSettings {
     return { ...this.settings, calDav: { ...this.settings.calDav } };
@@ -82,6 +117,7 @@ class SettingsRepository {
     if (data.dailyGoalMinutes !== undefined) {
       this.settings.dailyGoalMinutes = data.dailyGoalMinutes;
     }
+    save(STORAGE_KEYS.settings, this.settings);
     return this.get();
   }
 }
