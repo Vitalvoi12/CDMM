@@ -236,7 +236,12 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
   return items;
 }
 
-export async function putCalDavEvent(settings: UserSettings, ics: string, uid: string, targetHref?: string): Promise<void> {
+export async function putCalDavEvent(
+  settings: UserSettings,
+  ics: string,
+  uid: string,
+  targetHref?: string
+): Promise<{ href: string; etag: string }> {
   const href = targetHref
     ? resolveHref(settings, targetHref)
     : `${baseUrl(settings)}${settings.calDav.calendar === 'default' ? '' : '/' + settings.calDav.calendar}/${encodeURIComponent(uid)}.ics`;
@@ -249,6 +254,8 @@ export async function putCalDavEvent(settings: UserSettings, ics: string, uid: s
   if (res.status >= 300) {
     throw new Error(`CalDAV PUT failed: HTTP ${res.status} ${res.statusText}`.trim());
   }
+  const etag = res.headers.get('etag') || '';
+  return { href, etag };
 }
 
 export async function deleteCalDavEvent(settings: UserSettings, href: string): Promise<void> {

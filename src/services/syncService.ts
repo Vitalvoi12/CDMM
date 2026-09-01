@@ -147,11 +147,14 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     if (tombstoneRepo.has(ev.uid)) continue;
     if (ev.etag) continue;
     if (remoteByUid.has(ev.uid)) {
+      // Already on the server but we lack the etag locally; pull its state in
+      // step 5 instead of re-creating.
       remoteItemByUid.delete(ev.uid);
       continue;
     }
     try {
-      await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+      const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+      eventRepo.update(ev.id, { href, etag });
       result.created++;
     } catch {
       result.errors++;
@@ -166,11 +169,9 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     const remoteItem = remoteItemByUid.get(ev.uid);
     if (!remoteItem || !ev.etag) continue;
     if (remoteItem.etag !== ev.etag) {
-      // Local copy has not been edited since its last sync if etag matches;
-      // a mismatched etag means the server copy changed or our local edit
-      // was never confirmed. Push our version and refresh the etag.
       try {
-        await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+        const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+        eventRepo.update(ev.id, { href, etag });
         result.updated++;
       } catch {
         result.errors++;
