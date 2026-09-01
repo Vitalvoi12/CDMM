@@ -157,9 +157,12 @@ export interface DiscoveryResult {
 }
 
 function hasCalendarResourceType(resp: Element): boolean {
-  const rt = resp.getElementsByTagNameNS('DAV:', 'resourcetype')[0];
+  const rt = resp.getElementsByTagName('resourcetype')[0];
   if (!rt) return false;
-  return rt.getElementsByTagNameNS('urn:ietf:params:xml:ns:caldav', 'calendar').length > 0;
+  for (const el of rt.getElementsByTagName('*')) {
+    if (el.localName === 'calendar') return true;
+  }
+  return false;
 }
 
 /** PROPFIND Depth:1 on the configured URL; returns child calendars (or self if it's a calendar). */
@@ -181,8 +184,14 @@ export async function discoverCalendars(settings: UserSettings): Promise<Discove
   const calendars: CalendarInfo[] = responses
     .filter(hasCalendarResourceType)
     .map((resp) => {
-      const href = resp.getElementsByTagNameNS('DAV:', 'href')[0]?.textContent?.trim() || '';
-      const displayName = resp.getElementsByTagNameNS('DAV:', 'displayname')[0]?.textContent?.trim() || '';
+      let href = '';
+      let displayName = '';
+      for (const el of resp.getElementsByTagName('*')) {
+        const ln = el.localName;
+        if (ln === 'href' && !href) href = el.textContent?.trim() || '';
+        else if (ln === 'displayname' && !displayName) displayName = el.textContent?.trim() || '';
+        if (href && displayName) break;
+      }
       return { href, displayName };
     })
     .filter((c) => c.href);
@@ -250,7 +259,6 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
     );
   }
   const text = await res.text();
-  console.debug('[caldav] REPORT raw:', toRequestUrl(url), res.status, text.slice(0, 1200));
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   const items: RemoteItem[] = [];
   if (doc.getElementsByTagName('parsererror').length > 0) {
@@ -258,14 +266,18 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
   }
   const responses = doc.getElementsByTagNameNS('DAV:', 'response');
   for (const resp of Array.from(responses)) {
-    const href = resp.getElementsByTagNameNS('DAV:', 'href')[0]?.textContent?.trim() || '';
-    const etag = resp.getElementsByTagNameNS('DAV:', 'getetag')[0]?.textContent?.trim() || '';
-    const cdEls = resp.getElementsByTagNameNS('urn:ietf:params:xml:ns:caldav', 'calendar-data');
-    const cd = cdEls.item(0)?.textContent || '';
+    let href = '';
+    let etag = '';
+    let cd = '';
+    for (const el of resp.getElementsByTagName('*')) {
+      const ln = el.localName;
+      if (ln === 'href' && !href) href = el.textContent?.trim() || '';
+      else if (ln === 'getetag' && !etag) etag = el.textContent?.trim() || '';
+      else if (ln === 'calendar-data' && !cd) cd = el.textContent || '';
+      if (href && etag && cd) break;
+    }
     if (href && cd) {
       items.push({ href, etag, ics: cd });
-    } else if (responses.length <= 3) {
-      console.debug('[caldav] REPORT skipped resp:', { href, etag: !!etag, cdLen: cd.length, cdEls: cdEls.length });
     }
   }
   console.debug(`[caldav] REPORT ${toRequestUrl(url)} -> ${res.status}, ${responses.length} responses, ${items.length} kept`);
