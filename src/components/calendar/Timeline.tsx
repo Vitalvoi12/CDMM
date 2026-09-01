@@ -4,6 +4,7 @@ import { timeToPixels } from '../../utils/time';
 import { TimelineEvent } from './TimelineEvent';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { isToday } from '../../utils/time';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface TimelineProps {
   events: CalendarEvent[];
@@ -16,9 +17,9 @@ interface TimelineProps {
 
 const START_HOUR = 8;
 const END_HOUR = 20;
-const HOUR_HEIGHT = 96;
+const HOUR_HEIGHT_DESKTOP = 96;
+const MOBILE_SCALE = 2.5;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
-const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
 const SNAP = 15;
 
 function snapToGrid(minutes: number): number {
@@ -26,6 +27,9 @@ function snapToGrid(minutes: number): number {
 }
 
 export function Timeline({ events, subjects, date, onEventClick, onEventMove, onEventResize }: TimelineProps) {
+  const isMobile = useIsMobile();
+  const HOUR_HEIGHT = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
+  const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
   const [dragOffset, setDragOffset] = useState<{ eventId: string; deltaY: number } | null>(null);
   const [resizeInfo, setResizeInfo] = useState<{ eventId: string; deltaY: number } | null>(null);
   const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '' });
@@ -165,14 +169,14 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
               className="absolute left-0 right-0 border-t border-outline-variant"
               style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
             >
-              <span className="absolute -top-3 -left-12 font-label-sm text-label-sm text-on-surface-variant">
+              <span className="absolute -top-3 -left-12 max-lg:-top-1 max-lg:!text-[9px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant">
                 {String(hour).padStart(2, '0')}:00
               </span>
             </div>
           ))}
 
           {/* Current time indicator */}
-          {isToday(date) && <CurrentTimeIndicator />}
+          {isToday(date) && <CurrentTimeIndicator startHour={START_HOUR} hourHeight={HOUR_HEIGHT} />}
 
           {/* Gap indicators */}
           {gapIndicators.map((gap, i) => (
@@ -203,6 +207,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
                 event={event}
                 top={visualTop}
                 height={visualHeight}
+                hourHeight={HOUR_HEIGHT}
                 subject={subjectMap[event.subjectId]}
                 onClick={() => onEventClick?.(event)}
                 onDragStart={(e) => handleDragStart(event, e)}

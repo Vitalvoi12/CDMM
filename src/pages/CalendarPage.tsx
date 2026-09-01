@@ -155,7 +155,7 @@ export function CalendarPage() {
       {renderToolbar()}
 
       {view === 'day' && (
-        <div className="grid grid-cols-12 gap-8 lg:gap-16 flex-1">
+        <div className="grid grid-cols-12 gap-8 lg:gap-16 flex-1 lg:pb-24">
           <Timeline
             events={dayEvents}
             subjects={subjects}
@@ -198,7 +198,7 @@ export function CalendarPage() {
       )}
 
       {view === 'day' && (
-        <div className="mt-auto pt-8 flex gap-4 max-lg:fixed max-lg:bottom-20 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4">
+        <div className="mt-auto pt-8 flex gap-4 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:left-8 lg:z-10">
           <button
             onClick={() => setCreatingEvent(true)}
             className="px-6 py-3 bg-surface-container-lowest border border-outline-variant text-on-background font-label-md text-label-md rounded hover:bg-surface-container-low transition-colors uppercase tracking-widest flex items-center justify-center gap-2"
@@ -208,7 +208,7 @@ export function CalendarPage() {
           </button>
           <button
             onClick={handleStartStudying}
-            className="flex-1 bg-primary text-on-primary font-label-md text-label-md py-3 rounded hover:bg-tertiary-container transition-colors uppercase tracking-widest flex items-center justify-center gap-2 group"
+            className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded hover:bg-tertiary-container transition-colors uppercase tracking-widest flex items-center justify-center gap-2 group"
           >
             <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">
               add

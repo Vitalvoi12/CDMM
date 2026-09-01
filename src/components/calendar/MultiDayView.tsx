@@ -2,6 +2,7 @@ import { useMemo, useCallback, useRef, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { getEventsForDate } from '../../utils/stats';
 import { addDays, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay } from '../../utils/time';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface MultiDayViewProps {
   date: Date;
@@ -14,9 +15,9 @@ interface MultiDayViewProps {
 
 const START_HOUR = 8;
 const END_HOUR = 20;
-const HOUR_HEIGHT = 48;
+const HOUR_HEIGHT_DESKTOP = 48;
+const MOBILE_SCALE = 2.5;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
-const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
 const SNAP = 15;
 
 function snapToGrid(minutes: number): number {
@@ -24,6 +25,9 @@ function snapToGrid(minutes: number): number {
 }
 
 export function MultiDayView({ date, days, events, subjects, onEventMove, onEventResize }: MultiDayViewProps) {
+  const isMobile = useIsMobile();
+  const HOUR_HEIGHT = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
+  const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
   const subjectMap = useMemo(() => {
     const m: Record<string, Subject> = {};
     subjects.forEach((s) => (m[s.id] = s));
@@ -112,7 +116,7 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
           <div className="p-4" />
           {hourTicks.map((hour) => (
             <div key={hour} className="relative" style={{ height: `${HOUR_HEIGHT}px` }}>
-              <span className="absolute -top-2 right-1 font-label-sm text-label-sm text-on-surface-variant">
+              <span className="absolute -top-2 right-1 max-lg:-top-1 max-lg:!text-[9px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant">
                 {String(hour).padStart(2, '0')}
               </span>
             </div>
@@ -150,7 +154,7 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
                     const endPx = timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT);
                     let height = Math.max(endPx - top, 16);
                     const subject = subjectMap[ev.subjectId];
-                    const tiny = height < 24;
+                    const tiny = height < HOUR_HEIGHT * 0.5;
                     let visualTop = top;
                     if (dragPos?.eventId === ev.id) visualTop += dragPos.deltaY;
                     if (resizePos?.eventId === ev.id) height = Math.max(height + resizePos.deltaY, 16);
@@ -162,25 +166,25 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
                         onMouseDown={(e) => handleDragStart(ev, e)}
                       >
                         {tiny ? (
-                          <span className="font-label-sm text-label-sm text-on-surface truncate" style={{ color: subject?.color }}>
+                          <span className="font-label-sm text-label-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface truncate" style={{ color: subject?.color }}>
                             {subject?.name}
                           </span>
                         ) : (
                           <>
                             <div className="flex items-center gap-1">
                               <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subject?.color || '#999' }} />
-                              <span className="font-label-sm text-label-sm text-on-surface truncate">
+                              <span className="font-label-sm text-label-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface truncate">
                                 {subject?.name}
                               </span>
                             </div>
-                            {height > 32 && (
-                              <span className="font-body-sm text-body-sm text-on-surface-variant block truncate">
+                            {height > HOUR_HEIGHT * 0.67 && (
+                              <span className="font-body-sm text-body-sm max-lg:!text-[8px] max-lg:leading-none text-on-surface-variant block truncate">
                                 {timeFromDate(ev.start)} - {timeFromDate(ev.end)}
                               </span>
                             )}
                           </>
                         )}
-                        {height >= 32 && (
+                        {height >= HOUR_HEIGHT * 0.67 && (
                           <div
                             className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
                             onMouseDown={(e) => handleResizeStart(ev, e)}
