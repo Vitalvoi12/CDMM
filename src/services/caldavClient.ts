@@ -127,6 +127,83 @@ export async function testCalDavConnection(settings: UserSettings): Promise<CalD
   }
 }
 
+export interface CalendarInfo {
+  href: string;
+  displayName: string;
+}
+
+export interface DiscoveryResult {
+  /** True when the configured URL already points directly at a calendar. */
+  isCalendar: boolean;
+  calendars: CalendarInfo[];
+}
+
+function hasCalendarResourceType(resp: Element): boolean {
+  const rt = resp.getElementsByTagNameNS('DAV:', 'resourcetype')[0];
+  if (!rt) return false;
+  return rt.getElementsByTagNameNS('urn:ietf:params:xml:ns:caldav', 'calendar').length > 0;
+}
+
+/** PROPFIND Depth:1 on the configured URL; returns child calendars (or self if it's a calendar). */
+export async function discoverCalendars(settings: UserSettings): Promise<DiscoveryResult> {
+  const body =
+    `<?xml version="1.0"?>` +
+    `<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` +
+    `<D:prop><D:resourcetype/><D:displayname/></D:prop>` +
+    `</D:propfind>`;
+  const res = await davRequest(settings, 'PROPFIND', body, { Depth: '1', 'Content-Type': 'application/xml' });
+  const text = await res.text();
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length > 0) {
+    throw new Error('Malformed multistatus response');
+  }
+  const responses = Array.from(doc.getElementsByTagNameNS('DAV:', 'response'));
+  const first = responses[0];
+  const isCalendar = !!first && hasCalendarResourceType(first);
+  const calendars: CalendarInfo[] = responses
+    .filter(hasCalendarResourceType)
+    .map((resp) => {
+      const href = resp.getElementsByTagNameNS('DAV:', 'href')[0]?.textContent?.trim() || '';
+      const displayName = resp.getElementsByTagNameNS('DAV:', 'displayname')[0]?.textContent?.trim() || '';
+      return { href, displayName };
+    })
+    .filter((c) => c.href);
+  return { isCalendar, calendars };
+}
+
+/** Create a new calendar under the configured URL (MKCOL with caldav resourcetype). */
+export async function createCalDavCalendar(settings: UserSettings, name: string): Promise<string> {
+  const safeName = encodeURIComponent(name.replace(/[/\\]/g, '-'));
+  const base = baseUrl(settings);
+  const target = `${base}/${safeName}/`;
+  const body =
+    `<?xml version="1.0" encoding="utf-8"?>` +
+    `<D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` +
+    `<D:set><D:prop>` +
+    `<D:resourcetype><D:collection/><C:calendar/></D:resourcetype>` +
+    `<D:displayname>${name.replace(/[<>&"]/g, '')}</D:displayname>` +
+    `</D:prop></D:set>` +
+    `</D:mkcol>`;
+  const res = await fetch(target, {
+    method: 'MKCOL',
+    headers: headers(settings, { 'Content-Type': 'application/xml', Depth: '0' }),
+    body,
+    credentials: 'omit',
+  });
+  if (res.status >= 300) {
+    let detail = '';
+    try {
+      detail = (await res.text()).slice(0, 300);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(
+      `CalDAV MKCOL failed: HTTP ${res.status} ${res.statusText}${detail && detail.trim() ? ` — ${detail.trim()}` : ''}`
+    );
+  }
+  return target;
+}
+
 export async function fetchCalDavEvents(settings: UserSettings, range?: { start: Date; end: Date }): Promise<RemoteItem[]> {
   const timeRange = range
     ? `<C:time-range start="${range.start.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}" end="${range.end.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}"/>`

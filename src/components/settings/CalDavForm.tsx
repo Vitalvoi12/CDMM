@@ -1,6 +1,11 @@
 import { useState, useCallback } from 'react';
 import type { UserSettings } from '../../types';
-import { testCalDavConnection } from '../../services/caldavClient';
+import {
+  testCalDavConnection,
+  discoverCalendars,
+  createCalDavCalendar,
+  type CalendarInfo,
+} from '../../services/caldavClient';
 import { pullFromCalDav, pushToCalDav } from '../../services/syncService';
 import { subjectRepo } from '../../services/repositories';
 
@@ -22,6 +27,15 @@ function formSettings(
   };
 }
 
+function originOf(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return url;
+  }
+}
+
 export function CalDavForm({ settings, onSave }: CalDavFormProps) {
   const [serverUrl, setServerUrl] = useState(settings.calDav.serverUrl);
   const [username, setUsername] = useState(settings.calDav.username);
@@ -29,17 +43,48 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
   const [calendar, setCalendar] = useState(settings.calDav.calendar);
   const [testing, setTesting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [discovered, setDiscovered] = useState<{ isCalendar: boolean; calendars: CalendarInfo[] } | null>(null);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
+  const [pickedCalendar, setPickedCalendar] = useState('');
+
+  const runDiscovery = useCallback(
+    (fullSettings: UserSettings) => {
+      void (async () => {
+        try {
+          const disc = await discoverCalendars(fullSettings);
+          setDiscovered(disc);
+          setDiscoveryError(null);
+          if (disc.isCalendar) {
+            setTestResult('success');
+            setMessage('Connected — this URL points directly at a calendar collection.');
+          } else if (disc.calendars.length > 0) {
+            setTestResult('success');
+            setMessage(`Connected — found ${disc.calendars.length} calendar(s). Pick one to fill the DAV URL.`);
+          } else {
+            setTestResult('success');
+            setMessage('Connected, but no calendar here yet. Create one below.');
+          }
+        } catch (err) {
+          setDiscoveryError(err instanceof Error ? err.message : 'Calendar discovery failed');
+        }
+      })();
+    },
+    []
+  );
 
   const handleTest = useCallback(async () => {
     setTesting(true);
     setTestResult(null);
     setMessage(null);
-    const result = await testCalDavConnection(formSettings(settings, serverUrl, username, password, calendar));
+    setDiscoveryError(null);
+    const fullSettings = formSettings(settings, serverUrl, username, password, calendar);
+    const result = await testCalDavConnection(fullSettings);
     setTesting(false);
     setTestResult(result.ok ? 'success' : 'error');
-    setMessage(result.message);
+    setMessage(result.ok ? 'Connection successful' : result.message);
     if (result.ok) {
       onSave({
         calDav: {
@@ -51,8 +96,43 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
           lastSync: settings.calDav.lastSync,
         },
       });
+      runDiscovery(fullSettings);
     }
-  }, [serverUrl, username, password, calendar, onSave, settings]);
+  }, [serverUrl, username, password, calendar, onSave, settings, runDiscovery]);
+
+  const handlePickCalendar = useCallback(
+    (href: string) => {
+      const abs = /^https?:\/\//.test(href)
+        ? href
+        : originOf(serverUrl) + (href.startsWith('/') ? href : '/' + href);
+      setServerUrl(abs.replace(/\/+$/, ''));
+      setCalendar('default');
+      setPickedCalendar(href);
+      setTestResult('success');
+      setMessage(`DAV URL filled with: ${abs}. Press Test Connection to confirm.`);
+    },
+    [serverUrl]
+  );
+
+  const handleCreateCalendar = useCallback(async () => {
+    setCreating(true);
+    setTestResult(null);
+    setMessage(null);
+    const fullSettings = formSettings(settings, serverUrl, username, password, calendar);
+    try {
+      const url = await createCalDavCalendar(fullSettings, 'StudyCore');
+      setServerUrl(url.replace(/\/+$/, ''));
+      setCalendar('default');
+      setTestResult('success');
+      setMessage(`Calendar «StudyCore» created. Press Test Connection to confirm.`);
+      runDiscovery(formSettings(settings, url.replace(/\/+$/, ''), username, password, 'default'));
+    } catch (err) {
+      setTestResult('error');
+      setMessage(err instanceof Error ? err.message : 'Calendar creation failed');
+    } finally {
+      setCreating(false);
+    }
+  }, [serverUrl, username, password, calendar, settings, runDiscovery]);
 
   const handleSave = useCallback(() => {
     onSave({
@@ -93,6 +173,9 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
     ? `${Math.round((Date.now() - new Date(settings.calDav.lastSync).getTime()) / 60000)}m ago`
     : 'Never';
 
+  const showError =
+    testResult === 'error' || (message !== null && /failed|error|empty|denied|refused/i.test(message || ''));
+
   return (
     <section className="bg-surface-container-lowest border border-outline-variant rounded relative overflow-hidden group hover:border-outline transition-colors">
       <div className="absolute top-0 right-0 w-32 h-32 bg-primary/[0.02] rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 duration-700" />
@@ -131,11 +214,62 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
                 type="url"
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
-                placeholder="https://..."
+                placeholder="https://cloud.vitalvoi.ru/remote.php/dav/calendars/&lt;user&gt;/&lt;calendar&gt;/"
                 className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-[40px] pr-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
               />
             </div>
+            <p className="font-body-sm text-body-sm text-on-surface-variant opacity-70 mt-1">
+              Can be a calendar collection, or the home of your calendars (then use discovery below).
+            </p>
           </div>
+
+          {discovered && !discovered.isCalendar && (
+            <div className="flex flex-col gap-3 border border-outline-variant rounded p-4 bg-surface-container-lowest">
+              <p className="font-label-md text-label-md text-on-surface uppercase tracking-wider">
+                {discovered.calendars.length > 0
+                  ? `Discovered ${discovered.calendars.length} calendar(s)`
+                  : 'No calendars found under this URL'}
+              </p>
+              {discovered.calendars.length > 0 ? (
+                <>
+                  <div className="relative">
+                    <select
+                      value={pickedCalendar}
+                      onChange={(e) => {
+                        setPickedCalendar(e.target.value);
+                        if (e.target.value) handlePickCalendar(e.target.value);
+                      }}
+                      className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-4 pr-8 font-body-md text-body-md text-on-surface outline-none appearance-none transition-colors cursor-pointer"
+                    >
+                      <option value="">— Choose a calendar —</option>
+                      {discovered.calendars.map((c) => (
+                        <option key={c.href} value={c.href}>
+                          {c.displayName || c.href}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none mr-2">
+                      expand_more
+                    </span>
+                  </div>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant opacity-70">
+                    Choosing one replaces the DAV URL with that calendar&apos;s address.
+                  </p>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCreateCalendar}
+                  disabled={creating || testing}
+                  className="self-start px-6 py-2 bg-primary text-on-primary font-label-md text-label-md uppercase tracking-wider rounded hover:bg-tertiary-container transition-colors border border-primary flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[18px]">{creating ? 'progress_activity' : 'event_available'}</span>
+                  {creating ? 'Creating...' : 'Create calendar «StudyCore»'}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="flex flex-col gap-1">
               <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider" htmlFor="username">
@@ -148,6 +282,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
                 <input
                   id="username"
                   type="text"
+                  autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Username"
@@ -166,37 +301,16 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
                 <input
                   id="password"
                   type="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
+                  placeholder="App password / token"
                   className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-[40px] pr-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
                 />
               </div>
             </div>
           </div>
-          <div className="flex flex-col gap-1 mt-2">
-            <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider" htmlFor="calendar-select">
-              Target Calendar
-            </label>
-            <div className="relative">
-              <select
-                id="calendar-select"
-                value={calendar}
-                onChange={(e) => setCalendar(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 pl-4 pr-8 font-body-md text-body-md text-on-surface outline-none appearance-none transition-colors cursor-pointer"
-              >
-                <option value="default">Default Study Calendar</option>
-                <option value="personal">Personal</option>
-                <option value="work">Work Schedule</option>
-              </select>
-              <span className="material-symbols-outlined absolute right-0 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none mr-2">
-                expand_more
-              </span>
-            </div>
-            <p className="font-body-sm text-body-sm text-on-surface-variant opacity-70 mt-1">
-              Events created in StudyCore will be synced to this remote calendar.
-            </p>
-          </div>
+
           <div className="pt-6 border-t border-outline-variant flex flex-col sm:flex-row gap-4 items-center justify-between mt-2">
             <button
               type="button"
@@ -225,15 +339,15 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
               Save Configuration
             </button>
           </div>
-          {(message || testResult === 'success') && (
+          {(message || testResult || discoveryError) && (
             <div
-              className={`mt-4 px-4 py-3 rounded font-body-sm text-body-sm border ${
-                testResult === 'error' || (message && /failed|error|empty|denied/i.test(message))
+              className={`mt-4 px-4 py-3 rounded font-body-sm text-body-sm border whitespace-pre-wrap break-words ${
+                showError || discoveryError
                   ? 'bg-error-container text-on-error-container border-error/20'
                   : 'bg-surface-container-low text-on-surface border-outline-variant'
               }`}
             >
-              {testResult === 'success' ? 'Connected' : message}
+              {discoveryError || message}
             </div>
           )}
         </form>
@@ -241,7 +355,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
       <div className="mt-8 opacity-50 flex items-center gap-2 p-8 pt-0">
         <span className="material-symbols-outlined text-on-surface-variant">info</span>
         <p className="font-body-sm text-body-sm text-on-surface-variant">
-          Changes to sync settings may take up to 5 minutes to propagate across active study sessions.
+          Point the DAV URL at your calendar address (e.g. https://cloud.vitalvoi.ru/remote.php/dav/calendars/&lt;user&gt;/&lt;calendar&gt;/), or run Test Connection on your calendar home to auto-detect and even create a calendar.
         </p>
       </div>
     </section>
