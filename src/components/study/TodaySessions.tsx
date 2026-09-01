@@ -18,12 +18,12 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId }
   );
 
   return (
-    <div className="flex-1 bg-surface-container-lowest p-8 lg:p-16 flex flex-col min-h-0 overflow-hidden">
-      <div className="flex items-end justify-between mb-8 border-b border-outline-variant pb-4">
-        <h3 className="font-headline-lg text-headline-lg text-primary-container uppercase tracking-tight">
+    <div className="flex-1 bg-surface-container-lowest p-8 lg:p-16 max-lg:p-4 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex items-end justify-between mb-8 max-lg:mb-3 border-b border-outline-variant pb-4 max-lg:pb-2">
+        <h3 className="font-headline-lg text-headline-lg max-lg:!text-[16px] text-primary-container uppercase tracking-tight">
           Today
         </h3>
-        <span className="font-label-md text-label-md text-on-secondary-container uppercase tracking-widest">
+        <span className="font-label-md text-label-md max-lg:!text-[10px] text-on-secondary-container uppercase tracking-widest">
           {formatDuration(totalMinutes)} Total
         </span>
       </div>
@@ -35,7 +35,7 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId }
           return (
             <div
               key={event.id}
-              className={`flex flex-col border-b py-4 px-2 group cursor-default relative ${
+              className={`flex flex-col border-b py-4 max-lg:py-2 px-2 group cursor-default relative ${
                 isCurrent
                   ? 'border-primary bg-surface-container-high'
                   : 'border-outline-variant hover:bg-surface-container-low transition-colors'
@@ -45,11 +45,11 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId }
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
               )}
               <div className="flex items-center justify-between pl-1">
-                <div className="flex items-center gap-4">
-                  <span className={`font-label-md text-label-md tabular-nums ${isCurrent ? 'text-primary' : 'text-on-secondary-container'}`}>
+                <div className="flex items-center gap-4 max-lg:gap-2">
+                  <span className={`font-label-md text-label-md max-lg:!text-[10px] tabular-nums ${isCurrent ? 'text-primary' : 'text-on-secondary-container'}`}>
                     {String(i + 1).padStart(2, '0')}
                   </span>
-                  <span className={`font-headline-md text-headline-md ${isCurrent ? 'text-primary' : 'text-primary-container'}`}>
+                  <span className={`font-headline-md text-headline-md max-lg:!text-[13px] ${isCurrent ? 'text-primary' : 'text-primary-container'}`}>
                     {subject?.name || event.subjectId}
                   </span>
                 </div>
@@ -57,7 +57,7 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId }
                   {isCurrent && (
                     <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
                   )}
-                  <span className={`font-body-md text-body-md ${isCurrent ? 'text-primary font-semibold' : 'text-on-secondary-container'}`}>
+                  <span className={`font-body-md text-body-md max-lg:!text-[11px] ${isCurrent ? 'text-primary font-semibold' : 'text-on-secondary-container'}`}>
                     {formatDuration(mins)}
                   </span>
                 </div>
@@ -67,7 +67,7 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId }
         })}
         {sorted.length === 0 && (
           <div className="flex-1 flex items-center justify-center">
-            <p className="font-body-md text-body-md text-on-surface-variant">No sessions today</p>
+            <p className="font-body-md text-body-md max-lg:!text-[12px] text-on-surface-variant">No sessions today</p>
           </div>
         )}
       </div>

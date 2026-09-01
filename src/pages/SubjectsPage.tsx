@@ -23,6 +23,8 @@ export function SubjectsPage() {
 
   const handleDelete = useCallback((id: string) => {
     subjectRepo.delete(id);
+    setShowForm(false);
+    setEditingSubject(null);
     refresh();
   }, [refresh]);
 
@@ -47,19 +49,19 @@ export function SubjectsPage() {
 
   return (
     <div className="flex flex-col w-full h-full relative">
-      <div className="flex items-end justify-between mb-8">
+      <div className="flex items-end justify-between mb-8 max-lg:mb-3">
         <div>
-          <p className="font-label-md text-label-md text-primary tracking-widest uppercase mb-2">
+          <p className="font-label-md text-label-md max-lg:!text-[10px] max-lg:mb-1 text-primary tracking-widest uppercase mb-2">
             Curriculum
           </p>
-          <h2 className="font-display-lg text-display-lg text-on-surface">Active Subjects</h2>
+          <h2 className="font-display-lg text-display-lg max-lg:!text-[24px] max-lg:leading-none text-on-surface">Active Subjects</h2>
         </div>
         <button
           onClick={handleAdd}
-          className="bg-primary hover:bg-tertiary-container transition-colors text-on-primary px-6 py-2 rounded flex items-center shadow-md gap-2"
+          className="bg-primary hover:bg-tertiary-container transition-colors text-on-primary px-6 py-2 max-lg:px-3 max-lg:py-1 rounded flex items-center shadow-md gap-2"
         >
-          <span className="material-symbols-outlined text-[20px]">add</span>
-          <span className="font-label-md text-label-md uppercase">Add Subject</span>
+          <span className="material-symbols-outlined text-[20px] max-lg:text-[16px]">add</span>
+          <span className="font-label-md text-label-md max-lg:!text-[10px] uppercase">Add Subject</span>
         </button>
       </div>
 

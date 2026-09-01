@@ -223,3 +223,13 @@
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+.study-timer {
+  font-size: clamp(3rem, min(calc((100vw - 26rem) / 9.5), 14vh), 11rem);
+}
+
+@media (max-width: 1023px) {
+  .study-timer {
+    font-size: clamp(1.5rem, min(calc((100vw - 8rem) / 9.5), 7vh), 5.5rem);
+  }
+}

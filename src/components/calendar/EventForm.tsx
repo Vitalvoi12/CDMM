@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 
 interface EventFormProps {
@@ -36,19 +36,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, subjects, onSa
     : new Date(initialStart.getTime() + 60 * 60000);
 
   const [subjectId, setSubjectId] = useState(event?.subjectId || defaultSubjectId);
-  const [title, setTitle] = useState(event?.title || '');
   const [description, setDescription] = useState(event?.description || '');
   const [startDate, setStartDate] = useState(toLocalInputValue(initialStart, 'date'));
   const [startTime, setStartTime] = useState(toLocalInputValue(initialStart, 'time'));
   const [endDate, setEndDate] = useState(toLocalInputValue(initialEnd, 'date'));
   const [endTime, setEndTime] = useState(toLocalInputValue(initialEnd, 'time'));
-
-  useEffect(() => {
-    if (!event?.title) {
-      const subj = subjects.find((s) => s.id === subjectId);
-      setTitle(subj?.name || '');
-    }
-  }, [subjectId, event, subjects]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,9 +50,10 @@ export function EventForm({ event, defaultSubjectId, defaultDate, subjects, onSa
       alert('End time must be after start time');
       return;
     }
+    const subject = subjects.find((s) => s.id === subjectId);
     onSave({
       subjectId,
-      title: title.trim() || subjects.find((s) => s.id === subjectId)?.name || subjectId,
+      title: subject?.name || subjectId,
       description: description.trim() || undefined,
       start,
       end,
@@ -90,17 +83,6 @@ export function EventForm({ event, defaultSubjectId, defaultDate, subjects, onSa
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
-            />
           </div>
           <div className="flex flex-col gap-1">
             <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">

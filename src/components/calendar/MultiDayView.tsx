@@ -161,10 +161,11 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
                     return (
                       <div
                         key={ev.id}
-                        className="absolute left-0.5 right-0.5 rounded overflow-hidden cursor-pointer hover:brightness-95 transition-all p-1 group"
-                        style={{ top: `${visualTop}px`, height: `${height}px`, borderLeft: `3px solid ${subject?.color || '#999'}`, backgroundColor: subject?.color ? `${subject.color}15` : undefined }}
+                        className="absolute left-0.5 right-0.5 rounded overflow-hidden cursor-pointer hover:brightness-95 transition-all pl-2 pt-1 pb-1 pr-1 group"
+                        style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: subject?.color ? `${subject.color}15` : undefined }}
                         onMouseDown={(e) => handleDragStart(ev, e)}
                       >
+                        <div className="absolute left-0 top-0 bottom-0 w-[5px]" style={{ backgroundColor: subject?.color || '#999' }} />
                         {tiny ? (
                           <span className="font-label-sm text-label-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface truncate" style={{ color: subject?.color }}>
                             {subject?.name}
