@@ -1,6 +1,6 @@
 import type { CalendarEvent, Subject, UserSettings } from '../types';
 import { eventRepo, tombstoneRepo } from './repositories';
-import { fetchCalDavEvents, putCalDavEvent, deleteCalDavEvent, probeCalDavEvent } from './caldavClient';
+import { fetchCalDavEvents, putCalDavEvent, deleteCalDavEvent, probeCalDavEvent, resolveCollectionForWrite } from './caldavClient';
 import { parseIcs } from './ics';
 
 export interface SyncResult {
@@ -146,6 +146,13 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
   }
   result.remoteCount = remote.items.length;
 
+  const remoteDir = (() => {
+    const first = remote.items[0]?.href;
+    if (!first) return null;
+    const idx = first.lastIndexOf('/');
+    return idx >= 0 ? first.slice(0, idx + 1) : `${first}/`;
+  })();
+
   const local = eventRepo.getAll();
   const localByUid = new Map<string, CalendarEvent>();
   local.forEach((e) => localByUid.set(e.uid, e));
@@ -176,8 +183,14 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
         serverDeleteOk = true;
         result.deleted++;
         result.removedUids.push(uid);
-      } catch {
-        result.errors++;
+      } catch (err) {
+        const exists = await probeCalDavEvent(settings, remoteItem.href).catch(() => null);
+        if (exists === false) {
+          serverDeleteOk = true;
+        } else {
+          result.errors++;
+          console.error(`[sync] failed to delete tombstoned event ${uid}`, err);
+        }
       }
       remoteItemByUid.delete(uid);
     }
@@ -212,6 +225,14 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
 
   // 3) Push local events that were never uploaded (no etag) but are not
   //    tombstoned and not already on the server.
+  let fallbackWriteDir: string | null | undefined;
+  const writeDirFor = async (): Promise<string | undefined> => {
+    if (remoteDir) return remoteDir;
+    if (fallbackWriteDir === undefined) {
+      fallbackWriteDir = (await resolveCollectionForWrite(settings)) || null;
+    }
+    return fallbackWriteDir || undefined;
+  };
   for (const ev of localByUid.values()) {
     if (tombstoneRepo.has(ev.uid)) continue;
     if (ev.etag) continue;
@@ -222,11 +243,12 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       continue;
     }
     try {
-      const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+      const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href, await writeDirFor());
       eventRepo.update(ev.id, { href, etag, pushed: toContent(ev) });
       result.created++;
-    } catch {
+    } catch (err) {
       result.errors++;
+      console.error(`[sync] failed to push local event ${ev.id} (${ev.uid})`, err);
     }
   }
 
@@ -241,6 +263,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     remoteItemByUid.delete(ev.uid);
     if (!remoteContent) {
       result.errors++;
+      console.warn(`[sync] could not parse remote content for event ${ev.uid} at ${remoteItem.href}`);
       continue;
     }
 
@@ -262,8 +285,9 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
         const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
         eventRepo.update(ev.id, { href, etag, pushed: localContent });
         result.updated++;
-      } catch {
+      } catch (err) {
         result.errors++;
+        console.error(`[sync] failed to push edited event ${ev.id} (${ev.uid})`, err);
       }
       continue;
     }
@@ -282,8 +306,9 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
         const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
         eventRepo.update(ev.id, { href, etag, pushed: localContent });
         result.updated++;
-      } catch {
+      } catch (err) {
         result.errors++;
+        console.error(`[sync] failed to push conflicting event ${ev.id} (${ev.uid})`, err);
       }
     }
   }

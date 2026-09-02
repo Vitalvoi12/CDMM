@@ -133,6 +133,23 @@ async function davRequest(
   return res;
 }
 
+export async function resolveCollectionForWrite(settings: UserSettings): Promise<string | null> {
+  try {
+    const disc = await discoverCalendars(settings);
+    if (disc.isCalendar) return collectionUrl(settings);
+    const preferred =
+      disc.calendars.find((c) => /study|chronos|studycore|core/i.test(c.displayName || '')) ||
+      disc.calendars[0];
+    if (!preferred) return null;
+    const abs = /^https?:\/\//.test(preferred.href)
+      ? preferred.href
+      : originOf(settings.calDav.serverUrl) + (preferred.href.startsWith('/') ? preferred.href : '/' + preferred.href);
+    return abs.replace(/\/+$/, '');
+  } catch {
+    return null;
+  }
+}
+
 export async function testCalDavConnection(settings: UserSettings): Promise<CalDavTestResult> {
   try {
     const body =
@@ -399,11 +416,12 @@ export async function putCalDavEvent(
   settings: UserSettings,
   ics: string,
   uid: string,
-  targetHref?: string
+  targetHref?: string,
+  writeBase?: string
 ): Promise<{ href: string; etag: string }> {
   const href = targetHref
     ? resolveHref(settings, targetHref)
-    : `${collectionUrl(settings)}/${encodeURIComponent(uid)}.ics`;
+    : resolveHref(settings, `${(writeBase || collectionUrl(settings)).replace(/\/+$/, '')}/${encodeURIComponent(uid)}.ics`);
   const res = await fetch(href, {
     method: 'PUT',
     headers: headers(settings, { 'Content-Type': 'text/calendar; charset=utf-8' }),
@@ -411,7 +429,8 @@ export async function putCalDavEvent(
     credentials: 'omit',
   });
   if (res.status >= 300) {
-    throw new Error(`CalDAV PUT failed: HTTP ${res.status} ${res.statusText}`.trim());
+    const detail = await res.text().catch(() => '');
+    throw new Error(`CalDAV PUT failed: HTTP ${res.status} ${res.statusText}${detail.trim() ? ` — ${detail.trim().slice(0, 200)}` : ''}`.trim());
   }
   const etag = res.headers.get('etag') || '';
   return { href, etag };
@@ -424,7 +443,13 @@ export async function deleteCalDavEvent(settings: UserSettings, href: string): P
     credentials: 'omit',
   });
   if (res.status >= 300) {
-    throw new Error(`CalDAV DELETE failed: HTTP ${res.status} ${res.statusText}`.trim());
+    let detail = '';
+    try {
+      detail = (await res.text()).slice(0, 300);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`CalDAV DELETE failed: HTTP ${res.status} ${res.statusText}${detail.trim() ? ` — ${detail.trim()}` : ''}`.trim());
   }
 }
 
