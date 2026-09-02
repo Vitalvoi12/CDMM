@@ -1,5 +1,4 @@
 import type { Subject, CalendarEvent, UserSettings } from '../types';
-import { mockSubjects, mockEvents, mockSettings } from './mockData';
 
 const STORAGE_KEYS = {
   subjects: 'studytracker.subjects',
@@ -28,7 +27,7 @@ function save<T>(key: string, value: T): void {
 }
 
 class SubjectRepository {
-  private subjects: Subject[] = load<Subject[]>(STORAGE_KEYS.subjects, [...mockSubjects]);
+  private subjects: Subject[] = load<Subject[]>(STORAGE_KEYS.subjects, []);
 
   getAll(): Subject[] {
     return [...this.subjects];
@@ -62,7 +61,7 @@ class SubjectRepository {
 }
 
 class EventRepository {
-  private events: CalendarEvent[] = load<CalendarEvent[]>(STORAGE_KEYS.events, [...mockEvents]);
+  private events: CalendarEvent[] = load<CalendarEvent[]>(STORAGE_KEYS.events, []);
 
   getAll(): CalendarEvent[] {
     return [...this.events];
@@ -106,7 +105,17 @@ class EventRepository {
 }
 
 class SettingsRepository {
-  private settings: UserSettings = load<UserSettings>(STORAGE_KEYS.settings, { ...mockSettings });
+  private settings: UserSettings = load<UserSettings>(STORAGE_KEYS.settings, {
+    dailyGoalMinutes: 360,
+    calDav: {
+      serverUrl: '',
+      username: '',
+      password: '',
+      calendar: 'default',
+      connected: false,
+      lastSync: null,
+    },
+  });
 
   get(): UserSettings {
     return { ...this.settings, calDav: { ...this.settings.calDav } };
