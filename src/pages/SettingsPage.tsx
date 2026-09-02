@@ -1,12 +1,19 @@
 import { useState, useCallback } from 'react';
 import { settingsRepo } from '../services/repositories';
+import { useTheme } from '../hooks/useTheme';
 import { SettingsNav } from '../components/settings/SettingsNav';
 import { CalDavForm } from '../components/settings/CalDavForm';
-import type { UserSettings } from '../types';
+import type { UserSettings, ThemeMode } from '../types';
+
+const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
+  { value: 'light', label: 'Light', hint: 'Bright surfaces, dark text' },
+  { value: 'dark', label: 'Dark', hint: 'Deep surfaces, light text' },
+];
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings>(settingsRepo.get());
   const [activeSection, setActiveSection] = useState('integrations');
+  const { theme, setTheme } = useTheme();
 
   const handleSave = useCallback(
     (data: Partial<UserSettings>) => {
@@ -43,12 +50,47 @@ export function SettingsPage() {
               <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
                 General application settings.
               </p>
-              <div className="mt-8 bg-surface-container-lowest border border-outline-variant rounded p-8">
-                <div className="flex flex-col gap-6 max-w-xl">
-                  <div className="flex flex-col gap-1">
-                    <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                      Daily Study Goal
-                    </label>
+              <div className="mt-8 bg-surface-container-lowest border border-outline-variant rounded p-8 flex flex-col gap-8 max-w-xl">
+                <div className="flex flex-col gap-4">
+                  <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                    Appearance
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {THEME_OPTIONS.map((option) => {
+                      const isSelected = theme === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setTheme(option.value)}
+                          aria-pressed={isSelected}
+                          className={`flex flex-col items-start gap-1 p-4 rounded border text-left transition-colors ${
+                            isSelected
+                              ? 'border-primary bg-surface-container'
+                              : 'border-outline-variant hover:border-outline bg-surface-container-lowest'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 font-label-md text-label-md text-on-surface">
+                            <span
+                              className={`material-symbols-outlined text-[18px] ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}
+                            >
+                              {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
+                            </span>
+                            {option.label}
+                          </span>
+                          <span className="font-body-sm text-body-sm text-on-surface-variant pl-[26px]">
+                            {option.hint}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                    Daily Study Goal
+                  </label>
                     <div className="flex items-center gap-4">
                       <input
                         type="number"
@@ -77,7 +119,6 @@ export function SettingsPage() {
                       />
                       <span className="font-body-md text-body-md text-on-surface-variant">min</span>
                     </div>
-                  </div>
                 </div>
               </div>
             </div>
