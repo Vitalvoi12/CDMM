@@ -127,3 +127,55 @@ export function timeToPixels(dateStr: string, startHour: number, hourHeight: num
   const startMinutes = startHour * 60;
   return ((totalMinutes - startMinutes) / 60) * hourHeight;
 }
+
+export interface ShiftedEventTimes {
+  start: Date;
+  end: Date;
+}
+
+export function shiftEventByMinutes(
+  startIso: string,
+  endIso: string,
+  deltaMinutes: number,
+  startHour: number,
+  endHour: number
+): ShiftedEventTimes {
+  const origStart = new Date(startIso);
+  const origEnd = new Date(endIso);
+  const durationMs = origEnd.getTime() - origStart.getTime();
+  const dayStart = new Date(
+    origStart.getFullYear(),
+    origStart.getMonth(),
+    origStart.getDate()
+  ).getTime();
+  const minStartMs = Math.min(dayStart + startHour * 3600000, origStart.getTime());
+  const maxStartMs = dayStart + endHour * 3600000 - durationMs;
+  let newStartMs = origStart.getTime() + deltaMinutes * 60000;
+  if (maxStartMs >= minStartMs) {
+    newStartMs = Math.max(minStartMs, Math.min(maxStartMs, newStartMs));
+  }
+  return { start: new Date(newStartMs), end: new Date(newStartMs + durationMs) };
+}
+
+export function shiftEventEndByMinutes(
+  endIso: string,
+  startIso: string,
+  deltaMinutes: number,
+  endHour: number,
+  minDurationMinutes = 15
+): Date {
+  const origEnd = new Date(endIso);
+  const origStart = new Date(startIso);
+  const endDayStart = new Date(
+    origEnd.getFullYear(),
+    origEnd.getMonth(),
+    origEnd.getDate()
+  ).getTime();
+  const maxEndMs = endDayStart + endHour * 3600000;
+  const minEndMs = origStart.getTime() + minDurationMinutes * 60000;
+  if (maxEndMs < minEndMs) return origEnd;
+  let newEndMs = origEnd.getTime() + deltaMinutes * 60000;
+  newEndMs = Math.max(minEndMs, newEndMs);
+  newEndMs = Math.min(maxEndMs, newEndMs);
+  return new Date(newEndMs);
+}

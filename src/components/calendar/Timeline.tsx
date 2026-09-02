@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useRef } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
-import { timeToPixels } from '../../utils/time';
+import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
 import { TimelineEvent } from './TimelineEvent';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { isToday } from '../../utils/time';
@@ -33,7 +33,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
   const [dragOffset, setDragOffset] = useState<{ eventId: string; deltaY: number } | null>(null);
   const [resizeInfo, setResizeInfo] = useState<{ eventId: string; deltaY: number } | null>(null);
   const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
-  const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventEnd: '', minDelta: 0, maxDelta: 0 });
+  const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
 
   const subjectMap = useMemo(() => {
     const map: Record<string, Subject> = {};
@@ -79,8 +79,6 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
   const handleDragStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const origStart = new Date(event.start);
-    const origEnd = new Date(event.end);
     const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
     const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
     const minDelta = -startPx;
@@ -113,12 +111,14 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
       if (dragRef.current.eventId && onEventMove) {
         const minsDelta = snapToGrid(Math.round(dragRef.current.deltaY * MINUTES_PER_PIXEL));
         if (minsDelta !== 0) {
-          const origStartMs = origStart.getTime();
-          const origEndMs = origEnd.getTime();
-          const durationMs = origEndMs - origStartMs;
-          let newStartMs = origStartMs + minsDelta * 60000;
-          newStartMs = Math.max(START_HOUR * 3600000, Math.min(END_HOUR * 3600000 - durationMs, newStartMs));
-          onEventMove(dragRef.current.eventId, new Date(newStartMs), new Date(newStartMs + durationMs));
+          const { start, end } = shiftEventByMinutes(
+            dragRef.current.eventStart,
+            dragRef.current.eventEnd,
+            minsDelta,
+            START_HOUR,
+            END_HOUR
+          );
+          onEventMove(dragRef.current.eventId, start, end);
         }
         setDragOffset(null);
       }
@@ -131,7 +131,6 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
   const handleResizeStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const origEnd = new Date(event.end);
     const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
     const minDelta = -(SNAP * HOUR_HEIGHT / 60);
     const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
@@ -139,6 +138,7 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
       eventId: event.id,
       startY: e.clientY,
       deltaY: 0,
+      eventStart: event.start,
       eventEnd: event.end,
       minDelta,
       maxDelta,
@@ -162,10 +162,14 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
       if (resizeRef.current.eventId && onEventResize) {
         const minsDelta = snapToGrid(Math.round(resizeRef.current.deltaY * MINUTES_PER_PIXEL));
         if (minsDelta !== 0) {
-          let newEndMs = origEnd.getTime() + minsDelta * 60000;
-          newEndMs = Math.max(newEndMs, origEnd.getTime() - origEnd.getTime() % 60000 + SNAP * 60000);
-          newEndMs = Math.min(newEndMs, END_HOUR * 3600000);
-          onEventResize(resizeRef.current.eventId, new Date(newEndMs));
+          const newEnd = shiftEventEndByMinutes(
+            resizeRef.current.eventEnd,
+            resizeRef.current.eventStart,
+            minsDelta,
+            END_HOUR,
+            SNAP
+          );
+          onEventResize(resizeRef.current.eventId, newEnd);
         }
         setResizeInfo(null);
       }
