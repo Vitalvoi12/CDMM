@@ -35,7 +35,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40" onClick={onCancel}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim" onClick={onCancel}>
       <div
         className="bg-surface-container-lowest rounded-xl p-8 max-lg:p-5 shadow-xl w-full max-w-sm mx-4"
         onClick={(e) => e.stopPropagation()}

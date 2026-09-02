@@ -23,7 +23,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
     backgroundColor: subject?.color ? `${subject.color}15` : undefined,
   };
 
-  const colorBar = subject?.color || '#999';
+  const colorBar = subject?.color || "var(--color-on-surface-variant)";
 
   const colorBarEl = (
     <div className="absolute left-0 top-0 bottom-0 w-[6px] max-lg:w-[5px]" style={{ backgroundColor: colorBar }} />
@@ -39,7 +39,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
       >
         {colorBarEl}
         <div className="flex items-start h-full pl-3 pt-1 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || '#111' }}>
+          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || "var(--color-on-surface)" }}>
             {subject?.name || 'Unknown'}
           </span>
         </div>
@@ -57,7 +57,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
       >
         {colorBarEl}
         <div className="flex items-start h-full pl-3 pt-1 gap-2 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || '#111' }}>
+          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || "var(--color-on-surface)" }}>
             {subject?.name || 'Unknown'}
           </span>
           <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
@@ -78,7 +78,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
       >
         {colorBarEl}
         <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || '#111' }}>
+          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || "var(--color-on-surface)" }}>
             {subject?.name || 'Unknown'}
           </span>
           <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">

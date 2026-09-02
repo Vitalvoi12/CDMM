@@ -56,8 +56,11 @@ export interface WeeklyStatistics {
   mostStudiedSubject: { subjectId: string; minutes: number } | null;
 }
 
+export type ThemeMode = 'light' | 'dark';
+
 export interface UserSettings {
   dailyGoalMinutes: number;
+  theme: ThemeMode;
   calDav: {
     serverUrl: string;
     username: string;

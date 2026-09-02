@@ -56,7 +56,7 @@ export function MonthView({ date, events, subjects, onDateSelect }: MonthViewPro
                         key={ev.id}
                         className="flex items-center gap-1 px-1 py-0.5 rounded text-[10px] text-on-surface truncate"
                       >
-                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subj?.color || '#999' }} />
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subj?.color || 'var(--color-on-surface-variant)' }} />
                         <span className="truncate">{totalMinutes > 0 ? `${Math.round(minutesBetween(ev.start, ev.end))}m` : ''}</span>
                       </div>
                     );

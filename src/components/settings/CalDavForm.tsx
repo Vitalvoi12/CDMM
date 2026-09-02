@@ -189,7 +189,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 bg-surface-container-low px-4 py-1 rounded border border-outline-variant">
-          <div className={`w-2 h-2 rounded-full ${settings.calDav.connected ? 'bg-[#10b981]' : 'bg-outline'}`} />
+          <div className={`w-2 h-2 rounded-full ${settings.calDav.connected ? 'bg-success' : 'bg-outline'}`} />
           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
             {settings.calDav.connected ? 'Connected' : 'Disconnected'}
           </span>

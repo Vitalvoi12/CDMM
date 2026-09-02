@@ -107,6 +107,7 @@ class EventRepository {
 class SettingsRepository {
   private settings: UserSettings = load<UserSettings>(STORAGE_KEYS.settings, {
     dailyGoalMinutes: 360,
+    theme: 'light',
     calDav: {
       serverUrl: '',
       username: '',
@@ -127,6 +128,9 @@ class SettingsRepository {
     }
     if (data.dailyGoalMinutes !== undefined) {
       this.settings.dailyGoalMinutes = data.dailyGoalMinutes;
+    }
+    if (data.theme) {
+      this.settings.theme = data.theme;
     }
     save(STORAGE_KEYS.settings, this.settings);
     return this.get();
