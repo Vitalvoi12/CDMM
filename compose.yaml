@@ -1,7 +1,7 @@
 services:
   studytracker:
+    image: ghcr.io/vitalvoi12/studytracker:latest
     build: .
-    image: studytracker:latest
     container_name: studytracker
     restart: unless-stopped
     ports:
