@@ -59,7 +59,20 @@ export function eventToCalDavIcs(event: CalendarEvent): string {
   return lines.join('\r\n');
 }
 
-function sameEvent(a: CalendarEvent, b: { title: string; description?: string; start: string; end: string; subjectId: string }): boolean {
+function toContent(ev: { title: string; description?: string; start: string; end: string; subjectId: string }) {
+  return {
+    title: ev.title,
+    description: ev.description || undefined,
+    start: ev.start,
+    end: ev.end,
+    subjectId: ev.subjectId,
+  };
+}
+
+function sameContent(
+  a: { title: string; description?: string; start: string; end: string; subjectId: string },
+  b: { title: string; description?: string; start: string; end: string; subjectId: string }
+): boolean {
   return (
     a.title === b.title &&
     (a.description || undefined) === (b.description || undefined) &&
@@ -69,16 +82,42 @@ function sameEvent(a: CalendarEvent, b: { title: string; description?: string; s
   );
 }
 
+/** Parse the single VEVENT matching `uid` out of a remote resource. */
+function remoteContentOf(
+  item: { ics: string },
+  uid: string,
+  subjects: Subject[],
+  fallbackSubjectId: string
+): { title: string; description?: string; start: string; end: string; subjectId: string } | null {
+  try {
+    const parsed = parseIcs(item.ics);
+    const vevent = parsed?.find((v) => v.uid === uid) || parsed?.[0] || null;
+    if (!vevent) return null;
+    return {
+      title: vevent.summary || 'Imported event',
+      description: vevent.description,
+      start: new Date(vevent.dtStart).toISOString(),
+      end: new Date(vevent.dtEnd).toISOString(),
+      subjectId: resolveSubjectFromIcs(vevent, subjects, fallbackSubjectId),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Bidirectional reconcile with tombstones and etag-based deletion detection.
  *
- * - Remote events with etags that no longer match a local event's uid are
- *   imported / updated.
  * - Locally tombstoned uids are DELETEd from the server so other devices see
  *   the removal.
  * - Local events previously synced (have an etag) whose uid is no longer on
  *   the server were deleted elsewhere -> removed locally too.
  * - Local events never uploaded (no etag) are pushed.
+ * - Existing events are reconciled by content, not just etag: a local edit
+ *   never changes the etag, so equality with the server etag means "server
+ *   untouched since my last upload" and the local change is pushed. When the
+ *   server was edited by someone else and this copy still matches what we
+ *   last pushed, the server version is pulled instead.
  */
 export async function syncAll(settings: UserSettings, subjects: Subject[]): Promise<SyncResult> {
   const result: SyncResult = {
@@ -177,37 +216,76 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     if (tombstoneRepo.has(ev.uid)) continue;
     if (ev.etag) continue;
     if (remoteByUid.has(ev.uid)) {
-      // Already on the server but we lack the etag locally; pull its state in
-      // step 5 instead of re-creating.
-      remoteItemByUid.delete(ev.uid);
+      // The server already has this uid but we never stored an etag for it.
+      // Leave the remote item in place; step 4 adopts its state instead of
+      // re-creating it.
       continue;
     }
     try {
       const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
-      eventRepo.update(ev.id, { href, etag });
+      eventRepo.update(ev.id, { href, etag, pushed: toContent(ev) });
       result.created++;
     } catch {
       result.errors++;
     }
-    remoteItemByUid.delete(ev.uid);
   }
 
-  // 4) Update conflicts / server-side changes: local events that exist on the
-  //    server and differ from the remote version. Push local if we changed
-  //    it; otherwise the remote wins and we pull it below.
+  // 4) Reconcile events that exist both locally and on the server. Content is
+  //    the source of truth — a local drag/resize/edit never touches the etag,
+  //    so comparing etags alone can never detect our own unsynced changes.
   for (const ev of localByUid.values()) {
     const remoteItem = remoteItemByUid.get(ev.uid);
-    if (!remoteItem || !ev.etag) continue;
-    if (remoteItem.etag !== ev.etag) {
+    if (!remoteItem) continue; // new local events (step 3) or deleted elsewhere (step 2)
+
+    const remoteContent = remoteContentOf(remoteItem, ev.uid, subjects, ev.subjectId);
+    remoteItemByUid.delete(ev.uid);
+    if (!remoteContent) {
+      result.errors++;
+      continue;
+    }
+
+    const localContent = toContent(ev);
+    if (sameContent(localContent, remoteContent)) {
+      // Already identical. Refresh href/etag and the pushed snapshot in case
+      // the server rewrote them (e.g. normalization) or this record predates
+      // snapshot tracking.
+      if (ev.etag !== remoteItem.etag || ev.href !== remoteItem.href || !ev.pushed || !sameContent(ev.pushed, localContent)) {
+        eventRepo.update(ev.id, { href: remoteItem.href, etag: remoteItem.etag, pushed: localContent });
+      }
+      continue;
+    }
+
+    if (ev.etag === remoteItem.etag) {
+      // The server still holds exactly what we last uploaded, so the diff is a
+      // local-only change (move/resize/edit). Push it.
       try {
         const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
-        eventRepo.update(ev.id, { href, etag });
+        eventRepo.update(ev.id, { href, etag, pushed: localContent });
+        result.updated++;
+      } catch {
+        result.errors++;
+      }
+      continue;
+    }
+
+    // The server was edited since our last upload. If this copy still matches
+    // our last pushed snapshot the change is remote-only and we adopt it;
+    // otherwise both sides changed and the local edit wins (the other device
+    // converges on its next sync). Events without a snapshot are treated as
+    // unchanged so migrated copies never clobber fresh server edits.
+    const localEdited = ev.pushed ? !sameContent(ev.pushed, localContent) : false;
+    if (!localEdited) {
+      eventRepo.update(ev.id, { ...remoteContent, href: remoteItem.href, etag: remoteItem.etag, pushed: remoteContent });
+      result.updated++;
+    } else {
+      try {
+        const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+        eventRepo.update(ev.id, { href, etag, pushed: localContent });
         result.updated++;
       } catch {
         result.errors++;
       }
     }
-    remoteItemByUid.delete(ev.uid);
   }
 
   // 5) Import remaining remote events not seen locally (new on the server).
@@ -232,8 +310,8 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
         end: new Date(parsed.dtEnd).toISOString(),
         subjectId: resolveSubjectFromIcs(parsed, subjects, existing.subjectId),
       };
-      if (!sameEvent(existing, mapped) || existing.etag !== item.etag) {
-        eventRepo.update(existing.id, { ...mapped, href: item.href, etag: item.etag });
+      if (!sameContent(existing, mapped) || existing.etag !== item.etag) {
+        eventRepo.update(existing.id, { ...mapped, href: item.href, etag: item.etag, pushed: mapped });
         result.updated++;
       }
       continue;
@@ -244,16 +322,20 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       vevent.xLocalId && eventRepo.getById(vevent.xLocalId)
         ? vevent.xLocalId
         : `caldav-${Date.now()}-${Math.round(Math.random() * 10000)}`;
-    eventRepo.create({
-      id: localId,
-      uid,
+    const mapped = {
       title: vevent.summary || 'Imported event',
       description: vevent.description,
       start: new Date(vevent.dtStart).toISOString(),
       end: new Date(vevent.dtEnd).toISOString(),
       subjectId,
+    };
+    eventRepo.create({
+      id: localId,
+      uid,
+      ...mapped,
       href: item.href,
       etag: item.etag,
+      pushed: mapped,
     });
     result.imported++;
   }

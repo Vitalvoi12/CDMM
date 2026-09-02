@@ -7,6 +7,14 @@ export interface Subject {
   progress?: number;
 }
 
+export interface EventContentSnapshot {
+  title: string;
+  description?: string;
+  start: string;
+  end: string;
+  subjectId: string;
+}
+
 export interface CalendarEvent {
   id: string;
   uid: string;
@@ -17,6 +25,8 @@ export interface CalendarEvent {
   end: string;
   href?: string;
   etag?: string;
+  /** Fields as they were the last time this copy was pushed to the server. */
+  pushed?: EventContentSnapshot;
 }
 
 export interface StudySession {
