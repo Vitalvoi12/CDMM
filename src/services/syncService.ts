@@ -174,15 +174,18 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
   const fallbackId = subjects[0]?.id || 'unknown';
 
   // 1) Apply tombstones: delete on server if still present, drop local copy.
+  //    A uid may map to several server resources (duplicate uploads from older
+  //    versions) — all of them must be removed, otherwise the survivors keep
+  //    the uid alive on the server and deleted events "resurrect".
   for (const uid of tombstoneRepo.getAll()) {
-    const remoteItem = remoteItemByUid.get(uid);
-    let serverDeleteOk = !remoteItem;
-    if (remoteItem) {
+    const remoteItems = remoteByUid.get(uid) || [];
+    const items = remoteItemByUid.get(uid) ? [remoteItemByUid.get(uid)!, ...remoteItems.filter((i) => i !== remoteItemByUid.get(uid))] : remoteItems;
+    let serverDeleteOk = items.length === 0;
+    for (const remoteItem of items) {
       try {
         await deleteCalDavEvent(settings, remoteItem.href);
         serverDeleteOk = true;
         result.deleted++;
-        result.removedUids.push(uid);
       } catch (err) {
         const exists = await probeCalDavEvent(settings, remoteItem.href).catch(() => null);
         if (exists === false) {
@@ -194,35 +197,36 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       }
       remoteItemByUid.delete(uid);
     }
-    if (localByUid.has(uid)) {
-      const ev = localByUid.get(uid)!;
-      eventRepo.delete(ev.id);
+    if (serverDeleteOk) {
       result.removedUids.push(uid);
-      localByUid.delete(uid);
+      if (localByUid.has(uid)) {
+        const ev = localByUid.get(uid)!;
+        eventRepo.delete(ev.id);
+        localByUid.delete(uid);
+      }
+      tombstoneRepo.remove(uid);
     }
-    if (serverDeleteOk) tombstoneRepo.remove(uid);
   }
 
   // 2) External deletions: a local event that was previously synced (has an
   //    etag) but is no longer on the server was deleted on another device.
-  //    Remove it locally ONLY after confirming its absence server-side with a
-  //    direct PROPFIND, so a freshly pushed event is never pruned because the
-  //    REPORT query happened to miss it. If the remote fetch returned nothing
-  //    at all, we can't trust the comparison — skip pruning.
-  if (remote.responses > 0) {
-    for (const ev of [...localByUid.values()]) {
-      if (!ev.etag || !ev.href) continue;
-      if (remoteByUid.has(ev.uid)) continue;
-      const exists = await probeCalDavEvent(settings, ev.href);
-      if (exists === false) {
-        eventRepo.delete(ev.id);
-        result.removedUids.push(ev.uid);
-        localByUid.delete(ev.uid);
-        result.deleted++;
-      }
+  //    Runs even when the REPORT returned zero responses — a successful
+  //    fetch with no events legitimately means the server is empty. Each
+  //    removal is confirmed by a direct PROPFIND on the event's exact href
+  //    (404 -> delete, still exists -> keep, unknown -> skip), so a freshly
+  //    pushed event is never pruned because the REPORT happened to miss it.
+  for (const ev of [...localByUid.values()]) {
+    if (!ev.etag || !ev.href) continue;
+    if (remoteByUid.has(ev.uid)) continue;
+    const exists = await probeCalDavEvent(settings, ev.href);
+    if (exists === false) {
+      eventRepo.delete(ev.id);
+      result.removedUids.push(ev.uid);
+      localByUid.delete(ev.uid);
+      result.deleted++;
+      console.info(`[sync] pruned locally: ${ev.uid} is gone from the server`);
     }
   }
-
   // 3) Push local events that were never uploaded (no etag) but are not
   //    tombstoned and not already on the server.
   let fallbackWriteDir: string | null | undefined;
