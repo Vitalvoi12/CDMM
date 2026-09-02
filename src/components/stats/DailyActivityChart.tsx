@@ -11,15 +11,15 @@ export function DailyActivityChart({ dailyMinutes }: DailyActivityChartProps) {
   const maxIdx = dailyMinutes.indexOf(Math.max(...dailyMinutes));
 
   return (
-    <div className="flex-1 flex items-end justify-between gap-4 relative z-10 mt-16 h-48">
+    <div className="w-full flex items-end justify-between gap-4 relative z-10 h-48">
       {dailyMinutes.map((minutes, i) => {
         const percent = Math.round((minutes / maxMinutes) * 100);
-        const isMax = i === maxIdx && minutes > 0;
+        const isMax = Math.max(...dailyMinutes) > 0 && i === maxIdx;
         const label = formatDuration(minutes);
         const dayLabel = WEEKDAYS[i];
 
         return (
-          <div key={i} className="flex flex-col items-center gap-2 flex-1 group relative">
+          <div key={i} className="flex flex-col items-center justify-end gap-2 flex-1 h-full group relative">
             <span className="font-label-sm text-label-sm text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8">
               {label}
             </span>
@@ -29,10 +29,10 @@ export function DailyActivityChart({ dailyMinutes }: DailyActivityChartProps) {
                   ? 'bg-primary shadow-md'
                   : 'bg-surface-container-highest'
               }`}
-              style={{ height: `${Math.max(percent, 5)}%` }}
+              style={{ height: `${Math.max(percent, 4)}%` }}
             >
               {isMax && (
-                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-on-surface/10" />
               )}
             </div>
             <span

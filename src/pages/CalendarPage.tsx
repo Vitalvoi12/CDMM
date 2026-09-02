@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { DateHeader } from '../components/calendar/DateHeader';
 import { Timeline } from '../components/calendar/Timeline';
 import { MultiDayView } from '../components/calendar/MultiDayView';
@@ -29,10 +29,22 @@ export function CalendarPage() {
   const { currentDate, setCurrentDate, view, setView, goToToday, goToPrevious, goToNext } =
     useCalendarNavigation();
   const isMobile = useIsMobile();
+  const location = useLocation();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
   const { startSession } = useActiveSession();
   const navigate = useNavigate();
+
+  // Deep link from the Statistics heatmap: jump to the tapped day.
+  useEffect(() => {
+    const state = location.state as { selectedDate?: number } | null;
+    if (state?.selectedDate) {
+      setCurrentDate(new Date(state.selectedDate));
+      setView('day');
+      navigate('.', { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const subjects = subjectRepo.getAll();
   const settings = settingsRepo.get();

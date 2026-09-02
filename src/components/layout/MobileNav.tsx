@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 const navItems = [
   { path: '/', label: 'Calendar', icon: 'calendar_today' },
   { path: '/study', label: 'Study', icon: 'menu_book' },
+  { path: '/statistics', label: 'Stats', icon: 'bar_chart' },
   { path: '/subjects', label: 'Subjects', icon: 'category' },
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ];
@@ -17,7 +18,7 @@ export function MobileNav() {
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center justify-center gap-1 px-3 py-1 transition-colors ${
+              `flex flex-col items-center justify-center gap-1 px-1.5 py-1 transition-colors ${
                 isActive ? 'text-primary' : 'text-on-surface-variant'
               }`
             }

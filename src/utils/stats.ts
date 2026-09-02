@@ -9,6 +9,21 @@ import {
   addDays,
 } from './time';
 
+export interface StudyHeatmapDay {
+  date: string;
+  totalMinutes: number;
+  sessionCount: number;
+}
+
+export interface YearStudyStats {
+  totalMinutes: number;
+  activeDays: number;
+  sessionCount: number;
+  averageSessionMinutes: number;
+  bestDay: { date: string; minutes: number } | null;
+  longestStreakDays: number;
+}
+
 export function getEventsForDate(events: CalendarEvent[], date: Date): CalendarEvent[] {
   const dayStart = startOfDay(date).getTime();
   const dayEnd = endOfDay(date).getTime();
@@ -149,4 +164,98 @@ export function calculateSubjectStats(
       percentage: totalMinutes > 0 ? Math.round((minutes / totalMinutes) * 100) : 0,
     }))
     .sort((a, b) => b.minutes - a.minutes);
+}
+
+/**
+ * Per-day study totals for a whole year (local-timezone days). Events crossing
+ * midnight contribute to each day proportionally, so a session never lands on
+ * the wrong day. Returns exactly 365/366 entries in chronological order.
+ */
+export function buildYearHeatmap(events: CalendarEvent[], year: number): StudyHeatmapDay[] {
+  const days: StudyHeatmapDay[] = [];
+  const totals = new Map<string, { minutes: number; count: number }>();
+
+  const addMinutes = (key: string, minutes: number, counted: boolean) => {
+    const entry = totals.get(key) || { minutes: 0, count: 0 };
+    entry.minutes += minutes;
+    if (counted) entry.count += 1;
+    totals.set(key, entry);
+  };
+
+  for (const e of events) {
+    const startMs = new Date(e.start).getTime();
+    const endMs = new Date(e.end).getTime();
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) continue;
+
+    let cursor = startMs;
+    while (cursor < endMs) {
+      const day = new Date(cursor);
+      const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime();
+      const sliceEnd = Math.min(endMs, dayEnd);
+      const minutes = (sliceEnd - cursor) / 60000;
+      if (minutes >= 1) {
+        addMinutes(dateKey(day), minutes, cursor === startMs);
+      }
+      cursor = sliceEnd;
+    }
+  }
+
+  const cursor = new Date(year, 0, 1);
+  const end = new Date(year + 1, 0, 1);
+  while (cursor < end) {
+    const key = dateKey(cursor);
+    const entry = totals.get(key);
+    days.push({
+      date: key,
+      totalMinutes: entry ? Math.round(entry.minutes) : 0,
+      sessionCount: entry ? entry.count : 0,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+/**
+ * Monochrome intensity level for the heatmap. Fixed thresholds keep the scale
+ * meaningful across users: 0 / <=30 / <=60 / <=120 / >120 minutes.
+ */
+export function heatmapLevel(totalMinutes: number): 0 | 1 | 2 | 3 | 4 {
+  if (totalMinutes <= 0) return 0;
+  if (totalMinutes <= 30) return 1;
+  if (totalMinutes <= 60) return 2;
+  if (totalMinutes <= 120) return 3;
+  return 4;
+}
+
+export function calculateYearStats(heatmap: StudyHeatmapDay[]): YearStudyStats {
+  let totalMinutes = 0;
+  let activeDays = 0;
+  let sessionCount = 0;
+  let bestDay: { date: string; minutes: number } | null = null;
+  let streak = 0;
+  let longestStreak = 0;
+
+  for (const day of heatmap) {
+    totalMinutes += day.totalMinutes;
+    sessionCount += day.sessionCount;
+    if (day.totalMinutes > 0) {
+      activeDays++;
+      streak++;
+      if (streak > longestStreak) longestStreak = streak;
+      if (!bestDay || day.totalMinutes > bestDay.minutes) {
+        bestDay = { date: day.date, minutes: day.totalMinutes };
+      }
+    } else {
+      streak = 0;
+    }
+  }
+
+  return {
+    totalMinutes,
+    activeDays,
+    sessionCount,
+    averageSessionMinutes: sessionCount > 0 ? Math.round(totalMinutes / sessionCount) : 0,
+    bestDay,
+    longestStreakDays: longestStreak,
+  };
 }

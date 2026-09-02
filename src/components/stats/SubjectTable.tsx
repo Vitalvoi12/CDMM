@@ -30,7 +30,7 @@ export function SubjectTable({ subjectStats, subjectMap }: SubjectTableProps) {
                   <div className="col-span-5 flex items-center gap-4 pl-sm">
                     <div
                       className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: subject?.color || '#999' }}
+                      style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }}
                     />
                     <span className="font-body-md text-body-md text-on-surface font-medium">
                       {subject?.name || stat.subjectId}
@@ -42,7 +42,7 @@ export function SubjectTable({ subjectStats, subjectMap }: SubjectTableProps) {
                         className="h-full rounded-full group-hover:scale-x-[1.02] origin-left transition-transform"
                         style={{
                           width: `${stat.percentage}%`,
-                          backgroundColor: subject?.color || '#999',
+                          backgroundColor: subject?.color || "var(--color-on-surface-variant)",
                         }}
                       />
                     </div>
