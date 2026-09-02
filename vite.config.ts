@@ -38,6 +38,9 @@ function caldavProxy(): Plugin {
         const headers: Record<string, string | string[] | number | undefined> = {}
         for (const [k, v] of Object.entries(req.headers)) {
           if (k === 'host') continue
+          // Nextcloud rejects write requests (PUT/DELETE) with a foreign
+          // Origin header (CSRF check) — strip browser context headers.
+          if (k === 'origin' || k === 'referer') continue
           if (v !== undefined) headers[k] = v as string | string[]
         }
 

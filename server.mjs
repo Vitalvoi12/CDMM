@@ -58,6 +58,9 @@ function caldavProxy(req, res, url) {
   const headers = {}
   for (const [k, v] of Object.entries(req.headers)) {
     if (k === 'host') continue
+    // Nextcloud rejects write requests (PUT/DELETE) with a foreign Origin
+    // header (CSRF check) — strip browser context headers.
+    if (k === 'origin' || k === 'referer') continue
     if (v !== undefined) headers[k] = v
   }
 
