@@ -106,7 +106,7 @@ export function serializeVCalendar(events: IcsVEvent[]): string {
   return lines.join('\r\n');
 }
 
-function lineFold(text: string, limit = 74): string {
+export function lineFold(text: string, limit = 74): string {
   const bytes = text;
   if (bytes.length <= limit) return bytes;
   const chunks: string[] = [];

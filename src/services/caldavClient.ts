@@ -38,7 +38,7 @@ function b64url(input: string): string {
  * directly. Same-origin requests pass through untouched; cross-origin ones
  * are routed via the Vite dev proxy at `/caldav/<b64 origin>/<path>`.
  */
-function toRequestUrl(serverUrl: string): string {
+export function toRequestUrl(serverUrl: string): string {
   if (typeof window === 'undefined' || !window.location) return serverUrl;
   try {
     const u = new URL(serverUrl);
@@ -63,13 +63,13 @@ function baseUrl(settings: UserSettings): string {
  * - When set to 'default' (the URL already points at a collection), it's the
  *   configured URL itself.
  */
-function collectionUrl(settings: UserSettings): string {
+export function collectionUrl(settings: UserSettings): string {
   const base = baseUrl(settings) || settings.calDav.serverUrl.trim().replace(/\/+$/, '');
   const name = settings.calDav.calendar;
   return name && name !== 'default' ? `${base.replace(/\/+$/, '')}/${encodeURIComponent(name)}` : base;
 }
 
-function originOf(serverUrl: string): string {
+export function originOf(serverUrl: string): string {
   try {
     const u = new URL(serverUrl.trim());
     return `${u.protocol}//${u.host}`;
@@ -85,7 +85,7 @@ export function resolveHref(settings: UserSettings, href: string): string {
   return toRequestUrl(baseUrl(settings) + '/' + href);
 }
 
-function headers(settings: UserSettings, extra: Record<string, string> = {}): Record<string, string> {
+export function headers(settings: UserSettings, extra: Record<string, string> = {}): Record<string, string> {
   const h: Record<string, string> = {
     Accept: 'application/xml, text/calendar, */*',
     ...extra,
@@ -229,6 +229,7 @@ export async function createCalDavCalendar(settings: UserSettings, name: string)
     `<D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` +
     `<D:set><D:prop>` +
     `<D:resourcetype><D:collection/><C:calendar/></D:resourcetype>` +
+    `<C:supported-calendar-component-set><C:comp name="VEVENT"/><C:comp name="VTODO"/></C:supported-calendar-component-set>` +
     `<D:displayname>${name.replace(/[<>&"]/g, '')}</D:displayname>` +
     `</D:prop></D:set>` +
     `</D:mkcol>`;
@@ -252,7 +253,42 @@ export async function createCalDavCalendar(settings: UserSettings, name: string)
   return target;
 }
 
-async function reportOn(settings: UserSettings, url: string, range?: { start: Date; end: Date }): Promise<RemoteQuery> {
+/**
+ * Query the calendar's supported-calendar-component-set. Returns the list of
+ * supported component names (e.g. ['VEVENT'] or ['VEVENT','VTODO']) or null
+ * when the server/collection doesn't expose the property.
+ */
+export async function fetchSupportedComponents(settings: UserSettings): Promise<string[] | null> {
+  try {
+    const body =
+      `<?xml version="1.0"?>` +
+      `<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` +
+      `<D:prop><C:supported-calendar-component-set/></D:prop>` +
+      `</D:propfind>`;
+    const res = await fetch(toRequestUrl(collectionUrl(settings)), {
+      method: 'PROPFIND',
+      headers: headers(settings, { Depth: '0', 'Content-Type': 'application/xml' }),
+      body,
+      credentials: 'omit',
+    });
+    if (res.status >= 300) return null;
+    const text = await res.text();
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    if (doc.getElementsByTagName('parsererror').length > 0) return null;
+    const comps: string[] = [];
+    for (const el of doc.getElementsByTagName('*')) {
+      if (el.localName === 'comp') {
+        const name = el.getAttribute('name');
+        if (name) comps.push(name.toUpperCase());
+      }
+    }
+    return comps.length > 0 ? comps : null;
+  } catch {
+    return null;
+  }
+}
+
+async function reportOn(settings: UserSettings, url: string, range?: { start: Date; end: Date }, component: 'VEVENT' | 'VTODO' = 'VEVENT'): Promise<RemoteQuery> {
   const timeRange = range
     ? `<C:time-range start="${range.start.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}" end="${range.end.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}"/>`
     : '';
@@ -260,7 +296,7 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
     `<?xml version="1.0"?>` +
     `<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` +
     `<D:propfind><D:prop><D:getetag/><C:calendar-data><C:comp name="VCALENDAR"/></C:calendar-data></D:prop></D:propfind>` +
-    `<C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT">${timeRange}</C:comp-filter></C:comp-filter></C:filter>` +
+    `<C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="${component}">${timeRange}</C:comp-filter></C:comp-filter></C:filter>` +
     `</C:calendar-query>`;
   console.debug('[caldav] REPORT body:', body);
   const res = await fetch(toRequestUrl(url), {
@@ -349,16 +385,38 @@ async function reportOn(settings: UserSettings, url: string, range?: { start: Da
  * that discovers child calendar collections and queries each of them.
  */
 export async function fetchCalDavEvents(settings: UserSettings, range?: { start: Date; end: Date }): Promise<RemoteQuery> {
+  return fetchCalDavComponents(settings, 'VEVENT', range);
+}
+
+/**
+ * Fetch remote VTODO resources. Uses the same collection resolution and
+ * GET-fallback strategy as events, filtered to the VTODO component.
+ * TODOs have no meaningful time range — query without one.
+ */
+export async function fetchCalDavTodos(settings: UserSettings, collectionOverride?: string): Promise<RemoteQuery> {
+  return fetchCalDavComponents(settings, 'VTODO', undefined, collectionOverride);
+}
+
+async function fetchCalDavComponents(
+  settings: UserSettings,
+  component: 'VEVENT' | 'VTODO',
+  range?: { start: Date; end: Date },
+  collectionOverride?: string
+): Promise<RemoteQuery> {
   const targets: string[] = [];
-  try {
-    const url = collectionUrl(settings);
-    if (url) targets.push(url);
-  } catch {
-    /* fall through to discovery */
-  }
-  if (targets.length === 0) {
-    const unit = settings.calDav.serverUrl.trim().replace(/\/+$/, '');
-    if (unit) targets.push(unit);
+  if (collectionOverride) {
+    targets.push(collectionOverride);
+  } else {
+    try {
+      const url = collectionUrl(settings);
+      if (url) targets.push(url);
+    } catch {
+      /* fall through to discovery */
+    }
+    if (targets.length === 0) {
+      const unit = settings.calDav.serverUrl.trim().replace(/\/+$/, '');
+      if (unit) targets.push(unit);
+    }
   }
 
   const all: RemoteItem[] = [];
@@ -382,7 +440,7 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
   let directError: unknown = null;
   for (const target of targets) {
     try {
-      add(await reportOn(settings, target, range));
+      add(await reportOn(settings, target, range, component));
     } catch (err) {
       directError = directError || err;
     }
@@ -396,7 +454,7 @@ export async function fetchCalDavEvents(settings: UserSettings, range?: { start:
           const url = /^https?:\/\//.test(c.href)
             ? c.href
             : originOf(settings.calDav.serverUrl) + (c.href.startsWith('/') ? c.href : '/' + c.href);
-          add(await reportOn(settings, url, range));
+          add(await reportOn(settings, url, range, component));
         } catch {
           /* skip collections that fail */
         }

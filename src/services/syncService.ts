@@ -1,7 +1,8 @@
-import type { CalendarEvent, Subject, UserSettings } from '../types';
-import { eventRepo, tombstoneRepo } from './repositories';
-import { fetchCalDavEvents, putCalDavEvent, deleteCalDavEvent, probeCalDavEvent, resolveCollectionForWrite } from './caldavClient';
+import type { CalendarEvent, Subject, UserSettings, TodoTask } from '../types';
+import { eventRepo, tombstoneRepo, todoRepo } from './repositories';
+import { fetchCalDavEvents, fetchCalDavTodos, putCalDavEvent, deleteCalDavEvent, probeCalDavEvent, resolveCollectionForWrite, fetchSupportedComponents, discoverCalendars, collectionUrl, originOf, toRequestUrl, headers } from './caldavClient';
 import { parseIcs } from './ics';
+import { todoToVTodo, vTodoToTask } from './vtodo';
 
 export interface SyncResult {
   created: number;
@@ -369,10 +370,16 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     result.imported++;
   }
 
+  // 6) TODOs (VTODO in the same calendar) ride along with the same sync.
+  const todoCounters = await syncTodos(settings);
+  result.errors += todoCounters.errors;
+
   result.message = [
     result.created ? `${result.created} pushed` : '',
     result.updated ? `${result.updated} updated` : '',
     result.imported ? `${result.imported} imported` : '',
+    todoCounters.pushed ? `${todoCounters.pushed} todos pushed` : '',
+    todoCounters.imported ? `${todoCounters.imported} todos imported` : '',
     result.errors ? `${result.errors} failed` : '',
   ].filter(Boolean).join(', ') || 'All up to date';
   result.message += `. Server returned ${result.remoteCount} usable event(s) of ${remote.responses} response(s) (${remote.withHref} hrefs, ${remote.withCalendarData} calendar-data).`;
@@ -392,4 +399,186 @@ export async function deleteOnCalDav(settings: UserSettings, event: CalendarEven
     }
   }
   tombstoneRepo.add(event.uid);
+}
+
+/**
+ * Resolve where VTODO resources should be stored. The main calendar may be
+ * VEVENT-only (Nextcloud default when created without an explicit
+ * supported-calendar-component-set): PUT of a VTODO there fails with
+ * InvalidComponentType. In that case a dedicated 'StudyCore-Tasks' calendar is
+ * created (once) in the calendar HOME (the parent of the configured calendar —
+ * a calendar is not itself a home, MKCOL inside it fails with
+ * InvalidResourceType) and used for todos.
+ */
+export async function resolveTodoCollection(settings: UserSettings): Promise<string | null> {
+  const main = collectionUrl(settings);
+  const supported = await fetchSupportedComponents(settings);
+  if (!supported || supported.includes('VTODO')) return main;
+
+  const raw = settings.calDav.serverUrl.trim().replace(/\/+$/, '');
+  // <home>/<calendar> -> <home>; the last path segment is the collection name.
+  const lastSlash = raw.lastIndexOf('/');
+  const home = lastSlash > originOf(raw).length ? raw.slice(0, lastSlash) : raw;
+  const tasksUrl = `${home}/${encodeURIComponent('StudyCore-Tasks')}/`;
+  const tasksHref = toRequestUrl(tasksUrl);
+
+  // Prefer the dedicated tasks calendar when discovery can see it.
+  try {
+    const disc = await discoverCalendars(settings);
+    const existing = disc.calendars.find((c) => /studycore-tasks|studycore_tasks/i.test(c.href || c.displayName || ''));
+    if (existing) {
+      return /^https?:\/\//.test(existing.href)
+        ? existing.href
+        : originOf(settings.calDav.serverUrl) + (existing.href.startsWith('/') ? existing.href : '/' + existing.href);
+    }
+  } catch {
+    /* discovery failed — fall through to creation attempt */
+  }
+
+  try {
+    const res = await fetch(toRequestUrl(tasksUrl), {
+      method: 'MKCOL',
+      headers: headers(settings, { 'Content-Type': 'application/xml', Depth: '0' }),
+      body:
+        `<?xml version="1.0" encoding="utf-8"?>` +
+        `<D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">` +
+        `<D:set><D:prop>` +
+        `<D:resourcetype><D:collection/><C:calendar/></D:resourcetype>` +
+        `<C:supported-calendar-component-set><C:comp name="VTODO"/><C:comp name="VEVENT"/></C:supported-calendar-component-set>` +
+        `<D:displayname>StudyCore-Tasks</D:displayname>` +
+        `</D:prop></D:set>` +
+        `</D:mkcol>`,
+      credentials: 'omit',
+    });
+    if (res.status < 300 || res.status === 405) {
+      // 405 = already exists, reuse it.
+      return tasksHref;
+    }
+    const detail = await res.text().catch(() => '');
+    console.error(`[todo-sync] MKCOL StudyCore-Tasks failed: ${res.status} ${detail.trim().slice(0, 200)}`);
+  } catch (err) {
+    console.error('[todo-sync] failed to create dedicated tasks calendar', err);
+  }
+  return null;
+}
+
+/** Local re-exports to keep this module's imports explicit. */
+
+/**
+ * Bidirectional sync for TODOs (CalDAV VTODO resources).
+ * Content-first reconcile like events: push unsynced local tasks, pull remote
+ * ones, adopt remote on conflict when the local copy has no unsynced edits.
+ */
+export async function syncTodos(
+  settings: UserSettings
+): Promise<{ pushed: number; updated: number; imported: number; errors: number }> {
+  const counters = { pushed: 0, updated: 0, imported: 0, errors: 0 };
+
+  const todoCollection = await resolveTodoCollection(settings);
+  if (!todoCollection) {
+    return { ...counters, errors: counters.errors + 1 };
+  }
+
+  let remote;
+  try {
+    remote = await fetchCalDavTodos(settings, todoCollection);
+  } catch (err) {
+    console.error('[todo-sync] failed to fetch remote todos', err);
+    return { ...counters, errors: counters.errors + 1 };
+  }
+
+  const remoteByUid = new Map<string, { href: string; etag: string; ics: string }>();
+  for (const item of remote.items) {
+    const task = vTodoToTask(item.ics);
+    if (task && task.uid && !remoteByUid.has(task.uid)) {
+      remoteByUid.set(task.uid, item);
+    }
+  }
+
+  const local = todoRepo.getAll();
+
+  const contentOf = (t: TodoTask) =>
+    JSON.stringify([t.title, t.description || null, t.important, t.urgent, t.dueDate || null, t.completed]);
+
+  // 1) Push local tasks that were never uploaded.
+  for (const t of local) {
+    if (t.etag) continue;
+    if (remoteByUid.has(t.uid)) continue;
+    try {
+      const { href, etag } = await putCalDavEvent(settings, todoToVTodo(t), t.uid, t.href, todoCollection);
+      todoRepo.update(t.id, { href, etag });
+      counters.pushed++;
+    } catch (err) {
+      counters.errors++;
+      console.error(`[todo-sync] failed to push task ${t.uid}`, err);
+    }
+  }
+
+  // 2) Reconcile + import; prune local tasks deleted on the server.
+  for (const t of local) {
+    const remoteItem = remoteByUid.get(t.uid);
+    if (!remoteItem) {
+      if (t.etag && (await probeCalDavEvent(settings, t.href || '')) === false) {
+        todoRepo.delete(t.id);
+        counters.updated++;
+      }
+      continue;
+    }
+    remoteByUid.delete(t.uid);
+    const remoteTask = vTodoToTask(remoteItem.ics);
+    if (!remoteTask) continue;
+
+    const sameContent = contentOf(t) === contentOf(remoteTask);
+    if (sameContent) {
+      if (t.etag !== remoteItem.etag || t.href !== remoteItem.href) {
+        todoRepo.update(t.id, { href: remoteItem.href, etag: remoteItem.etag });
+      }
+      continue;
+    }
+    // Local unsynced edit (no etag change since push is write-through) wins
+    // only when the server still holds our last upload; otherwise remote wins.
+    if (t.etag === remoteItem.etag) {
+      try {
+        const { href, etag } = await putCalDavEvent(settings, todoToVTodo(t), t.uid, t.href, todoCollection);
+        todoRepo.update(t.id, { href, etag });
+        counters.updated++;
+      } catch (err) {
+        counters.errors++;
+        console.error(`[todo-sync] failed to push edited task ${t.uid}`, err);
+      }
+    } else {
+      todoRepo.update(t.id, {
+        title: remoteTask.title,
+        description: remoteTask.description,
+        important: remoteTask.important,
+        urgent: remoteTask.urgent,
+        dueDate: remoteTask.dueDate,
+        completed: remoteTask.completed,
+        href: remoteItem.href,
+        etag: remoteItem.etag,
+      });
+      counters.updated++;
+    }
+  }
+
+  // 3) Import remaining remote tasks.
+  for (const [uid, item] of remoteByUid) {
+    const remoteTask = vTodoToTask(item.ics);
+    if (!remoteTask) continue;
+    todoRepo.create({
+      uid,
+      title: remoteTask.title,
+      description: remoteTask.description,
+      important: remoteTask.important,
+      urgent: remoteTask.urgent,
+      dueDate: remoteTask.dueDate,
+      completed: remoteTask.completed,
+      createdAt: remoteTask.createdAt,
+      href: item.href,
+      etag: item.etag,
+    });
+    counters.imported++;
+  }
+
+  return counters;
 }
