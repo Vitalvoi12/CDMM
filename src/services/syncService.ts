@@ -1,7 +1,7 @@
 import type { CalendarEvent, Subject, UserSettings, TodoTask } from '../types';
-import { eventRepo, tombstoneRepo, todoRepo } from './repositories';
+import { eventRepo, tombstoneRepo, todoRepo, subjectRepo } from './repositories';
 import { fetchCalDavEvents, fetchCalDavTodos, putCalDavEvent, deleteCalDavEvent, probeCalDavEvent, resolveCollectionForWrite, fetchSupportedComponents, discoverCalendars, collectionUrl, originOf, toRequestUrl, headers } from './caldavClient';
-import { parseIcs } from './ics';
+import { parseIcs, lineFold } from './ics';
 import { todoToVTodo, vTodoToTask } from './vtodo';
 
 export interface SyncResult {
@@ -40,7 +40,47 @@ export function resolveSubjectFromIcs(
   return fallbackId;
 }
 
-export function eventToCalDavIcs(event: CalendarEvent): string {
+/**
+ * Resolve the subject of a remote event WITHOUT inventing subjects[0] as a
+ * fallback: subject ids are device-local, so a foreign xSubject must never be
+ * applied blindly. Resolution order:
+ *   1. xSubject id exists locally -> use it;
+ *   2. X-STUDYCORE-SUBJECT-NAME (device-independent) matches by name -> use it;
+ *   3. event title matches a subject name -> use it;
+ *   4. ensure a subject with the carried name (or title) exists, creating it
+ *      when missing;
+ *   5. only when the remote event carries no subject identity at all ->
+ *      fallbackId.
+ */
+export function resolveSubjectStrict(
+  vevent: { summary?: string; xSubject?: string; xSubjectName?: string },
+  subjects: Subject[],
+  fallbackId: string,
+  ensureSubjectByName?: (name: string) => string
+): string {
+  if (vevent.xSubject && subjects.some((s) => s.id === vevent.xSubject)) {
+    return vevent.xSubject;
+  }
+  const carriedName = (vevent.xSubjectName || '').trim();
+  const titleName = vevent.summary?.trim() || '';
+
+  if (carriedName) {
+    const lower = carriedName.toLowerCase();
+    const byName = subjects.find((s) => s.name.trim().toLowerCase() === lower);
+    if (byName) return byName.id;
+    if (ensureSubjectByName) return ensureSubjectByName(carriedName);
+  }
+
+  // Title is only matched against EXISTING subjects — never creates new ones,
+  // otherwise arbitrary event titles would spawn subjects.
+  if (titleName) {
+    const byTitle = subjects.find((s) => s.name.trim().toLowerCase() === titleName.toLowerCase());
+    if (byTitle) return byTitle.id;
+  }
+  return fallbackId;
+}
+
+export function eventToCalDavIcs(event: CalendarEvent, subjectName?: string): string {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -54,11 +94,13 @@ export function eventToCalDavIcs(event: CalendarEvent): string {
   ];
   if (event.description) lines.push(`DESCRIPTION:${event.description}`);
   lines.push(`X-STUDYCORE-SUBJECT:${event.subjectId}`);
+  if (subjectName) lines.push(`X-STUDYCORE-SUBJECT-NAME:${lineFold(subjectName)}`);
   lines.push(`X-STUDYCORE-LOCALID:${event.id}`);
   lines.push('END:VEVENT');
   lines.push('END:VCALENDAR');
   return lines.join('\r\n');
 }
+
 
 function toContent(ev: { title: string; description?: string; start: string; end: string; subjectId: string }) {
   return {
@@ -88,7 +130,8 @@ function remoteContentOf(
   item: { ics: string },
   uid: string,
   subjects: Subject[],
-  fallbackSubjectId: string
+  fallbackSubjectId: string,
+  ensureSubjectByName?: (name: string) => string
 ): { title: string; description?: string; start: string; end: string; subjectId: string } | null {
   try {
     const parsed = parseIcs(item.ics);
@@ -99,7 +142,7 @@ function remoteContentOf(
       description: vevent.description,
       start: new Date(vevent.dtStart).toISOString(),
       end: new Date(vevent.dtEnd).toISOString(),
-      subjectId: resolveSubjectFromIcs(vevent, subjects, fallbackSubjectId),
+      subjectId: resolveSubjectStrict(vevent, subjects, fallbackSubjectId, ensureSubjectByName),
     };
   } catch {
     return null;
@@ -173,6 +216,25 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
   }
 
   const fallbackId = subjects[0]?.id || 'unknown';
+
+  const subjectNameOf = (ev: CalendarEvent): string | undefined =>
+    subjects.find((s) => s.id === ev.subjectId)?.name;
+
+  // Foreign device subject ids never map 1:1. When a remote event carries a
+  // subject name (X-STUDYCORE-SUBJECT-NAME or its title) unknown locally,
+  // create that subject instead of silently remapping to subjects[0].
+  const ensureSubjectByName = (name: string): string => {
+    const lower = name.trim().toLowerCase();
+    const existing = subjectRepo.getAll().find((s) => s.name.trim().toLowerCase() === lower);
+    if (existing) return existing.id;
+    const palette = ['#3f51b5', '#00897b', '#d32f2f', '#f57c00', '#7b1fa2', '#0277bd', '#2e7d32', '#c2185b'];
+    const created = subjectRepo.create({
+      name: name.trim(),
+      color: palette[Math.floor(Math.random() * palette.length)],
+    });
+    subjects.push(created);
+    return created.id;
+  };
 
   // 1) Apply tombstones: delete on server if still present, drop local copy.
   //    A uid may map to several server resources (duplicate uploads from older
@@ -248,7 +310,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       continue;
     }
     try {
-      const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href, await writeDirFor());
+      const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev, subjectNameOf(ev)), ev.uid, ev.href, await writeDirFor());
       eventRepo.update(ev.id, { href, etag, pushed: toContent(ev) });
       result.created++;
     } catch (err) {
@@ -264,7 +326,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
     const remoteItem = remoteItemByUid.get(ev.uid);
     if (!remoteItem) continue; // new local events (step 3) or deleted elsewhere (step 2)
 
-    const remoteContent = remoteContentOf(remoteItem, ev.uid, subjects, ev.subjectId);
+    const remoteContent = remoteContentOf(remoteItem, ev.uid, subjects, ev.subjectId, ensureSubjectByName);
     remoteItemByUid.delete(ev.uid);
     if (!remoteContent) {
       result.errors++;
@@ -287,7 +349,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       // The server still holds exactly what we last uploaded, so the diff is a
       // local-only change (move/resize/edit). Push it.
       try {
-        const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+        const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev, subjectNameOf(ev)), ev.uid, ev.href);
         eventRepo.update(ev.id, { href, etag, pushed: localContent });
         result.updated++;
       } catch (err) {
@@ -308,7 +370,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       result.updated++;
     } else {
       try {
-        const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev), ev.uid, ev.href);
+        const { href, etag } = await putCalDavEvent(settings, eventToCalDavIcs(ev, subjectNameOf(ev)), ev.uid, ev.href);
         eventRepo.update(ev.id, { href, etag, pushed: localContent });
         result.updated++;
       } catch (err) {
@@ -338,7 +400,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
         description: parsed.description,
         start: new Date(parsed.dtStart).toISOString(),
         end: new Date(parsed.dtEnd).toISOString(),
-        subjectId: resolveSubjectFromIcs(parsed, subjects, existing.subjectId),
+        subjectId: resolveSubjectStrict(parsed, subjects, existing.subjectId, ensureSubjectByName),
       };
       if (!sameContent(existing, mapped) || existing.etag !== item.etag) {
         eventRepo.update(existing.id, { ...mapped, href: item.href, etag: item.etag, pushed: mapped });
@@ -347,7 +409,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       continue;
     }
     const vevent = parsed;
-    const subjectId = resolveSubjectFromIcs(vevent, subjects, fallbackId);
+    const subjectId = resolveSubjectStrict(vevent, subjects, fallbackId, ensureSubjectByName);
     const localId =
       vevent.xLocalId && eventRepo.getById(vevent.xLocalId)
         ? vevent.xLocalId

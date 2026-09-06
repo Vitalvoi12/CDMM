@@ -6,6 +6,7 @@ export interface IcsVEvent {
   dtEnd: string;
   dtStamp?: string;
   xSubject?: string;
+  xSubjectName?: string;
   xLocalId?: string;
 }
 
@@ -68,6 +69,7 @@ export function parseIcs(text: string): IcsVEvent[] {
             dtEnd: parseIcsDateTime(end),
             dtStamp: current.DTSTAMP ? parseIcsDateTime(current.DTSTAMP) : undefined,
             xSubject: current['X-STUDYCORE-SUBJECT'],
+            xSubjectName: current['X-STUDYCORE-SUBJECT-NAME'],
             xLocalId: current['X-STUDYCORE-LOCALID'],
           });
         }
@@ -99,6 +101,7 @@ export function serializeVCalendar(events: IcsVEvent[]): string {
     if (ev.summary) lines.push(lineFold(`SUMMARY:${ev.summary}`));
     if (ev.description) lines.push(lineFold(`DESCRIPTION:${ev.description}`));
     if (ev.xSubject) lines.push(`X-STUDYCORE-SUBJECT:${ev.xSubject}`);
+    if (ev.xSubjectName) lines.push(`X-STUDYCORE-SUBJECT-NAME:${lineFold(ev.xSubjectName)}`);
     if (ev.xLocalId) lines.push(`X-STUDYCORE-LOCALID:${ev.xLocalId}`);
     lines.push('END:VEVENT');
   }
