@@ -58,6 +58,20 @@ export interface WeeklyStatistics {
 
 export type ThemeMode = 'light' | 'dark';
 
+export interface TodoTask {
+  id: string;
+  uid: string;
+  title: string;
+  description?: string;
+  important: boolean;
+  urgent: boolean;
+  dueDate?: string;
+  completed: boolean;
+  createdAt: string;
+  href?: string;
+  etag?: string;
+}
+
 export interface UserSettings {
   dailyGoalMinutes: number;
   theme: ThemeMode;

@@ -1,4 +1,4 @@
-import type { Subject, CalendarEvent, UserSettings } from '../types';
+import type { Subject, CalendarEvent, UserSettings, TodoTask } from '../types';
 
 const STORAGE_KEYS = {
   subjects: 'studytracker.subjects',
@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   settings: 'studytracker.settings',
   tombstones: 'studytracker.tombstones',
   lastSyncHash: 'studytracker.lastSyncHash',
+  todos: 'studytracker.todos',
 } as const;
 
 function load<T>(key: string, fallback: T): T {
@@ -57,6 +58,46 @@ class SubjectRepository {
     this.subjects = this.subjects.filter((s) => s.id !== id);
     save(STORAGE_KEYS.subjects, this.subjects);
     return this.subjects.length < before;
+  }
+}
+
+class TodoRepository {
+  private todos: TodoTask[] = load<TodoTask[]>(STORAGE_KEYS.todos, []);
+
+  getAll(): TodoTask[] {
+    return [...this.todos];
+  }
+
+  getById(id: string): TodoTask | undefined {
+    return this.todos.find((t) => t.id === id);
+  }
+
+  create(todo: Omit<TodoTask, 'id' | 'createdAt' | 'uid'> & { uid?: string; id?: string; createdAt?: string }): TodoTask {
+    const id = todo.id || `todo-${Date.now()}-${Math.round(Math.random() * 10000)}`;
+    const newTodo: TodoTask = {
+      ...todo,
+      id,
+      uid: todo.uid || `${id}@studycore`,
+      createdAt: todo.createdAt || new Date().toISOString(),
+    };
+    this.todos.push(newTodo);
+    save(STORAGE_KEYS.todos, this.todos);
+    return newTodo;
+  }
+
+  update(id: string, data: Partial<TodoTask>): TodoTask | undefined {
+    const idx = this.todos.findIndex((t) => t.id === id);
+    if (idx === -1) return undefined;
+    this.todos[idx] = { ...this.todos[idx], ...data };
+    save(STORAGE_KEYS.todos, this.todos);
+    return this.todos[idx];
+  }
+
+  delete(id: string): boolean {
+    const before = this.todos.length;
+    this.todos = this.todos.filter((t) => t.id !== id);
+    save(STORAGE_KEYS.todos, this.todos);
+    return this.todos.length < before;
   }
 }
 
@@ -168,3 +209,4 @@ export const subjectRepo = new SubjectRepository();
 export const eventRepo = new EventRepository();
 export const settingsRepo = new SettingsRepository();
 export const tombstoneRepo = new TombstoneRepository();
+export const todoRepo = new TodoRepository();

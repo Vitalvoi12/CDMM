@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 const navItems = [
   { path: '/', label: 'Calendar', icon: 'calendar_today' },
   { path: '/study', label: 'Study', icon: 'menu_book' },
+  { path: '/todo', label: 'Todo', icon: 'checklist' },
   { path: '/statistics', label: 'Stats', icon: 'bar_chart' },
   { path: '/subjects', label: 'Subjects', icon: 'category' },
   { path: '/settings', label: 'Settings', icon: 'settings' },
@@ -23,8 +24,8 @@ export function MobileNav() {
               }`
             }
           >
-            <span className="material-symbols-outlined text-[24px]">{item.icon}</span>
-            <span className="font-label-sm text-label-sm">{item.label}</span>
+            <span className="material-symbols-outlined max-lg:!text-[21px]">{item.icon}</span>
+            <span className="font-label-sm text-label-sm max-[400px]:!text-[10px]">{item.label}</span>
           </NavLink>
         ))}
       </div>
