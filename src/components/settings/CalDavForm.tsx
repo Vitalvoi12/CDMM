@@ -120,11 +120,11 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
     setMessage(null);
     const fullSettings = formSettings(settings, serverUrl, username, password, calendar);
     try {
-      const url = await createCalDavCalendar(fullSettings, 'StudyCore');
+      const url = await createCalDavCalendar(fullSettings, 'CDMM');
       setServerUrl(url.replace(/\/+$/, ''));
       setCalendar('default');
       setTestResult('success');
-      setMessage(`Calendar «StudyCore» created. Press Test Connection to confirm.`);
+      setMessage(`Calendar «CDMM» created. Press Test Connection to confirm.`);
       runDiscovery(formSettings(settings, url.replace(/\/+$/, ''), username, password, 'default'));
     } catch (err) {
       setTestResult('error');
@@ -263,7 +263,7 @@ export function CalDavForm({ settings, onSave }: CalDavFormProps) {
                   className="self-start px-6 py-2 bg-primary text-on-primary font-label-md text-label-md uppercase tracking-wider rounded hover:bg-tertiary-container transition-colors border border-primary flex items-center gap-2"
                 >
                   <span className="material-symbols-outlined text-[18px]">{creating ? 'progress_activity' : 'event_available'}</span>
-                  {creating ? 'Creating...' : 'Create calendar «StudyCore»'}
+                  {creating ? 'Creating...' : 'Create calendar «CDMM»'}
                 </button>
               )}
             </div>

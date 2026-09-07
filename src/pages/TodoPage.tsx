@@ -38,7 +38,7 @@ export function TodoPage() {
   // Write-through: every mutation is pushed to CalDAV immediately (best
   // effort); the periodic/full sync reconciles anything that failed here.
   // Tasks go to the resolved VTODO-capable collection (a dedicated
-  // 'StudyCore-Tasks' calendar is created when the main one is VEVENT-only).
+  // 'CDMM-Tasks' calendar is created when the main one is VEVENT-only).
   const todoCollectionRef = useRef<string | undefined>(undefined);
   const getTodoCollection = useCallback(async (): Promise<string | undefined> => {
     if (todoCollectionRef.current) return todoCollectionRef.current;

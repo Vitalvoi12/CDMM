@@ -77,7 +77,7 @@ class TodoRepository {
     const newTodo: TodoTask = {
       ...todo,
       id,
-      uid: todo.uid || `${id}@studycore`,
+      uid: todo.uid || `${id}@cdmm`,
       createdAt: todo.createdAt || new Date().toISOString(),
     };
     this.todos.push(newTodo);
@@ -117,7 +117,7 @@ class EventRepository {
     const newEvent: CalendarEvent = {
       ...event,
       id,
-      uid: event.uid || `evt-${id}@studycore`,
+      uid: event.uid || `evt-${id}@cdmm`,
     };
     this.events.push(newEvent);
     save(STORAGE_KEYS.events, this.events);

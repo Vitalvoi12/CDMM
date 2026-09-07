@@ -91,7 +91,7 @@ export function parseIcs(text: string): IcsVEvent[] {
 }
 
 export function serializeVCalendar(events: IcsVEvent[]): string {
-  const lines: string[] = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//StudyCore//Study Tracker//EN'];
+  const lines: string[] = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CDMM//Study Tracker//EN'];
   for (const ev of events) {
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${ev.uid}`);

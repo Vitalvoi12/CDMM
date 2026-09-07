@@ -6,7 +6,7 @@ interface ActiveSession {
   start: string;
 }
 
-const STORAGE_KEY = 'studycore-active-session';
+const STORAGE_KEY = 'cdmm-active-session';
 
 function loadSession(): ActiveSession | null {
   try {
@@ -46,7 +46,7 @@ export function useActiveSession() {
     if (!session) return null;
     const event: CalendarEvent = {
       id: String(Date.now()),
-      uid: `evt-${Date.now()}@studycore`,
+      uid: `evt-${Date.now()}@cdmm`,
       subjectId: session.subjectId,
       title: session.subjectId,
       start: session.start,

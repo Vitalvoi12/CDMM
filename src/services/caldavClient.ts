@@ -138,7 +138,7 @@ export async function resolveCollectionForWrite(settings: UserSettings): Promise
     const disc = await discoverCalendars(settings);
     if (disc.isCalendar) return collectionUrl(settings);
     const preferred =
-      disc.calendars.find((c) => /study|chronos|studycore|core/i.test(c.displayName || '')) ||
+      disc.calendars.find((c) => /study|chronos|studycore|cdmm|core/i.test(c.displayName || '')) ||
       disc.calendars[0];
     if (!preferred) return null;
     const abs = /^https?:\/\//.test(preferred.href)

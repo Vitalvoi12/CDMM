@@ -22,7 +22,7 @@ export function todoToVTodo(task: TodoTask): string {
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//StudyCore//Study Tracker//EN',
+    'PRODID:-//CDMM//Study Tracker//EN',
     'BEGIN:VTODO',
     `UID:${task.uid}`,
     `DTSTAMP:${basicIcsDate(new Date())}`,

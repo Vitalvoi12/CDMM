@@ -11,10 +11,12 @@ const navItems = [
 export function Sidebar() {
   return (
     <aside className="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant z-50 flex flex-col max-lg:hidden">
-      <div className="p-8 flex items-center gap-4 border-b border-outline-variant h-20">
-        <span className="material-symbols-outlined text-primary text-[28px]">school</span>
-        <span className="font-headline-md text-headline-md text-primary uppercase tracking-tighter">
-          StudyCore
+      <div className="px-8 flex flex-col justify-center gap-0.5 border-b border-outline-variant h-20">
+        <span className="text-[28px] leading-[32px] font-display-lg text-primary uppercase tracking-tighter">
+          CDMM
+        </span>
+        <span className="font-label-sm text-[10px] leading-[14px] text-on-surface-variant tracking-[0.22em] uppercase italic font-medium">
+          carpe diem, memento mori
         </span>
       </div>
       <nav className="flex-1 px-4 py-6 flex flex-col gap-1">

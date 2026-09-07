@@ -84,7 +84,7 @@ export function eventToCalDavIcs(event: CalendarEvent, subjectName?: string): st
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//StudyCore//Study Tracker//EN',
+    'PRODID:-//CDMM//Study Tracker//EN',
     'BEGIN:VEVENT',
     `UID:${event.uid}`,
     `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}`,
@@ -467,7 +467,7 @@ export async function deleteOnCalDav(settings: UserSettings, event: CalendarEven
  * Resolve where VTODO resources should be stored. The main calendar may be
  * VEVENT-only (Nextcloud default when created without an explicit
  * supported-calendar-component-set): PUT of a VTODO there fails with
- * InvalidComponentType. In that case a dedicated 'StudyCore-Tasks' calendar is
+ * InvalidComponentType. In that case a dedicated 'CDMM-Tasks' calendar is
  * created (once) in the calendar HOME (the parent of the configured calendar —
  * a calendar is not itself a home, MKCOL inside it fails with
  * InvalidResourceType) and used for todos.
@@ -481,13 +481,15 @@ export async function resolveTodoCollection(settings: UserSettings): Promise<str
   // <home>/<calendar> -> <home>; the last path segment is the collection name.
   const lastSlash = raw.lastIndexOf('/');
   const home = lastSlash > originOf(raw).length ? raw.slice(0, lastSlash) : raw;
-  const tasksUrl = `${home}/${encodeURIComponent('StudyCore-Tasks')}/`;
+  const tasksUrl = `${home}/${encodeURIComponent('CDMM-Tasks')}/`;
   const tasksHref = toRequestUrl(tasksUrl);
 
   // Prefer the dedicated tasks calendar when discovery can see it.
   try {
     const disc = await discoverCalendars(settings);
-    const existing = disc.calendars.find((c) => /studycore-tasks|studycore_tasks/i.test(c.href || c.displayName || ''));
+    const existing = disc.calendars.find((c) =>
+      /cdmm-tasks|cdmm_tasks|studycore-tasks|studycore_tasks/i.test(c.href || c.displayName || '')
+    );
     if (existing) {
       return /^https?:\/\//.test(existing.href)
         ? existing.href
@@ -507,7 +509,7 @@ export async function resolveTodoCollection(settings: UserSettings): Promise<str
         `<D:set><D:prop>` +
         `<D:resourcetype><D:collection/><C:calendar/></D:resourcetype>` +
         `<C:supported-calendar-component-set><C:comp name="VTODO"/><C:comp name="VEVENT"/></C:supported-calendar-component-set>` +
-        `<D:displayname>StudyCore-Tasks</D:displayname>` +
+        `<D:displayname>CDMM-Tasks</D:displayname>` +
         `</D:prop></D:set>` +
         `</D:mkcol>`,
       credentials: 'omit',
@@ -517,7 +519,7 @@ export async function resolveTodoCollection(settings: UserSettings): Promise<str
       return tasksHref;
     }
     const detail = await res.text().catch(() => '');
-    console.error(`[todo-sync] MKCOL StudyCore-Tasks failed: ${res.status} ${detail.trim().slice(0, 200)}`);
+    console.error(`[todo-sync] MKCOL CDMM-Tasks failed: ${res.status} ${detail.trim().slice(0, 200)}`);
   } catch (err) {
     console.error('[todo-sync] failed to create dedicated tasks calendar', err);
   }

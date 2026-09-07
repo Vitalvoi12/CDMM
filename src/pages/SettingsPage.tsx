@@ -38,7 +38,7 @@ export function SettingsPage() {
               <div className="mb-16 flex flex-col gap-2">
                 <h1 className="font-display-lg text-display-lg text-on-background">Integrations</h1>
                 <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
-                  Manage external services connected to StudyCore.
+                  Manage external services connected to CDMM.
                 </p>
               </div>
               <CalDavForm settings={settings} onSave={handleSave} />
