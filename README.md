@@ -1,4 +1,4 @@
-# StudyTracker (Chronos)
+# CDMM
 
 React + TypeScript + Vite calendar/study tracker with bidirectional CalDAV sync.
 
@@ -8,8 +8,8 @@ Prebuilt multi-arch images (`linux/arm64`, `linux/amd64`) are published to
 GHCR by CI on every push to `main`.
 
 ```sh
-git clone git@github.com:Vitalvoi12/StudyTracker.git
-cd StudyTracker
+git clone git@github.com:Vitalvoi12/CDMM.git
+cd CDMM
 # needed only while the GHCR package is private:
 docker login ghcr.io -u Vitalvoi12
 docker compose up -d
