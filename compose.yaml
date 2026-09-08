@@ -1,7 +1,7 @@
 services:
   cdmm:
     image: ghcr.io/vitalvoi12/cdmm:latest
-    pull_policy: newest
+    pull_policy: always
     container_name: cdmm
     restart: unless-stopped
     expose:
