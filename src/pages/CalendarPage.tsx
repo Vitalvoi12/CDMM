@@ -50,7 +50,7 @@ export function CalendarPage() {
   const settings = settingsRepo.get();
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [creatingEvent, setCreatingEvent] = useState<{ start: Date; kind: 'real' | 'plan' } | null>(null);
   const [dayPanel, setDayPanel] = useState<'timeline' | 'stats'>('timeline');
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
@@ -88,8 +88,15 @@ export function CalendarPage() {
     setEditingEvent(event);
   }, []);
 
+  const handleTimelineBackgroundClick = useCallback(
+    (start: Date, kind: 'real' | 'plan') => {
+      setCreatingEvent({ start, kind });
+    },
+    []
+  );
+
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan' }) => {
       if (editingEvent) {
         eventRepo.update(editingEvent.id, {
           subjectId: data.subjectId,
@@ -97,6 +104,7 @@ export function CalendarPage() {
           description: data.description,
           start: data.start.toISOString(),
           end: data.end.toISOString(),
+          kind: data.kind,
         });
       } else {
         eventRepo.create({
@@ -105,10 +113,11 @@ export function CalendarPage() {
           description: data.description,
           start: data.start.toISOString(),
           end: data.end.toISOString(),
+          kind: data.kind,
         });
       }
       setEditingEvent(null);
-      setCreatingEvent(false);
+      setCreatingEvent(null);
       refreshEvents();
     },
     [editingEvent, refreshEvents]
@@ -222,6 +231,7 @@ export function CalendarPage() {
                 onEventClick={handleEventClick}
                 onEventMove={handleEventMove}
                 onEventResize={handleEventResize}
+                onBackgroundClick={handleTimelineBackgroundClick}
               />
             </div>
           )
@@ -234,6 +244,7 @@ export function CalendarPage() {
               onEventClick={handleEventClick}
               onEventMove={handleEventMove}
               onEventResize={handleEventResize}
+              onBackgroundClick={handleTimelineBackgroundClick}
             />
             <StatsSidebar
               events={dayEvents}
@@ -271,7 +282,7 @@ export function CalendarPage() {
       {view === 'day' && (
         <div className="mt-auto pt-8 max-lg:pt-2 flex gap-4 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10">
           <button
-            onClick={() => setCreatingEvent(true)}
+            onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: 'plan' })}
             className="px-6 py-3 bg-surface-container-lowest border border-outline-variant text-on-background font-label-md text-label-md rounded hover:bg-surface-container-low transition-colors uppercase tracking-widest flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined text-[20px]">event</span>
@@ -293,10 +304,11 @@ export function CalendarPage() {
         <EventForm
           event={null}
           defaultSubjectId={subjects[0]?.id || ''}
-          defaultDate={currentDate}
+          defaultDate={creatingEvent.start}
+          defaultKind={creatingEvent.kind}
           subjects={subjects}
           onSave={handleEventSave}
-          onCancel={() => setCreatingEvent(false)}
+          onCancel={() => setCreatingEvent(null)}
         />
       )}
 
