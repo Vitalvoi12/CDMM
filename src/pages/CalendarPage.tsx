@@ -86,9 +86,7 @@ export function CalendarPage() {
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
     setEditingEvent(event);
-  }, []);
-
-  const handleTimelineBackgroundClick = useCallback(
+  }, []);  const handleTimelineBackgroundClick = useCallback(
     (start: Date, kind: 'real' | 'plan') => {
       setCreatingEvent({ start, kind });
     },
@@ -118,6 +116,7 @@ export function CalendarPage() {
       }
       setEditingEvent(null);
       setCreatingEvent(null);
+      setDragUndo(null);
       refreshEvents();
     },
     [editingEvent, refreshEvents]
@@ -131,13 +130,21 @@ export function CalendarPage() {
         void deleteOnCalDav(settings, event);
       }
       setEditingEvent(null);
+      setDragUndo(null);
       refreshEvents();
     },
     [settings, refreshEvents]
   );
 
+  // Snapshot of the event times before a drag/resize committed them, so the
+  // editor's Cancel can roll the change back.
+  const [dragUndo, setDragUndo] = useState<{ id: string; start: string; end: string } | null>(null);
+
   const handleEventMove = useCallback(
     (eventId: string, newStart: Date, newEnd: Date) => {
+      const before = eventRepo.getById(eventId);
+      if (!before) return;
+      setDragUndo({ id: eventId, start: before.start, end: before.end });
       eventRepo.update(eventId, { start: newStart.toISOString(), end: newEnd.toISOString() });
       refreshEvents();
     },
@@ -146,11 +153,24 @@ export function CalendarPage() {
 
   const handleEventResize = useCallback(
     (eventId: string, newEnd: Date) => {
+      const before = eventRepo.getById(eventId);
+      if (!before) return;
+      setDragUndo({ id: eventId, start: before.start, end: before.end });
       eventRepo.update(eventId, { end: newEnd.toISOString() });
       refreshEvents();
     },
     [refreshEvents]
   );
+
+  const handleEditorCancel = useCallback(() => {
+    // If this editor session followed a drag/resize, undo the committed change.
+    if (editingEvent && dragUndo && dragUndo.id === editingEvent.id) {
+      eventRepo.update(dragUndo.id, { start: dragUndo.start, end: dragUndo.end });
+      setDragUndo(null);
+      refreshEvents();
+    }
+    setEditingEvent(null);
+  }, [editingEvent, dragUndo, refreshEvents]);
 
   const renderToolbar = () => {
     if (isMobile) {
@@ -320,7 +340,7 @@ export function CalendarPage() {
           subjects={subjects}
           onSave={handleEventSave}
           onDelete={handleEventDelete}
-          onCancel={() => setEditingEvent(null)}
+          onCancel={handleEditorCancel}
         />
       )}
 
