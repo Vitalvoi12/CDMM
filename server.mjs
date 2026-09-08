@@ -121,5 +121,5 @@ const server = createServer((req, res) => {
 })
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`StudyTracker serving ${ROOT} on http://0.0.0.0:${PORT}`)
+  console.log(`CDMM serving ${ROOT} on http://0.0.0.0:${PORT}`)
 })

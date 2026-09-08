@@ -1,12 +1,12 @@
 import type { Subject, CalendarEvent, UserSettings, TodoTask } from '../types';
 
 const STORAGE_KEYS = {
-  subjects: 'studytracker.subjects',
-  events: 'studytracker.events',
-  settings: 'studytracker.settings',
-  tombstones: 'studytracker.tombstones',
-  lastSyncHash: 'studytracker.lastSyncHash',
-  todos: 'studytracker.todos',
+  subjects: 'cdmm.subjects',
+  events: 'cdmm.events',
+  settings: 'cdmm.settings',
+  tombstones: 'cdmm.tombstones',
+  lastSyncHash: 'cdmm.lastSyncHash',
+  todos: 'cdmm.todos',
 } as const;
 
 function load<T>(key: string, fallback: T): T {
