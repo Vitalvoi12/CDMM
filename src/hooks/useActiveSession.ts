@@ -51,6 +51,7 @@ export function useActiveSession() {
       title: session.subjectId,
       start: session.start,
       end: new Date().toISOString(),
+      updatedAt: Date.now(),
     };
     setSession(null);
     return event;

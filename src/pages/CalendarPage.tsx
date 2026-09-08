@@ -11,9 +11,8 @@ import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { useCalDavSync } from '../hooks/useCalDavSync';
-import { eventRepo, subjectRepo, settingsRepo } from '../services/repositories';
-import { deleteOnCalDav } from '../services/syncService';
+import { useSyncRefresh } from '../hooks/useServerSync';
+import { eventRepo, subjectRepo, tombstoneRepo, settingsRepo } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
 import type { CalendarEvent } from '../types';
 
@@ -47,7 +46,7 @@ export function CalendarPage() {
   }, [location.state]);
 
   const subjects = subjectRepo.getAll();
-  const settings = settingsRepo.get();
+  const [settings, setSettings] = useState(settingsRepo.get());
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [creatingEvent, setCreatingEvent] = useState<{ start: Date; kind: 'real' | 'plan' } | null>(null);
@@ -61,7 +60,12 @@ export function CalendarPage() {
 
   const refreshEvents = useCallback(() => setEvents(eventRepo.getAll()), []);
 
-  useCalDavSync(refreshEvents);
+  useSyncRefresh(
+    useCallback(() => {
+      refreshEvents();
+      setSettings(settingsRepo.get());
+    }, [refreshEvents])
+  );
 
   useEffect(() => {
     refreshEvents();
@@ -125,15 +129,13 @@ export function CalendarPage() {
   const handleEventDelete = useCallback(
     (id: string) => {
       const event = eventRepo.getById(id);
+      if (event) tombstoneRepo.add('events', event.id);
       eventRepo.delete(id);
-      if (event && settings.calDav.connected) {
-        void deleteOnCalDav(settings, event);
-      }
       setEditingEvent(null);
       setDragUndo(null);
       refreshEvents();
     },
-    [settings, refreshEvents]
+    [refreshEvents]
   );
 
   // Snapshot of the event times before a drag/resize committed them, so the

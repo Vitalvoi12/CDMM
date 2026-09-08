@@ -1,8 +1,6 @@
-import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
-import { settingsRepo, todoRepo } from '../services/repositories';
-import { putCalDavEvent, deleteCalDavEvent } from '../services/caldavClient';
-import { syncTodos, resolveTodoCollection } from '../services/syncService';
-import { todoToVTodo } from '../services/vtodo';
+import { useMemo, useRef, useState, useCallback } from 'react';
+import { todoRepo, tombstoneRepo } from '../services/repositories';
+import { useSyncRefresh } from '../hooks/useServerSync';
 import type { TodoTask } from '../types';
 import { QuadrantCard } from '../components/todo/QuadrantCard';
 import { QuadrantDialog } from '../components/todo/QuadrantDialog';
@@ -28,68 +26,9 @@ export function TodoPage() {
     { ii: null, ni: null, in: null, nn: null }
   );
 
-  const refresh = () => setTodos(todoRepo.getAll());
+  const refresh = useCallback(() => setTodos(todoRepo.getAll()), []);
 
-  const calDavEnabled = () => {
-    const s = settingsRepo.get();
-    return s.calDav.connected && !!s.calDav.serverUrl;
-  };
-
-  // Write-through: every mutation is pushed to CalDAV immediately (best
-  // effort); the periodic/full sync reconciles anything that failed here.
-  // Tasks go to the resolved VTODO-capable collection (a dedicated
-  // 'CDMM-Tasks' calendar is created when the main one is VEVENT-only).
-  const todoCollectionRef = useRef<string | undefined>(undefined);
-  const getTodoCollection = useCallback(async (): Promise<string | undefined> => {
-    if (todoCollectionRef.current) return todoCollectionRef.current;
-    try {
-      todoCollectionRef.current = (await resolveTodoCollection(settingsRepo.get())) || undefined;
-    } catch {
-      todoCollectionRef.current = undefined;
-    }
-    return todoCollectionRef.current;
-  }, []);
-
-  const pushTodo = useCallback(async (task: TodoTask) => {
-    if (!calDavEnabled()) return;
-    const settings = settingsRepo.get();
-    try {
-      const collection = await getTodoCollection();
-      const { href, etag } = await putCalDavEvent(settings, todoToVTodo(task), task.uid, task.href, collection);
-      todoRepo.update(task.id, { href, etag });
-    } catch (err) {
-      console.error(`[todo] failed to push task ${task.uid}`, err);
-    }
-  }, [getTodoCollection]);
-
-  const removeTodoRemote = useCallback(async (task: TodoTask) => {
-    if (!calDavEnabled()) return;
-    const settings = settingsRepo.get();
-    if (task.href) {
-      try {
-        await deleteCalDavEvent(settings, task.href);
-      } catch {
-        // already gone — fine
-      }
-    }
-  }, []);
-
-  // Pull remote todos when the page opens (deletes/edits made elsewhere).
-  const syncInFlight = useRef(false);
-  useEffect(() => {
-    if (!calDavEnabled() || syncInFlight.current) return;
-    syncInFlight.current = true;
-    void (async () => {
-      try {
-        const settings = settingsRepo.get();
-        await syncTodos(settings);
-        refresh();
-      } finally {
-        syncInFlight.current = false;
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useSyncRefresh(refresh);
 
   const byQuadrant = useMemo(() => {
     const map: Record<QuadrantKey, TodoTask[]> = { ii: [], ni: [], in: [], nn: [] };
@@ -109,17 +48,16 @@ export function TodoPage() {
   }, [todos]);
 
   const handleToggle = (id: string, completed: boolean) => {
-    const updated = todoRepo.update(id, { completed });
+    todoRepo.update(id, { completed });
     refresh();
-    if (updated) void pushTodo(updated);
   };
 
   const handleDelete = (id: string) => {
     const removed = todoRepo.getById(id);
+    if (removed) tombstoneRepo.add('todos', removed.id);
     todoRepo.delete(id);
     setFormState(null);
     refresh();
-    if (removed) void removeTodoRemote(removed);
   };
 
   const handleSave = (data: {
@@ -129,15 +67,13 @@ export function TodoPage() {
     urgent: boolean;
     dueDate?: string;
   }) => {
-    let saved: TodoTask | undefined;
     if (formState?.task) {
-      saved = todoRepo.update(formState.task.id, data);
+      todoRepo.update(formState.task.id, data);
     } else {
-      saved = todoRepo.create({ ...data, completed: false });
+      todoRepo.create({ ...data, completed: false });
     }
     setFormState(null);
     refresh();
-    if (saved) void pushTodo(saved);
   };
 
   const closeDialog = () => {

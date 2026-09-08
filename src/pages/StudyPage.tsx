@@ -1,6 +1,7 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTimer } from '../hooks/useTimer';
 import { useActiveSession } from '../hooks/useActiveSession';
+import { useSyncRefresh } from '../hooks/useServerSync';
 import { eventRepo, subjectRepo } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
@@ -15,6 +16,8 @@ export function StudyPage() {
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
 
   const refreshEvents = useCallback(() => setEvents(eventRepo.getAll()), []);
+
+  useSyncRefresh(refreshEvents);
 
   useEffect(() => {
     refreshEvents();

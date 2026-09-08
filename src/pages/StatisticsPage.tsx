@@ -1,3 +1,5 @@
+import { useReducer } from 'react';
+import { useSyncRefresh } from '../hooks/useServerSync';
 import { useStudyStatistics } from '../hooks/useStudyStatistics';
 import { formatDurationLong, formatDuration } from '../utils/time';
 import { StudyHeatmap } from '../components/stats/heatmap/StudyHeatmap';
@@ -7,6 +9,8 @@ import { SubjectTable } from '../components/stats/SubjectTable';
 const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function StatisticsPage() {
+  const [, forceRefresh] = useReducer((x: number) => x + 1, 0);
+  useSyncRefresh(forceRefresh);
   const {
     year,
     goToPrevYear,

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { subjectRepo } from '../services/repositories';
+import { subjectRepo, tombstoneRepo } from '../services/repositories';
+import { useSyncRefresh } from '../hooks/useServerSync';
 import type { Subject } from '../types';
 import { SubjectGrid } from '../components/subjects/SubjectGrid';
 import { SubjectForm } from '../components/subjects/SubjectForm';
@@ -10,6 +11,8 @@ export function SubjectsPage() {
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
 
   const refresh = useCallback(() => setSubjects(subjectRepo.getAll()), []);
+
+  useSyncRefresh(refresh);
 
   const handleAdd = useCallback(() => {
     setEditingSubject(null);
@@ -22,6 +25,7 @@ export function SubjectsPage() {
   }, []);
 
   const handleDelete = useCallback((id: string) => {
+    tombstoneRepo.add('subjects', id);
     subjectRepo.delete(id);
     setShowForm(false);
     setEditingSubject(null);

@@ -7,3 +7,4 @@ Dockerfile
 *.log
 .DS_Store
 backups
+data

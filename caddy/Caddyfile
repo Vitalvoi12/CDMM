@@ -1,0 +1,3 @@
+cdmm.vitalvoi.ru {
+	reverse_proxy cdmm:5173
+}

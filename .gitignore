@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Local SQLite data (test DB) — lives on the VPS in production
+data/
+
+# Caddy runtime state — only caddy/Caddyfile is tracked
+caddy/data/
+caddy/config/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -5,15 +5,8 @@ export interface Subject {
   icon?: string;
   modules?: number;
   progress?: number;
-}
-
-export interface EventContentSnapshot {
-  title: string;
-  description?: string;
-  start: string;
-  end: string;
-  subjectId: string;
-  kind: 'real' | 'plan';
+  /** Last local modification, ms epoch. Used for last-write-wins sync. */
+  updatedAt: number;
 }
 
 export interface CalendarEvent {
@@ -24,12 +17,10 @@ export interface CalendarEvent {
   description?: string;
   start: string;
   end: string;
-  href?: string;
-  etag?: string;
   /** 'real' (default) | 'plan'. undefined = 'real' for backward compat. */
   kind?: 'real' | 'plan';
-  /** Fields as they were the last time this copy was pushed to the server. */
-  pushed?: EventContentSnapshot;
+  /** Last local modification, ms epoch. Used for last-write-wins sync. */
+  updatedAt: number;
 }
 
 export interface StudySession {
@@ -71,21 +62,13 @@ export interface TodoTask {
   dueDate?: string;
   completed: boolean;
   createdAt: string;
-  href?: string;
-  etag?: string;
+  /** Last local modification, ms epoch. Used for last-write-wins sync. */
+  updatedAt: number;
 }
 
 export interface UserSettings {
   dailyGoalMinutes: number;
   theme: ThemeMode;
-  calDav: {
-    serverUrl: string;
-    username: string;
-    password: string;
-    calendar: string;
-    connected: boolean;
-    lastSync: string | null;
-  };
 }
 
 export type CalendarView = 'day' | '3day' | 'week' | 'month' | 'year';

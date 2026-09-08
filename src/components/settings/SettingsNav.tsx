@@ -5,8 +5,8 @@ interface SettingsNavProps {
 
 const sections = [
   { id: 'general', label: 'General' },
+  { id: 'account', label: 'Account' },
   { id: 'study-preferences', label: 'Study Preferences' },
-  { id: 'integrations', label: 'Integrations' },
   { id: 'notifications', label: 'Notifications' },
 ];
 

@@ -1,15 +1,23 @@
 import { createServer } from 'node:http'
-import { request as httpRequest } from 'node:http'
-import { request as httpsRequest } from 'node:https'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
+import { openDb } from './server/db.mjs'
+import { handleApi } from './server/api.mjs'
+import { cleanupExpiredSessions } from './server/auth.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, 'dist')
-const PORT = Number(process.env.PORT || 5173)
-const CALDAV_PREFIX = '/caldav/'
+// API_PORT is used in dev (vite proxies /api there); in prod PORT serves everything.
+const PORT = Number(process.env.API_PORT || process.env.PORT || 5173)
+const DATA_DIR = process.env.DATA_DIR || join(__dirname, 'data')
+
+const db = openDb(DATA_DIR)
+// Opportunistic cleanup of expired sessions (cheap, indexed delete).
+setInterval(() => {
+  try { cleanupExpiredSessions(db) } catch { /* ignore */ }
+}, 3600_000).unref()
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -34,51 +42,6 @@ const MIME = {
 function send(req, res, status, headers = {}, body = '') {
   res.writeHead(status, headers)
   res.end(body)
-}
-
-function caldavProxy(req, res, url) {
-  const rest = url.slice(CALDAV_PREFIX.length)
-  const slash = rest.indexOf('/')
-  const b64 = slash === -1 ? rest : rest.slice(0, slash)
-  const davPath = slash === -1 ? '/' : rest.slice(slash)
-
-  let targetOrigin = ''
-  try {
-    targetOrigin = Buffer.from(b64, 'base64url').toString('utf8')
-  } catch {
-    return send(req, res, 400, { 'Content-Type': 'text/plain' }, 'Bad proxy path')
-  }
-  if (!/^https?:\/\//.test(targetOrigin)) {
-    return send(req, res, 400, { 'Content-Type': 'text/plain' }, 'Bad proxy origin')
-  }
-
-  const target = new URL(targetOrigin + davPath)
-  const clientFn = target.protocol === 'https:' ? httpsRequest : httpRequest
-
-  const headers = {}
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (k === 'host') continue
-    // Nextcloud rejects write requests (PUT/DELETE) with a foreign Origin
-    // header (CSRF check) — strip browser context headers.
-    if (k === 'origin' || k === 'referer') continue
-    if (v !== undefined) headers[k] = v
-  }
-
-  const proxyReq = clientFn(
-    target,
-    { method: (req.method || 'GET').toUpperCase(), headers },
-    (proxyRes) => {
-      res.writeHead(proxyRes.statusCode || 502, proxyRes.headers)
-      proxyRes.pipe(res)
-    }
-  )
-
-  proxyReq.on('error', (err) => {
-    send(req, res, 502, { 'Content-Type': 'text/plain' }, `CalDAV proxy error: ${err.message}`)
-  })
-
-  if (req.pipe) req.pipe(proxyReq)
-  else proxyReq.end()
 }
 
 async function serveStatic(req, res, urlPath) {
@@ -116,7 +79,17 @@ async function serveStatic(req, res, urlPath) {
 
 const server = createServer((req, res) => {
   if (!req.url) return send(req, res, 400)
-  if (req.url.startsWith(CALDAV_PREFIX)) return caldavProxy(req, res, req.url)
+  const pathname = req.url.split('?')[0]
+  if (pathname.startsWith('/api/')) {
+    handleApi(db, req, res, pathname).catch((err) => {
+      console.error('[api]', err)
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' })
+        res.end(JSON.stringify({ error: 'Internal error' }))
+      }
+    })
+    return
+  }
   return serveStatic(req, res, req.url)
 })
 

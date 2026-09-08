@@ -1,8 +1,10 @@
 import { useState, useCallback } from 'react';
 import { settingsRepo } from '../services/repositories';
+import { getUsername, logoutRemote, clearSession } from '../services/auth';
+import { clearAllLocalData } from '../services/repositories';
 import { useTheme } from '../hooks/useTheme';
+import { useSyncRefresh } from '../hooks/useServerSync';
 import { SettingsNav } from '../components/settings/SettingsNav';
-import { CalDavForm } from '../components/settings/CalDavForm';
 import type { UserSettings, ThemeMode } from '../types';
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
@@ -10,10 +12,17 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
   { value: 'dark', label: 'Dark', hint: 'Deep surfaces, light text' },
 ];
 
-export function SettingsPage() {
+interface SettingsPageProps {
+  onLogout: () => void;
+}
+
+export function SettingsPage({ onLogout }: SettingsPageProps) {
   const [settings, setSettings] = useState<UserSettings>(settingsRepo.get());
-  const [activeSection, setActiveSection] = useState('integrations');
+  const [activeSection, setActiveSection] = useState('general');
   const { theme, setTheme } = useTheme();
+
+  const refreshSettings = useCallback(() => setSettings(settingsRepo.get()), []);
+  useSyncRefresh(refreshSettings);
 
   const handleSave = useCallback(
     (data: Partial<UserSettings>) => {
@@ -22,6 +31,13 @@ export function SettingsPage() {
     },
     []
   );
+
+  const handleLogout = useCallback(() => {
+    void logoutRemote();
+    clearSession();
+    clearAllLocalData();
+    onLogout();
+  }, [onLogout]);
 
   return (
     <div className="flex flex-col w-full h-full relative">
@@ -33,16 +49,28 @@ export function SettingsPage() {
           </div>
         </div>
         <div className="col-span-12 lg:col-span-8 lg:col-start-5">
-          {activeSection === 'integrations' && (
-            <>
-              <div className="mb-16 flex flex-col gap-2">
-                <h1 className="font-display-lg text-display-lg text-on-background">Integrations</h1>
-                <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
-                  Manage external services connected to CDMM.
-                </p>
+          {activeSection === 'account' && (
+            <div className="mb-16 flex flex-col gap-2">
+              <h1 className="font-display-lg text-display-lg text-on-background">Account</h1>
+              <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
+                Your data syncs across devices under this account.
+              </p>
+              <div className="mt-8 bg-surface-container-lowest border border-outline-variant rounded p-8 flex flex-col gap-6 max-w-xl">
+                <div className="flex flex-col gap-1">
+                  <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                    Username
+                  </span>
+                  <span className="font-body-lg text-body-lg text-on-surface">{getUsername() ?? '—'}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="self-start px-6 py-2 rounded bg-error text-on-error font-label-md text-label-md uppercase tracking-widest"
+                >
+                  Logout
+                </button>
               </div>
-              <CalDavForm settings={settings} onSave={handleSave} />
-            </>
+            </div>
           )}
           {activeSection === 'general' && (
             <div className="mb-16 flex flex-col gap-2">
