@@ -9,6 +9,11 @@ import {
   addDays,
 } from './time';
 
+/** True for real study events; plan events are excluded from statistics. */
+function isReal(e: CalendarEvent): boolean {
+  return e.kind !== 'plan';
+}
+
 export interface StudyHeatmapDay {
   date: string;
   totalMinutes: number;
@@ -51,7 +56,7 @@ export function calculateDailyStats(
   date: Date,
   subjectMinutes?: Record<string, number>
 ): DailyStatistics {
-  const dayEvents = getEventsForDate(events, date);
+  const dayEvents = getEventsForDate(events, date).filter(isReal);
   let totalMinutes = 0;
   const subjMinutes: Record<string, number> = subjectMinutes || {};
 
@@ -116,7 +121,7 @@ export function calculateWeeklyStats(
 
   for (let i = 0; i < 7; i++) {
     const day = addDays(weekStart, i);
-    const dayEvents = getEventsForDate(events, day);
+    const dayEvents = getEventsForDate(events, day).filter(isReal);
     let dayMins = 0;
     dayEvents.forEach((e) => {
       const mins = minutesBetween(e.start, e.end);
@@ -152,7 +157,7 @@ export function calculateSubjectStats(
   totalMinutes: number
 ): { subjectId: string; minutes: number; percentage: number }[] {
   const subjectMinutes: Record<string, number> = {};
-  events.forEach((e) => {
+  events.filter(isReal).forEach((e) => {
     subjectMinutes[e.subjectId] =
       (subjectMinutes[e.subjectId] || 0) + minutesBetween(e.start, e.end);
   });
@@ -182,7 +187,7 @@ export function buildYearHeatmap(events: CalendarEvent[], year: number): StudyHe
     totals.set(key, entry);
   };
 
-  for (const e of events) {
+  for (const e of events.filter(isReal)) {
     const startMs = new Date(e.start).getTime();
     const endMs = new Date(e.end).getTime();
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) continue;

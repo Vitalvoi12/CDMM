@@ -8,6 +8,7 @@ export interface IcsVEvent {
   xSubject?: string;
   xSubjectName?: string;
   xLocalId?: string;
+  xKind?: string;
 }
 
 export function basicIcsDate(date: Date): string {
@@ -71,6 +72,7 @@ export function parseIcs(text: string): IcsVEvent[] {
             xSubject: current['X-STUDYCORE-SUBJECT'],
             xSubjectName: current['X-STUDYCORE-SUBJECT-NAME'],
             xLocalId: current['X-STUDYCORE-LOCALID'],
+            xKind: current['X-STUDYCORE-KIND'],
           });
         }
       }
@@ -103,6 +105,7 @@ export function serializeVCalendar(events: IcsVEvent[]): string {
     if (ev.xSubject) lines.push(`X-STUDYCORE-SUBJECT:${ev.xSubject}`);
     if (ev.xSubjectName) lines.push(`X-STUDYCORE-SUBJECT-NAME:${lineFold(ev.xSubjectName)}`);
     if (ev.xLocalId) lines.push(`X-STUDYCORE-LOCALID:${ev.xLocalId}`);
+    if (ev.xKind) lines.push(`X-STUDYCORE-KIND:${ev.xKind}`);
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');

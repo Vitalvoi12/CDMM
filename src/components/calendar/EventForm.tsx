@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
+import { Toggle } from '../common/Toggle';
 
 interface EventFormProps {
   event: CalendarEvent | null;
   defaultSubjectId: string;
   defaultDate: Date;
+  defaultKind?: 'real' | 'plan';
   subjects: Subject[];
   onSave: (data: {
     subjectId: string;
@@ -12,6 +14,7 @@ interface EventFormProps {
     description?: string;
     start: Date;
     end: Date;
+    kind: 'real' | 'plan';
   }) => void;
   onDelete?: (id: string) => void;
   onCancel: () => void;
@@ -29,13 +32,14 @@ function combine(dateVal: string, timeVal: string): Date {
   return new Date(`${dateVal}T${timeVal}`);
 }
 
-export function EventForm({ event, defaultSubjectId, defaultDate, subjects, onSave, onDelete, onCancel }: EventFormProps) {
+export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 'plan', subjects, onSave, onDelete, onCancel }: EventFormProps) {
   const initialStart = event ? new Date(event.start) : new Date(defaultDate);
   const initialEnd = event
     ? new Date(event.end)
     : new Date(initialStart.getTime() + 60 * 60000);
 
   const [subjectId, setSubjectId] = useState(event?.subjectId || defaultSubjectId);
+  const [kind, setKind] = useState<'real' | 'plan'>(event?.kind || defaultKind);
   const [description, setDescription] = useState(event?.description || '');
   const [startDate, setStartDate] = useState(toLocalInputValue(initialStart, 'date'));
   const [startTime, setStartTime] = useState(toLocalInputValue(initialStart, 'time'));
@@ -57,6 +61,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, subjects, onSa
       description: description.trim() || undefined,
       start,
       end,
+      kind,
     });
   };
 
@@ -84,6 +89,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, subjects, onSa
               ))}
             </select>
           </div>
+          <Toggle
+            label={kind === 'plan' ? 'Planned' : 'Real'}
+            checked={kind === 'plan'}
+            onChange={(isPlan) => setKind(isPlan ? 'plan' : 'real')}
+          />
           <div className="flex flex-col gap-1">
             <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
               Description

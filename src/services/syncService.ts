@@ -96,32 +96,35 @@ export function eventToCalDavIcs(event: CalendarEvent, subjectName?: string): st
   lines.push(`X-STUDYCORE-SUBJECT:${event.subjectId}`);
   if (subjectName) lines.push(`X-STUDYCORE-SUBJECT-NAME:${lineFold(subjectName)}`);
   lines.push(`X-STUDYCORE-LOCALID:${event.id}`);
+  if (event.kind === 'plan') lines.push(`X-STUDYCORE-KIND:PLAN`);
   lines.push('END:VEVENT');
   lines.push('END:VCALENDAR');
   return lines.join('\r\n');
 }
 
 
-function toContent(ev: { title: string; description?: string; start: string; end: string; subjectId: string }) {
+function toContent(ev: { title: string; description?: string; start: string; end: string; subjectId: string; kind?: 'real' | 'plan' }) {
   return {
     title: ev.title,
     description: ev.description || undefined,
     start: ev.start,
     end: ev.end,
     subjectId: ev.subjectId,
+    kind: (ev.kind === 'plan' ? 'plan' : 'real') as 'real' | 'plan',
   };
 }
 
 function sameContent(
-  a: { title: string; description?: string; start: string; end: string; subjectId: string },
-  b: { title: string; description?: string; start: string; end: string; subjectId: string }
+  a: { title: string; description?: string; start: string; end: string; subjectId: string; kind?: 'real' | 'plan' },
+  b: { title: string; description?: string; start: string; end: string; subjectId: string; kind?: 'real' | 'plan' }
 ): boolean {
   return (
     a.title === b.title &&
     (a.description || undefined) === (b.description || undefined) &&
     a.start === b.start &&
     a.end === b.end &&
-    a.subjectId === b.subjectId
+    a.subjectId === b.subjectId &&
+    (a.kind === 'plan' ? 'plan' : 'real') === (b.kind === 'plan' ? 'plan' : 'real')
   );
 }
 
@@ -132,7 +135,7 @@ function remoteContentOf(
   subjects: Subject[],
   fallbackSubjectId: string,
   ensureSubjectByName?: (name: string) => string
-): { title: string; description?: string; start: string; end: string; subjectId: string } | null {
+): { title: string; description?: string; start: string; end: string; subjectId: string; kind: 'real' | 'plan' } | null {
   try {
     const parsed = parseIcs(item.ics);
     const vevent = parsed?.find((v) => v.uid === uid) || parsed?.[0] || null;
@@ -143,6 +146,7 @@ function remoteContentOf(
       start: new Date(vevent.dtStart).toISOString(),
       end: new Date(vevent.dtEnd).toISOString(),
       subjectId: resolveSubjectStrict(vevent, subjects, fallbackSubjectId, ensureSubjectByName),
+      kind: vevent.xKind === 'PLAN' ? 'plan' : 'real',
     };
   } catch {
     return null;
@@ -401,6 +405,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
         start: new Date(parsed.dtStart).toISOString(),
         end: new Date(parsed.dtEnd).toISOString(),
         subjectId: resolveSubjectStrict(parsed, subjects, existing.subjectId, ensureSubjectByName),
+        kind: parsed.xKind === 'PLAN' ? 'plan' as const : 'real' as const,
       };
       if (!sameContent(existing, mapped) || existing.etag !== item.etag) {
         eventRepo.update(existing.id, { ...mapped, href: item.href, etag: item.etag, pushed: mapped });
@@ -420,6 +425,7 @@ export async function syncAll(settings: UserSettings, subjects: Subject[]): Prom
       start: new Date(vevent.dtStart).toISOString(),
       end: new Date(vevent.dtEnd).toISOString(),
       subjectId,
+      kind: vevent.xKind === 'PLAN' ? 'plan' as const : 'real' as const,
     };
     eventRepo.create({
       id: localId,

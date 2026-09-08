@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TodoTask } from '../../types';
+import { Toggle } from '../common/Toggle';
 
 interface TodoFormProps {
   task: TodoTask | null;
@@ -20,37 +21,6 @@ function toInputValue(iso?: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function Toggle({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`flex items-center justify-between w-full px-4 py-3 rounded border transition-colors ${
-        checked
-          ? 'border-primary bg-surface-container'
-          : 'border-outline-variant bg-surface-container-lowest hover:border-outline'
-      }`}
-    >
-      <span className="font-label-md text-label-md text-on-surface">{label}</span>
-      <span
-        className={`material-symbols-outlined text-[20px] ${checked ? 'text-primary' : 'text-on-surface-variant'}`}
-      >
-        {checked ? 'toggle_on' : 'toggle_off'}
-      </span>
-    </button>
-  );
 }
 
 export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFormProps) {

@@ -13,6 +13,7 @@ export interface EventContentSnapshot {
   start: string;
   end: string;
   subjectId: string;
+  kind: 'real' | 'plan';
 }
 
 export interface CalendarEvent {
@@ -25,6 +26,8 @@ export interface CalendarEvent {
   end: string;
   href?: string;
   etag?: string;
+  /** 'real' (default) | 'plan'. undefined = 'real' for backward compat. */
+  kind?: 'real' | 'plan';
   /** Fields as they were the last time this copy was pushed to the server. */
   pushed?: EventContentSnapshot;
 }
