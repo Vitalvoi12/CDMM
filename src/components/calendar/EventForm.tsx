@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { Toggle } from '../common/Toggle';
 
@@ -45,11 +45,24 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
   const [startTime, setStartTime] = useState(toLocalInputValue(initialStart, 'time'));
   const [endDate, setEndDate] = useState(toLocalInputValue(initialEnd, 'date'));
   const [endTime, setEndTime] = useState(toLocalInputValue(initialEnd, 'time'));
+  const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Move focus inside the dialog so Enter/Escape/Delete work right away,
+    // even if the user hasn't clicked any field yet.
+    dialogRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const start = combine(startDate, startTime);
     const end = combine(endDate, endTime);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      setError('Set date and time');
+      return;
+    }
     if (end <= start) {
       alert('End time must be after start time');
       return;
@@ -65,16 +78,43 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      onCancel();
+    } else if (e.key === 'Enter' && (!(e.target instanceof HTMLTextAreaElement) || e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      formRef.current?.requestSubmit();
+    } else if (
+      e.key === 'Delete' &&
+      event &&
+      onDelete &&
+      !(e.target instanceof HTMLInputElement) &&
+      !(e.target instanceof HTMLTextAreaElement) &&
+      !(e.target instanceof HTMLSelectElement)
+    ) {
+      // Delete key removes the event only in edit mode and only when not
+      // typing in a field (there Delete edits text as usual).
+      e.preventDefault();
+      e.stopPropagation();
+      onDelete(event.id);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4" onClick={onCancel}>
       <div
-        className="bg-surface-container-lowest rounded-xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="bg-surface-container-lowest rounded-xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         <h2 className="font-headline-md text-headline-md text-on-surface mb-6">
           {event ? 'Edit Event' : 'New Study Event'}
         </h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
               Subject
@@ -114,7 +154,10 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               <input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setError(null);
+                }}
                 className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
               />
             </div>
@@ -125,7 +168,10 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               <input
                 type="time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => {
+                  setStartTime(e.target.value);
+                  setError(null);
+                }}
                 className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
               />
             </div>
@@ -136,7 +182,10 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setError(null);
+                }}
                 className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
               />
             </div>
@@ -147,11 +196,19 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               <input
                 type="time"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(e) => {
+                  setEndTime(e.target.value);
+                  setError(null);
+                }}
                 className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
               />
             </div>
           </div>
+          {error && (
+            <p role="alert" className="font-body-sm text-body-sm text-error">
+              {error}
+            </p>
+          )}
           <div className="flex gap-4 mt-2">
             {event && onDelete && (
               <button

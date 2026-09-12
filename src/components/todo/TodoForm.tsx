@@ -31,10 +31,18 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const [dueDate, setDueDate] = useState(toInputValue(task?.dueDate));
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    titleRef.current?.focus();
-  }, []);
+    if (task) {
+      // Edit mode: focus the dialog itself so Enter/Escape/Delete work
+      // right away; click into a field to edit text.
+      dialogRef.current?.focus({ preventScroll: true });
+    } else {
+      titleRef.current?.focus();
+    }
+  }, [task]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,22 +61,49 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      onCancel();
+    } else if (e.key === 'Enter' && (!(e.target instanceof HTMLTextAreaElement) || e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      formRef.current?.requestSubmit();
+    } else if (
+      e.key === 'Delete' &&
+      task &&
+      onDelete &&
+      !(e.target instanceof HTMLInputElement) &&
+      !(e.target instanceof HTMLTextAreaElement) &&
+      !(e.target instanceof HTMLSelectElement)
+    ) {
+      // Delete key removes the task only in edit mode and only when not
+      // typing in a field (there Delete edits text as usual).
+      e.preventDefault();
+      e.stopPropagation();
+      onDelete(task.id);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4"
       onClick={onCancel}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={task ? 'Edit task' : 'New task'}
-        className="bg-surface-container-lowest rounded-xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-surface-container-lowest rounded-xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         <h2 className="font-headline-md text-headline-md text-on-surface mb-6">
           {task ? 'Edit Task' : 'New Task'}
         </h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <label htmlFor="todo-title" className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
               Title
