@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { settingsRepo } from '../services/repositories';
-import { getUsername, logoutRemote, clearSession } from '../services/auth';
+import { getUsername, getToken, logoutRemote, clearSession } from '../services/auth';
 import { clearAllLocalData } from '../services/repositories';
+import { syncOnce } from '../services/serverSync';
 import { useTheme } from '../hooks/useTheme';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { SettingsNav } from '../components/settings/SettingsNav';
@@ -18,8 +20,19 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onLogout }: SettingsPageProps) {
   const [settings, setSettings] = useState<UserSettings>(settingsRepo.get());
-  const [activeSection, setActiveSection] = useState('general');
+  const [searchParams] = useSearchParams();
+  const [activeSection, setActiveSection] = useState(
+    searchParams.get('section') ?? 'general'
+  );
   const { theme, setTheme } = useTheme();
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section) setActiveSection(section);
+  }, [searchParams]);
 
   const refreshSettings = useCallback(() => setSettings(settingsRepo.get()), []);
   useSyncRefresh(refreshSettings);
@@ -38,6 +51,27 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
     clearAllLocalData();
     onLogout();
   }, [onLogout]);
+
+  const handleSync = useCallback(() => {
+    if (!getToken()) {
+      setSyncError('Not signed in');
+      return;
+    }
+    setSyncing(true);
+    setSyncMessage(null);
+    setSyncError(null);
+    void (async () => {
+      try {
+        await syncOnce();
+        setSettings(settingsRepo.get());
+        setSyncMessage(`Synced ${new Date().toLocaleTimeString()}`);
+      } catch (err) {
+        setSyncError(err instanceof Error ? err.message : 'Sync failed');
+      } finally {
+        setSyncing(false);
+      }
+    })();
+  }, []);
 
   return (
     <div className="flex flex-col w-full h-full relative">
@@ -62,13 +96,32 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                   </span>
                   <span className="font-body-lg text-body-lg text-on-surface">{getUsername() ?? '—'}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="self-start px-6 py-2 rounded bg-error text-on-error font-label-md text-label-md uppercase tracking-widest"
-                >
-                  Logout
-                </button>
+                <div className="flex flex-wrap items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="px-6 py-2 rounded bg-primary text-on-primary font-label-md text-label-md uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-[18px] ${syncing ? 'animate-spin' : ''}`}>
+                      sync
+                    </span>
+                    {syncing ? 'Syncing…' : 'Sync'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="px-6 py-2 rounded bg-error text-on-error font-label-md text-label-md uppercase tracking-widest"
+                  >
+                    Logout
+                  </button>
+                </div>
+                {syncMessage && (
+                  <p className="font-body-sm text-body-sm text-success">{syncMessage}</p>
+                )}
+                {syncError && (
+                  <p role="alert" className="font-body-sm text-body-sm text-error">{syncError}</p>
+                )}
               </div>
             </div>
           )}
@@ -147,6 +200,34 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                       />
                       <span className="font-body-md text-body-md text-on-surface-variant">min</span>
                     </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                    Synchronization
+                  </label>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={handleSync}
+                      disabled={syncing}
+                      className="px-6 py-2 rounded bg-primary text-on-primary font-label-md text-label-md uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <span className={`material-symbols-outlined text-[18px] ${syncing ? 'animate-spin' : ''}`}>
+                        sync
+                      </span>
+                      {syncing ? 'Syncing…' : 'Sync'}
+                    </button>
+                    {syncMessage && (
+                      <span className="font-body-sm text-body-sm text-success">{syncMessage}</span>
+                    )}
+                    {syncError && (
+                      <span role="alert" className="font-body-sm text-body-sm text-error">{syncError}</span>
+                    )}
+                  </div>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">
+                    Force push/pull all local changes right now.
+                  </p>
                 </div>
               </div>
             </div>

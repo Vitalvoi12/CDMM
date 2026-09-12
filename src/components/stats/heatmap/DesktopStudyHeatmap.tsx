@@ -52,6 +52,11 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
     return cells;
   }, [days, year]);
 
+  const todayKey = useMemo(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  }, []);
+
   const monthLabels = useMemo(() => {
     const labels: { col: number; label: string }[] = [];
     let lastMonth = -1;
@@ -112,16 +117,17 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
                 {Array.from({ length: 7 }, (_, row) => {
                   const cell = week[row];
                   if (!cell) return <div key={row} className="w-3 h-3" />;
+                  const isToday = cell.day.date === todayKey;
                   return (
                     <button
                       key={row}
                       type="button"
                       tabIndex={cell.inYear ? 0 : -1}
-                      aria-label={`${cell.day.date}: ${cell.day.totalMinutes} minutes, ${cell.day.sessionCount} sessions`}
+                      aria-label={`${cell.day.date}: ${cell.day.totalMinutes} minutes, ${cell.day.sessionCount} sessions${isToday ? ', today' : ''}`}
                       disabled={!cell.inYear}
                       className={`w-3 h-3 rounded-[3px] transition-transform ${heatmapCellClass(cell.level)} ${
                         !cell.inYear ? 'opacity-0 pointer-events-none' : 'hover:scale-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-                      }`}
+                      }${isToday && cell.inYear ? ' ring-2 ring-primary ring-offset-1 ring-offset-background' : ''}`}
                       onMouseEnter={(e) => showTooltip(cell, e)}
                       onMouseLeave={() => setHovered(null)}
                       onFocus={(e) => showTooltip(cell, e)}

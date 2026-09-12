@@ -7,7 +7,7 @@ interface SubjectGridProps {
 
 export function SubjectGrid({ subjects, onEdit }: SubjectGridProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-lg:gap-2 relative">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-lg:gap-2 max-lg:mt-[10px] relative">
       <div className="absolute -inset-4 bg-gradient-to-br from-surface-container to-transparent opacity-50 pointer-events-none rounded-xl" />
       {subjects.map((subject) => {
         const progress = subject.progress || 0;

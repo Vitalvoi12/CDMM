@@ -89,7 +89,7 @@ export function MobileStudyHeatmap({ days, year, onPrevYear, onNextYear }: Mobil
                     aria-label={`${cell.date}: ${cell.totalMinutes} minutes`}
                     className={`aspect-square w-full rounded-[2px] ${heatmapCellClass(level)} transition-transform ${
                       isSelected ? 'ring-2 ring-primary scale-110' : ''
-                    } ${isToday && !isSelected ? 'ring-1 ring-outline' : ''} active:scale-95`}
+                    } ${isToday && !isSelected ? 'ring-1 ring-primary' : ''} active:scale-95`}
                     onClick={() => setSelected(isSelected ? null : cell)}
                   />
                 );

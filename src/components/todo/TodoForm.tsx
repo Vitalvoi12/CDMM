@@ -29,6 +29,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const [important, setImportant] = useState(task?.important ?? defaults.important);
   const [urgent, setUrgent] = useState(task?.urgent ?? defaults.urgent);
   const [dueDate, setDueDate] = useState(toInputValue(task?.dueDate));
+  const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,6 +40,10 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
+    if (urgent && !dueDate) {
+      setError('Set date');
+      return;
+    }
     onSave({
       title: trimmed,
       description: description.trim() || undefined,
@@ -93,19 +98,35 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Toggle label="Important" checked={important} onChange={setImportant} />
-            <Toggle label="Urgent" checked={urgent} onChange={setUrgent} />
+            <Toggle
+              label="Urgent"
+              checked={urgent}
+              onChange={(v) => {
+                setUrgent(v);
+                if (!v) setError(null);
+              }}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="todo-due" className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-              Due Date
+              Due Date{urgent && <span className="text-error"> *</span>}
             </label>
             <input
               id="todo-due"
               type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+              onChange={(e) => {
+                setDueDate(e.target.value);
+                if (e.target.value) setError(null);
+              }}
+              aria-invalid={error ? true : undefined}
+              className={`w-full bg-surface-container-lowest border rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
             />
+            {error && (
+              <p role="alert" className="font-body-sm text-body-sm text-error">
+                {error}
+              </p>
+            )}
           </div>
           <div className="flex gap-4 mt-2">
             {task && onDelete && (

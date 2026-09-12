@@ -23,7 +23,7 @@ export function CurrentTimeIndicator({ startHour = 8, endHour = 24, hourHeight =
   if (!visible) return null;
 
   return (
-    <div className="absolute left-0 right-0 flex items-center z-10 -ml-[5px] pointer-events-none"
+    <div className="absolute left-0 right-0 flex items-center z-[5] max-lg:z-0 -ml-[5px] pointer-events-none"
       style={{ top: `${top}px` }}>
       <div className="w-[10px] h-[10px] rounded-full bg-primary border-2 border-surface-container-lowest" />
       <div className="h-px bg-primary w-full opacity-50" />
