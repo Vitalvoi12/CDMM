@@ -23,6 +23,11 @@ export interface CalendarEvent {
   end: string;
   /** 'real' (default) | 'plan'. undefined = 'real' for backward compat. */
   kind?: 'real' | 'plan';
+  /**
+   * Shared id linking occurrences of one repeating series.
+   * Absent/null = standalone event. null is sent to the server to clear it.
+   */
+  recurrenceId?: string | null;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;
 }

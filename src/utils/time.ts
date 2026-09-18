@@ -53,6 +53,55 @@ export function addDays(date: Date, days: number): Date {
   return d;
 }
 
+export function addMonths(date: Date, months: number): Date {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+export function addYears(date: Date, years: number): Date {
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + years);
+  return d;
+}
+
+export type RepeatFreq = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/**
+ * Expand a recurrence into concrete occurrences (inclusive of the base one).
+ * Capped at `max` items so a forgotten "until" can't explode storage.
+ */
+export function expandRecurrence(
+  start: Date,
+  end: Date,
+  freq: RepeatFreq,
+  until: Date,
+  max = 100
+): { start: Date; end: Date }[] {
+  if (freq === 'none') return [{ start, end }];
+  const out: { start: Date; end: Date }[] = [];
+  let curStart = new Date(start);
+  let curEnd = new Date(end);
+  const untilTime = until.getTime();
+  while (curStart.getTime() <= untilTime && out.length < max) {
+    out.push({ start: new Date(curStart), end: new Date(curEnd) });
+    if (freq === 'daily') {
+      curStart = addDays(curStart, 1);
+      curEnd = addDays(curEnd, 1);
+    } else if (freq === 'weekly') {
+      curStart = addDays(curStart, 7);
+      curEnd = addDays(curEnd, 7);
+    } else if (freq === 'monthly') {
+      curStart = addMonths(curStart, 1);
+      curEnd = addMonths(curEnd, 1);
+    } else {
+      curStart = addYears(curStart, 1);
+      curEnd = addYears(curEnd, 1);
+    }
+  }
+  return out.length > 0 ? out : [{ start, end }];
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&

@@ -12,7 +12,7 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view }: DateH
   const getViewTitle = () => {
     switch (view) {
       case 'day':
-        return formatFullDate(currentDate);
+        return currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
       case '3day': {
         const end = addDays(currentDate, 2);
         return `${currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${formatFullDate(end)}`;

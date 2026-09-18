@@ -10,6 +10,7 @@ import { StatisticsPage } from './pages/StatisticsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { getToken, clearSession, onUnauthorized } from './services/auth';
 import { clearAllLocalData } from './services/repositories';
+import { clearHistory, redo, undo } from './services/history';
 import { useServerSync } from './hooks/useServerSync';
 
 function Shell() {
@@ -30,10 +31,36 @@ export default function App() {
   const handleLogout = useCallback(() => {
     clearSession();
     clearAllLocalData();
+    clearHistory();
     setAuthed(false);
   }, []);
 
   useEffect(() => onUnauthorized(handleLogout), [handleLogout]);
+
+  // Global undo/redo: Ctrl+Z / Ctrl+Shift+Z (Cmd on macOS).
+  // Skipped inside text fields so native text undo keeps working there.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.code === 'KeyZ' && !e.shiftKey) {
+        if (undo()) e.preventDefault();
+      } else if ((e.code === 'KeyZ' && e.shiftKey) || e.code === 'KeyY') {
+        if (redo()) e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   if (!authed) {
     return <AuthPage onDone={() => setAuthed(true)} />;

@@ -18,7 +18,7 @@ export function StatsSidebar({ events, subjects, totalMinutes, dailyGoalMinutes 
   const goalPercent = Math.min(Math.round((totalMinutes / dailyGoalMinutes) * 100), 100);
 
   return (
-    <aside className="col-span-12 lg:col-span-4 flex flex-col gap-8 max-lg:gap-3 max-lg:mt-1">
+    <aside className="col-span-12 lg:col-span-4 flex flex-col gap-8 max-lg:gap-3 max-lg:mt-1 min-h-0 overflow-y-auto">
       {/* Total Time */}
       <div>
         <h2 className="font-label-sm text-label-sm max-lg:!text-[10px] text-on-surface-variant uppercase tracking-widest max-lg:tracking-normal mb-1">

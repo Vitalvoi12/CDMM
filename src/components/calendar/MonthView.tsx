@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { getMonthGrid, formatDayOfMonth, isSameDay } from '../../utils/time';
 import { getEventsForDate } from '../../utils/stats';
 import { minutesBetween } from '../../utils/time';
+import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 
 interface MonthViewProps {
   date: Date;
@@ -20,19 +21,30 @@ export function MonthView({ date, events, subjects, onDateSelect }: MonthViewPro
     subjects.forEach((s) => (m[s.id] = s));
     return m;
   }, [subjects]);
+  const weeks = Math.max(1, Math.ceil(grid.length / 7));
+  // Stretch the week rows to fill all free vertical space inside <main>.
+  const gridAnchorRef = useRef<HTMLDivElement>(null);
+  const availPx = useAvailableHeight(gridAnchorRef);
 
   return (
-    <div className="flex-1">
-      <div className="grid grid-cols-7 gap-px mb-4">
+    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+      <div className="grid grid-cols-7 gap-px mb-4 flex-shrink-0 sticky top-0 z-10 bg-background">
         {WEEKDAYS.map((day) => (
           <div key={day} className="py-2 text-center font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
             {day}
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-px">
+      <div
+        ref={gridAnchorRef}
+        className="flex-1 grid grid-cols-7 gap-px min-h-0"
+        style={{
+          gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))`,
+          minHeight: availPx > 0 ? `${availPx}px` : undefined,
+        }}
+      >
         {grid.map((d, i) => {
-          if (!d) return <div key={`empty-${i}`} className="min-h-[80px] bg-surface-container-low/30" />;
+          if (!d) return <div key={`empty-${i}`} className="min-h-[72px] bg-surface-container-low/30" />;
           const dayEvents = getEventsForDate(events, d);
           const totalMinutes = dayEvents.reduce((sum, e) => sum + minutesBetween(e.start, e.end), 0);
           const today = isSameDay(d, new Date());
@@ -40,7 +52,7 @@ export function MonthView({ date, events, subjects, onDateSelect }: MonthViewPro
             <button
               key={i}
               onClick={() => onDateSelect(d)}
-              className={`min-h-[80px] p-2 text-left transition-colors hover:bg-surface-container-low ${
+              className={`min-h-[72px] p-2 text-left overflow-hidden transition-colors hover:bg-surface-container-low ${
                 today ? 'bg-surface-container' : 'bg-surface-container-low/30'
               }`}
             >

@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { Toggle } from '../common/Toggle';
+import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
+
+export interface EventRecurrence {
+  freq: RepeatFreq;
+  until: Date;
+}
 
 interface EventFormProps {
   event: CalendarEvent | null;
@@ -15,8 +21,10 @@ interface EventFormProps {
     start: Date;
     end: Date;
     kind: 'real' | 'plan';
+    recurrence?: EventRecurrence;
   }) => void;
   onDelete?: (id: string) => void;
+  onDuplicate?: (id: string) => void;
   onCancel: () => void;
 }
 
@@ -35,7 +43,7 @@ function combine(dateVal: string, timeVal: string): Date {
 /** Select value meaning "a free-form plan event, not tied to any subject". */
 const CUSTOM_SUBJECT = '__custom__';
 
-export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 'plan', subjects, onSave, onDelete, onCancel }: EventFormProps) {
+export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 'plan', subjects, onSave, onDelete, onDuplicate, onCancel }: EventFormProps) {
   const initialStart = event ? new Date(event.start) : new Date(defaultDate);
   const initialEnd = event
     ? new Date(event.end)
@@ -57,9 +65,21 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
   const [startTime, setStartTime] = useState(toLocalInputValue(initialStart, 'time'));
   const [endDate, setEndDate] = useState(toLocalInputValue(initialEnd, 'date'));
   const [endTime, setEndTime] = useState(toLocalInputValue(initialEnd, 'time'));
+  const [repeat, setRepeat] = useState<RepeatFreq>('none');
+  const [repeatUntil, setRepeatUntil] = useState('');
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  const isNew = !event;
+
+  function defaultUntilFor(freq: RepeatFreq, base: Date): string {
+    if (freq === 'daily') return toLocalInputValue(addDays(base, 30), 'date');
+    if (freq === 'weekly') return toLocalInputValue(addDays(base, 84), 'date');
+    if (freq === 'monthly') return toLocalInputValue(addMonths(base, 12), 'date');
+    if (freq === 'yearly') return toLocalInputValue(addYears(base, 5), 'date');
+    return '';
+  }
 
   useEffect(() => {
     // Move focus inside the dialog so Enter/Escape/Delete work right away,
@@ -78,6 +98,19 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
     if (end <= start) {
       alert('End time must be after start time');
       return;
+    }
+    let recurrence: EventRecurrence | undefined;
+    if (isNew && repeat !== 'none') {
+      if (!repeatUntil) {
+        setError('Set repeat end date');
+        return;
+      }
+      const until = new Date(`${repeatUntil}T23:59:59`);
+      if (isNaN(until.getTime()) || until < start) {
+        setError('Repeat end must be after start');
+        return;
+      }
+      recurrence = { freq: repeat, until };
     }
     const isCustom = kind === 'plan' && subjectSel === CUSTOM_SUBJECT;
     let finalSubjectId: string;
@@ -106,6 +139,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
       start,
       end,
       kind,
+      recurrence,
     });
   };
 
@@ -262,6 +296,50 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               />
             </div>
           </div>
+          {isNew && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                  Repeat
+                </label>
+                <select
+                  value={repeat}
+                  onChange={(e) => {
+                    const next = e.target.value as RepeatFreq;
+                    setRepeat(next);
+                    setError(null);
+                    if (next !== 'none' && !repeatUntil) {
+                      const base = combine(startDate, startTime);
+                      const anchor = isNaN(base.getTime()) ? new Date() : base;
+                      setRepeatUntil(defaultUntilFor(next, anchor));
+                    }
+                  }}
+                  className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none appearance-none transition-colors cursor-pointer"
+                >
+                  <option value="none">Does not repeat</option>
+                  <option value="daily">Every day</option>
+                  <option value="weekly">Every week</option>
+                  <option value="monthly">Every month</option>
+                  <option value="yearly">Every year</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                  Repeat until
+                </label>
+                <input
+                  type="date"
+                  value={repeatUntil}
+                  disabled={repeat === 'none'}
+                  onChange={(e) => {
+                    setRepeatUntil(e.target.value);
+                    setError(null);
+                  }}
+                  className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors disabled:opacity-40"
+                />
+              </div>
+            </div>
+          )}
           {error && (
             <p role="alert" className="font-body-sm text-body-sm text-error">
               {error}
@@ -275,6 +353,15 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                 className="px-4 py-2 bg-error-container text-on-error-container rounded font-label-md text-label-md uppercase tracking-widest hover:opacity-80 transition-opacity"
               >
                 Delete
+              </button>
+            )}
+            {event && onDuplicate && (
+              <button
+                type="button"
+                onClick={() => onDuplicate(event.id)}
+                className="px-4 py-2 border border-outline-variant rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors uppercase tracking-widest"
+              >
+                Duplicate
               </button>
             )}
             <button

@@ -45,6 +45,7 @@ export function openDb(dir) {
       start TEXT NOT NULL DEFAULT '',
       end TEXT NOT NULL DEFAULT '',
       kind TEXT NOT NULL DEFAULT 'real',
+      recurrence_id TEXT,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
@@ -84,6 +85,12 @@ export function openDb(dir) {
     );
     CREATE INDEX IF NOT EXISTS idx_changelog_user_seq ON change_log(user_id, seq);
   `);
+  // Migration for DBs created before recurrence support: no-op when present.
+  try {
+    db.exec('ALTER TABLE events ADD COLUMN recurrence_id TEXT');
+  } catch {
+    // column already exists — ignore
+  }
   return db;
 }
 
@@ -145,7 +152,7 @@ function rowToPayload(entity, row) {
     return { id: row.id, name: row.name, color: row.color, icon: row.icon, progress: row.progress, updatedAt: row.updated_at };
   }
   if (entity === 'events') {
-    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, updatedAt: row.updated_at };
+    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, recurrenceId: row.recurrence_id || undefined, updatedAt: row.updated_at };
   }
   return {
     id: row.id, title: row.title, description: row.description,
@@ -157,14 +164,14 @@ function rowToPayload(entity, row) {
 
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
-  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind'],
+  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'completed', 'created_at'],
 };
 
 const FROM_CLIENT = {
   name: 'name', color: 'color', icon: 'icon', progress: 'progress',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
-  start: 'start', end: 'end', kind: 'kind',
+  start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id',
   important: 'important', urgent: 'urgent', dueDate: 'due_date', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
 };

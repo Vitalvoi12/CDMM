@@ -3,6 +3,7 @@ import { useTimer } from '../hooks/useTimer';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { eventRepo, subjectRepo } from '../services/repositories';
+import { checkpoint } from '../services/history';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { LiveSession } from '../components/study/LiveSession';
@@ -32,11 +33,10 @@ export function StudyPage() {
 
   const todayEvents = useMemo(() => getEventsForDate(events, new Date()), [events]);
 
-  const todayStats = useMemo(() => calculateDailyStats(events, new Date()), [events]);
-
-  const handleStop = useCallback(() => {
+  const todayStats = useMemo(() => calculateDailyStats(events, new Date()), [events]);  const handleStop = useCallback(() => {
     const event = stopSession();
     if (event) {
+      checkpoint('Stop session');
       eventRepo.create({
         subjectId: event.subjectId,
         title: event.title,
@@ -59,15 +59,26 @@ export function StudyPage() {
     [startSession]
   );
 
-  const todayTotalMinutes = useMemo(
-    () =>
-      todayEvents.filter((event) => event.kind !== 'plan').reduce((sum, e) => {
-        const start = new Date(e.start).getTime();
-        const end = new Date(e.end).getTime();
-        return sum + Math.round((end - start) / 60000);
-      }, 0),
-    [todayEvents]
-  );
+  // Today list: real sessions only — no planned events, no future events.
+  // Shows finished sessions, the ongoing stored session (if any), plus the
+  // running live session (if any). Total = past minutes + live elapsed.
+  const nowMs = Date.now();
+  const pastEvents = todayEvents
+    .filter((e) => e.kind !== 'plan' && new Date(e.start).getTime() <= nowMs)
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
+  const liveMinutes = isActive && startTime ? Math.floor(elapsed / 60000) : 0;
+
+  const todayTotalMinutes = useMemo(() => {
+    const now = Date.now();
+    let sum = liveMinutes;
+    for (const e of pastEvents) {
+      const start = new Date(e.start).getTime();
+      const end = new Date(e.end).getTime();
+      sum += end <= now ? Math.round((end - start) / 60000) : Math.max(0, Math.round((now - start) / 60000));
+    }
+    return sum;
+  }, [pastEvents, liveMinutes]);
 
   return (
     <div className="flex flex-1 w-full relative min-h-0 overflow-hidden">
@@ -84,10 +95,15 @@ export function StudyPage() {
         />
 
         <TodaySessions
-          events={todayEvents}
+          events={pastEvents}
           subjects={subjects}
           totalMinutes={todayTotalMinutes}
           currentEventId={todayStats.currentEvent?.id}
+          liveSession={
+            isActive && subjectId && startTime
+              ? { subjectId, start: startTime, elapsedMs: elapsed }
+              : null
+          }
         />
       </div>
 

@@ -36,8 +36,13 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
   const [dragOffset, setDragOffset] = useState<{ eventId: string; deltaY: number } | null>(null);
   const [resizeInfo, setResizeInfo] = useState<{ eventId: string; deltaY: number } | null>(null);
-  const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
-  const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
+  const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, moved: false, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
+  const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, moved: false, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
+  // Timestamp of the last drag/resize that actually moved the pointer: the
+  // browser still fires a click on mouse-up, and without this guard it would
+  // land on the background column and open the create form ("Add") right
+  // after the user just moved an event.
+  const lastDragEndRef = useRef(0);
 
   const subjectMap = useMemo(() => {
     const map: Record<string, Subject> = {};
@@ -92,6 +97,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       eventId: event.id,
       startY: e.clientY,
       deltaY: 0,
+      moved: false,
       eventStart: event.start,
       eventEnd: event.end,
       minDelta,
@@ -102,9 +108,23 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
 
     const onMove = (ev: MouseEvent) => {
       const delta = ev.clientY - dragRef.current.startY;
+      if (Math.abs(delta) > 4) dragRef.current.moved = true;
       const clamped = Math.max(dragRef.current.minDelta, Math.min(dragRef.current.maxDelta, delta));
-      dragRef.current.deltaY = clamped;
-      setDragOffset({ eventId: dragRef.current.eventId, deltaY: clamped });
+      // Snap DURING the drag, same as resize: jump in 15-minute steps
+      // instead of gliding smoothly.
+      const minsDelta = snapToGrid(Math.round(clamped * MINUTES_PER_PIXEL));
+      const { start } = shiftEventByMinutes(
+        dragRef.current.eventStart,
+        dragRef.current.eventEnd,
+        minsDelta,
+        START_HOUR,
+        END_HOUR
+      );
+      const snappedDelta =
+        ((start.getTime() - new Date(dragRef.current.eventStart).getTime()) / 60000) /
+        MINUTES_PER_PIXEL;
+      dragRef.current.deltaY = snappedDelta;
+      setDragOffset({ eventId: dragRef.current.eventId, deltaY: snappedDelta });
     };
 
     const onUp = () => {
@@ -113,6 +133,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
+      if (dragRef.current.moved) lastDragEndRef.current = Date.now();
       if (dragRef.current.eventId && onEventMove) {
         const minsDelta = snapToGrid(Math.round(dragRef.current.deltaY * MINUTES_PER_PIXEL));
         if (minsDelta !== 0) {
@@ -147,6 +168,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       eventId: event.id,
       startY: e.clientY,
       deltaY: 0,
+      moved: false,
       eventStart: event.start,
       eventEnd: event.end,
       minDelta,
@@ -157,9 +179,23 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
 
     const onMove = (ev: MouseEvent) => {
       const delta = ev.clientY - resizeRef.current.startY;
+      if (Math.abs(delta) > 4) resizeRef.current.moved = true;
       const clamped = Math.max(resizeRef.current.minDelta, Math.min(resizeRef.current.maxDelta, delta));
-      resizeRef.current.deltaY = clamped;
-      setResizeInfo({ eventId: resizeRef.current.eventId, deltaY: clamped });
+      // Snap DURING the drag: convert to 15-min steps first, then back to
+      // pixels, so the block jumps in fixed steps instead of gliding smoothly.
+      const minsDelta = snapToGrid(Math.round(clamped * MINUTES_PER_PIXEL));
+      const snappedEnd = shiftEventEndByMinutes(
+        resizeRef.current.eventEnd,
+        resizeRef.current.eventStart,
+        minsDelta,
+        END_HOUR,
+        SNAP
+      );
+      const snappedDelta =
+        ((snappedEnd.getTime() - new Date(resizeRef.current.eventEnd).getTime()) / 60000) /
+        MINUTES_PER_PIXEL;
+      resizeRef.current.deltaY = snappedDelta;
+      setResizeInfo({ eventId: resizeRef.current.eventId, deltaY: snappedDelta });
     };
 
     const onUp = () => {
@@ -168,6 +204,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
+      if (resizeRef.current.moved) lastDragEndRef.current = Date.now();
       if (resizeRef.current.eventId && onEventResize) {
         const minsDelta = snapToGrid(Math.round(resizeRef.current.deltaY * MINUTES_PER_PIXEL));
         if (minsDelta !== 0) {
@@ -191,6 +228,9 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const makeColumnTapHandler = useCallback(
     (kind: 'real' | 'plan') =>
       (e: React.MouseEvent) => {
+        // Ignore the click the browser fires right after a drag/resize ended
+        // over empty space — it is the tail of the move gesture, not a tap.
+        if (Date.now() - lastDragEndRef.current < 500) return;
         const rect = e.currentTarget.getBoundingClientRect();
         const minutes = snapToGrid(Math.round((e.clientY - rect.top) * MINUTES_PER_PIXEL));
         const clamped = Math.max(0, Math.min(minutes, TOTAL_HOURS * 60 - SNAP));
@@ -233,7 +273,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const planBlocks = eventBlocks.filter((b) => b.event.kind === 'plan');
 
   return (
-    <section className="col-span-12 lg:col-span-8 flex flex-col relative">
+    <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto">
       <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: '64px' }}>
         <div className="flex items-center justify-between mb-1 pl-4">
           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">Real</span>

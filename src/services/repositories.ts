@@ -33,7 +33,7 @@ function load<T>(key: string, fallback: T): T {
  * A phone reaching the dev server over LAN http://<ip> is NOT a secure
  * context, so fall back to a Math.random-based uuid v4 there.
  */
-function genId(): string {
+export function genId(): string {
   try {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID();

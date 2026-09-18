@@ -1,6 +1,8 @@
-import { useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { todoRepo, tombstoneRepo } from '../services/repositories';
 import { useSyncRefresh } from '../hooks/useServerSync';
+import { checkpoint } from '../services/history';
+import { dateKey } from '../utils/time';
 import type { TodoTask } from '../types';
 import { QuadrantCard } from '../components/todo/QuadrantCard';
 import { QuadrantDialog } from '../components/todo/QuadrantDialog';
@@ -30,6 +32,24 @@ export function TodoPage() {
 
   useSyncRefresh(refresh);
 
+  // Smart transition: an important but not urgent task with a due date
+  // automatically becomes urgent once its due day arrives (or is overdue).
+  // Persisted via the repo so sync and the edit form see urgent=true.
+  useEffect(() => {
+    const today = dateKey(new Date());
+    const toPromote = todos.filter(
+      (t) =>
+        t.important &&
+        !t.urgent &&
+        !t.completed &&
+        t.dueDate &&
+        dateKey(new Date(t.dueDate)) <= today
+    );
+    if (toPromote.length === 0) return;
+    for (const t of toPromote) todoRepo.update(t.id, { urgent: true });
+    refresh();
+  }, [todos, refresh]);
+
   const byQuadrant = useMemo(() => {
     const map: Record<QuadrantKey, TodoTask[]> = { ii: [], ni: [], in: [], nn: [] };
     for (const t of todos) {
@@ -48,13 +68,16 @@ export function TodoPage() {
   }, [todos]);
 
   const handleToggle = (id: string, completed: boolean) => {
+    checkpoint(completed ? 'Complete task' : 'Reopen task');
     todoRepo.update(id, { completed });
     refresh();
   };
 
   const handleDelete = (id: string) => {
     const removed = todoRepo.getById(id);
-    if (removed) tombstoneRepo.add('todos', removed.id);
+    if (!removed) return;
+    checkpoint('Delete task');
+    tombstoneRepo.add('todos', removed.id);
     todoRepo.delete(id);
     setFormState(null);
     refresh();
@@ -68,8 +91,10 @@ export function TodoPage() {
     dueDate?: string;
   }) => {
     if (formState?.task) {
+      checkpoint('Edit task');
       todoRepo.update(formState.task.id, data);
     } else {
+      checkpoint('Create task');
       todoRepo.create({ ...data, completed: false });
     }
     setFormState(null);

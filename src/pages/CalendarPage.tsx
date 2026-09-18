@@ -12,8 +12,12 @@ import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { eventRepo, subjectRepo, tombstoneRepo, settingsRepo } from '../services/repositories';
+import { eventRepo, subjectRepo, tombstoneRepo, settingsRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
+import { expandRecurrence } from '../utils/time';
+import type { EventRecurrence } from '../components/calendar/EventForm';
+import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
+import { checkpoint } from '../services/history';
 import type { CalendarEvent } from '../types';
 
 const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[] = [
@@ -23,6 +27,50 @@ const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[]
   { id: 'month', label: 'Month' },
   { id: 'year', label: 'Year' },
 ];
+
+/** Other occurrences of the same repeating series (empty for standalone events). */
+function getSeriesSiblings(event: CalendarEvent): CalendarEvent[] {
+  if (!event.recurrenceId) return [];
+  return eventRepo
+    .getAll()
+    .filter((e) => e.id !== event.id && e.recurrenceId && e.recurrenceId === event.recurrenceId)
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+}
+
+interface PendingRecurrence {
+  mode: 'save' | 'delete';
+  eventId: string;
+  /** Baseline start of the target at dialog-open (for the shift delta). */
+  targetStart: number;
+  /** Baseline end of the target at dialog-open (for duration changes). */
+  targetEnd: number;
+  /** Series mates at/after the target, snapshotted at dialog-open. */
+  followingIds: string[];
+  data: {
+    subjectId: string;
+    title: string;
+    description?: string;
+    start: Date;
+    end: Date;
+    kind: 'real' | 'plan';
+  } | null;
+}
+
+/** Ids of same-series occurrences at/after `targetStartMs` (excluding target id). */
+function followingIdsOf(target: CalendarEvent, targetStartMs: number): string[] {
+  if (!target.recurrenceId) return [];
+  return eventRepo
+    .getAll()
+    .filter(
+      (e) =>
+        e.id !== target.id &&
+        e.recurrenceId &&
+        e.recurrenceId === target.recurrenceId &&
+        new Date(e.start).getTime() >= targetStartMs
+    )
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    .map((e) => e.id);
+}
 
 export function CalendarPage() {
   const { currentDate, setCurrentDate, view, setView, goToToday, goToPrevious, goToNext } =
@@ -50,6 +98,16 @@ export function CalendarPage() {
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [creatingEvent, setCreatingEvent] = useState<{ start: Date; kind: 'real' | 'plan' } | null>(null);
+  const [pendingRecurrence, setPendingRecurrence] = useState<PendingRecurrence | null>(null);
+  // Snapshot of the event before a drag/resize committed it, so the editor's
+  // Cancel can roll the change back — and so a series-wide edit can measure
+  // its shift against the pre-drag time (not the already-moved repo copy).
+  const [dragUndo, setDragUndo] = useState<{
+    id: string;
+    start: string;
+    end: string;
+    recurrenceId?: string | null;
+  } | null>(null);
   const [dayPanel, setDayPanel] = useState<'timeline' | 'stats'>('timeline');
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
@@ -95,7 +153,17 @@ export function CalendarPage() {
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
     setEditingEvent(event);
-  }, []);  const handleTimelineBackgroundClick = useCallback(
+  }, []);
+
+  const handleDaySelect = useCallback(
+    (d: Date) => {
+      setCurrentDate(d);
+      setView('day');
+    },
+    [setCurrentDate, setView]
+  );
+
+  const handleTimelineBackgroundClick = useCallback(
     (start: Date, kind: 'real' | 'plan') => {
       setCreatingEvent({ start, kind });
     },
@@ -103,8 +171,44 @@ export function CalendarPage() {
   );
 
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan' }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; recurrence?: EventRecurrence }) => {
       if (editingEvent) {
+        const stored = eventRepo.getById(editingEvent.id);
+        const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
+        if (stored?.recurrenceId && series.length > 0) {
+          // Member of a repeating series — ask whether to touch one or many.
+          // Snapshot the series composition NOW so the pick below applies
+          // deterministically even if the repo changes while the dialog is open.
+          // Baseline the shift against the PRE-DRAG time when this editor
+          // session followed a drag/resize: the move is already committed to
+          // the repo copy, so measuring against it would yield a zero delta
+          // and the following occurrences would never move. Same for duration:
+          // a resize is already committed, so compare against pre-drag end.
+          // "Following" membership is also measured from the baseline: after a
+          // drag the target may sit exactly on (or past) a sibling that still
+          // belongs to its series tail (e.g. dropped onto day 2 onto the old
+          // day-2 occurrence) — judging by post-drag times would wrongly
+          // exclude it and leave it frozen.
+          const fromDrag = dragUndo && dragUndo.id === stored.id;
+          const targetStart = fromDrag
+            ? new Date(dragUndo.start).getTime()
+            : new Date(stored.start).getTime();
+          const targetEnd = fromDrag
+            ? new Date(dragUndo.end).getTime()
+            : new Date(stored.end).getTime();
+          setPendingRecurrence({
+            mode: 'save',
+            eventId: stored.id,
+            targetStart,
+            targetEnd,
+            followingIds: followingIdsOf(stored, targetStart),
+            data,
+          });
+          return;
+        }
+        // A post-drag editor session is covered by the drag's checkpoint —
+        // one Ctrl+Z must revert the whole move+edit gesture, not half of it.
+        if (!(dragUndo && dragUndo.id === editingEvent.id)) checkpoint('Edit event');
         eventRepo.update(editingEvent.id, {
           subjectId: data.subjectId,
           title: data.title,
@@ -113,7 +217,29 @@ export function CalendarPage() {
           end: data.end.toISOString(),
           kind: data.kind,
         });
+      } else if (data.recurrence && data.recurrence.freq !== 'none') {
+        const occurrences = expandRecurrence(
+          data.start,
+          data.end,
+          data.recurrence.freq,
+          data.recurrence.until
+        );
+        // Link occurrences into one series so later edits can target the group.
+        const recurrenceId = occurrences.length > 1 ? genId() : undefined;
+        checkpoint(occurrences.length > 1 ? `Create ${occurrences.length} events` : 'Create event');
+        for (const occ of occurrences) {
+          eventRepo.create({
+            subjectId: data.subjectId,
+            title: data.title,
+            description: data.description,
+            start: occ.start.toISOString(),
+            end: occ.end.toISOString(),
+            kind: data.kind,
+            recurrenceId,
+          });
+        }
       } else {
+        checkpoint('Create event');
         eventRepo.create({
           subjectId: data.subjectId,
           title: data.title,
@@ -128,32 +254,175 @@ export function CalendarPage() {
       setDragUndo(null);
       refreshEvents();
     },
-    [editingEvent, refreshEvents]
+    [editingEvent, dragUndo, refreshEvents]
   );
 
   const handleEventDelete = useCallback(
     (id: string) => {
       const event = eventRepo.getById(id);
-      if (event) tombstoneRepo.add('events', event.id);
+      if (!event) return;
+      if (event.recurrenceId && getSeriesSiblings(event).length > 0) {
+        // Member of a repeating series — ask whether to delete one or many.
+        // Membership from the pre-drag baseline, same as for save.
+        const fromDrag = dragUndo && dragUndo.id === event.id;
+        const targetStart = fromDrag
+          ? new Date(dragUndo.start).getTime()
+          : new Date(event.start).getTime();
+        setPendingRecurrence({
+          mode: 'delete',
+          eventId: event.id,
+          targetStart,
+          targetEnd: new Date(event.end).getTime(),
+          followingIds: followingIdsOf(event, targetStart),
+          data: null,
+        });
+        return;
+      }
+      checkpoint('Delete event');
+      tombstoneRepo.add('events', event.id);
       eventRepo.delete(id);
       setEditingEvent(null);
+      setDragUndo(null);
+      refreshEvents();
+    },
+    [refreshEvents, dragUndo]
+  );
+
+  /** Apply the scope chosen in the recurrence dialog, then close everything. */
+  const handleRecurrencePick = useCallback(
+    (scope: RecurrenceScope) => {
+      const pending = pendingRecurrence;
+      if (!pending) return;
+      // Resolve against the snapshot taken at dialog-open: whatever still
+      // exists gets updated, so a repo change behind the dialog can't result
+      // in a silent no-op. The shift delta is measured against the snapshot
+      // baseline (pre-drag when the editor followed a drag/resize), never
+      // against the possibly already-moved repo copy.
+      const target = eventRepo.getById(pending.eventId) || null;
+      const baseStartMs = pending.targetStart;
+      const following = pending.followingIds.flatMap((id) => {
+        const rec = eventRepo.getById(id);
+        return rec ? [rec] : [];
+      });
+      // A post-drag editor session is covered by the drag's checkpoint —
+      // one Ctrl+Z must revert the whole move+edit gesture, not half of it.
+      const precededByDrag = dragUndo != null && dragUndo.id === pending.eventId;
+      if (!precededByDrag) {
+        checkpoint(
+          pending.mode === 'delete'
+            ? (scope === 'following' ? `Delete ${following.length + (target ? 1 : 0)} events` : 'Delete event')
+            : (scope === 'following' ? `Edit ${following.length + (target ? 1 : 0)} events` : 'Edit event')
+        );
+      }
+
+      if (pending.mode === 'delete') {
+        const victims = scope === 'following'
+          ? [...(target ? [target] : []), ...following]
+          : [...(target ? [target] : [])];
+        for (const v of victims) {
+          tombstoneRepo.add('events', v.id);
+          eventRepo.delete(v.id);
+        }
+      } else if (pending.data) {
+        const data = pending.data;
+        if (scope === 'single') {
+          // Detach from the series so later series-wide edits skip it.
+          if (target) {
+            eventRepo.update(target.id, {
+              subjectId: data.subjectId,
+              title: data.title,
+              description: data.description,
+              start: data.start.toISOString(),
+              end: data.end.toISOString(),
+              kind: data.kind,
+              recurrenceId: null,
+            });
+          }
+        } else {
+          // Shift this and every later occurrence by the same delta,
+          // keeping each one's start offset; if the edit also changed the
+          // duration (resize), apply the new duration to all of them.
+          const deltaMs = data.start.getTime() - baseStartMs;
+          const newDurationMs = data.end.getTime() - data.start.getTime();
+          const oldDurationMs = pending.targetEnd - pending.targetStart;
+          const durationChanged = newDurationMs !== oldDurationMs;
+          if (target) {
+            eventRepo.update(target.id, {
+              subjectId: data.subjectId,
+              title: data.title,
+              description: data.description,
+              start: data.start.toISOString(),
+              end: data.end.toISOString(),
+              kind: data.kind,
+            });
+          }
+          for (const s of following) {
+            const shiftedStart = new Date(s.start).getTime() + deltaMs;
+            const shiftedEnd = durationChanged
+              ? shiftedStart + newDurationMs
+              : new Date(s.end).getTime() + deltaMs;
+            eventRepo.update(s.id, {
+              subjectId: data.subjectId,
+              title: data.title,
+              description: data.description,
+              start: new Date(shiftedStart).toISOString(),
+              end: new Date(shiftedEnd).toISOString(),
+              kind: data.kind,
+            });
+          }
+        }
+      }
+      setPendingRecurrence(null);
+      setEditingEvent(null);
+      setDragUndo(null);
+      refreshEvents();
+    },
+    [pendingRecurrence, dragUndo, refreshEvents]
+  );
+
+  const handleEventDuplicate = useCallback(
+    (id: string) => {
+      const source = eventRepo.getById(id);
+      if (!source) return;
+      checkpoint('Duplicate event');
+      const copy = eventRepo.create({
+        subjectId: source.subjectId,
+        title: source.title,
+        description: source.description,
+        start: source.start,
+        end: source.end,
+        kind: source.kind || 'plan',
+        // A copy starts its own life — never join the source's series.
+        recurrenceId: null,
+      });
+      // Open the copy so the new time can be adjusted right away.
+      setEditingEvent(copy);
       setDragUndo(null);
       refreshEvents();
     },
     [refreshEvents]
   );
 
-  // Snapshot of the event times before a drag/resize committed them, so the
-  // editor's Cancel can roll the change back.
-  const [dragUndo, setDragUndo] = useState<{ id: string; start: string; end: string } | null>(null);
-
   const handleEventMove = useCallback(
     (eventId: string, newStart: Date, newEnd: Date) => {
       const before = eventRepo.getById(eventId);
       if (!before) return;
-      setDragUndo({ id: eventId, start: before.start, end: before.end });
-      eventRepo.update(eventId, { start: newStart.toISOString(), end: newEnd.toISOString() });
+      setDragUndo({ id: eventId, start: before.start, end: before.end, recurrenceId: before.recurrenceId });
+      // Drag/resize moves only this occurrence but keeps its series link, so
+      // later series-wide edits still include it (a "following" edit shifts
+      // every occurrence by the same delta, preserving individual offsets).
+      // Detaching happens only via an explicit "Only this event" choice.
+      checkpoint('Move event');
+      eventRepo.update(eventId, {
+        start: newStart.toISOString(),
+        end: newEnd.toISOString(),
+      });
       refreshEvents();
+      // Open the editor explicitly with fresh data: relying on the mouse-up
+      // click is fragile (e.g. after shrinking, the cursor often ends up off
+      // the now-short block and the click lands on empty space instead).
+      const fresh = eventRepo.getById(eventId);
+      if (fresh) setEditingEvent(fresh);
     },
     [refreshEvents]
   );
@@ -162,9 +431,16 @@ export function CalendarPage() {
     (eventId: string, newEnd: Date) => {
       const before = eventRepo.getById(eventId);
       if (!before) return;
-      setDragUndo({ id: eventId, start: before.start, end: before.end });
-      eventRepo.update(eventId, { end: newEnd.toISOString() });
+      setDragUndo({ id: eventId, start: before.start, end: before.end, recurrenceId: before.recurrenceId });
+      checkpoint('Resize event');
+      eventRepo.update(eventId, {
+        end: newEnd.toISOString(),
+      });
       refreshEvents();
+      // Same as move: open explicitly so a release off the block still lands
+      // in the editor (a stray background click is suppressed in Timeline).
+      const fresh = eventRepo.getById(eventId);
+      if (fresh) setEditingEvent(fresh);
     },
     [refreshEvents]
   );
@@ -172,7 +448,11 @@ export function CalendarPage() {
   const handleEditorCancel = useCallback(() => {
     // If this editor session followed a drag/resize, undo the committed change.
     if (editingEvent && dragUndo && dragUndo.id === editingEvent.id) {
-      eventRepo.update(dragUndo.id, { start: dragUndo.start, end: dragUndo.end });
+      eventRepo.update(dragUndo.id, {
+        start: dragUndo.start,
+        end: dragUndo.end,
+        recurrenceId: dragUndo.recurrenceId,
+      });
       setDragUndo(null);
       refreshEvents();
     }
@@ -228,7 +508,7 @@ export function CalendarPage() {
     );
 
   return (
-    <div className="flex flex-col w-full h-full relative">
+    <div className="flex flex-col w-full h-full min-h-0 relative overflow-hidden">
       <DateHeader
         currentDate={currentDate}
         onPrev={goToPrevious}
@@ -264,7 +544,7 @@ export function CalendarPage() {
             </div>
           )
         ) : (
-          <div className="grid grid-cols-12 gap-16 flex-1 lg:pb-24">
+          <div className="grid grid-cols-12 gap-16 flex-1 min-h-0 lg:pb-24">
             <Timeline
               events={dayEvents}
               subjects={subjects}
@@ -285,11 +565,11 @@ export function CalendarPage() {
         ))}
 
       {view === '3day' && (
-        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventMove={handleEventMove} onEventResize={handleEventResize} />
+        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} />
       )}
 
       {view === 'week' && (
-        <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventMove={handleEventMove} onEventResize={handleEventResize} />
+        <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} />
       )}
 
       {view === 'month' && (
@@ -297,10 +577,7 @@ export function CalendarPage() {
           date={currentDate}
           events={events}
           subjects={subjects}
-          onDateSelect={(d) => {
-            setCurrentDate(d);
-            setView('day');
-          }}
+          onDateSelect={handleDaySelect}
         />
       )}
 
@@ -349,9 +626,32 @@ export function CalendarPage() {
           subjects={subjects}
           onSave={handleEventSave}
           onDelete={handleEventDelete}
+          onDuplicate={handleEventDuplicate}
           onCancel={handleEditorCancel}
         />
       )}
+
+      {pendingRecurrence &&
+        (() => {
+          const target = eventRepo.getById(pendingRecurrence.eventId);
+          const liveFollowing = pendingRecurrence.followingIds.flatMap((id) => {
+            const rec = eventRepo.getById(id);
+            return rec ? [rec] : [];
+          });
+          if (!target && liveFollowing.length === 0) return null;
+          const totalCount = target
+            ? getSeriesSiblings(target).length + 1
+            : liveFollowing.length;
+          return (
+            <RecurrenceScopeDialog
+              mode={pendingRecurrence.mode === 'save' ? 'edit' : 'delete'}
+              totalCount={totalCount}
+              followingCount={liveFollowing.length}
+              onPick={handleRecurrencePick}
+              onCancel={() => setPendingRecurrence(null)}
+            />
+          );
+        })()}
 
       {renderSubjectPicker()}
     </div>
