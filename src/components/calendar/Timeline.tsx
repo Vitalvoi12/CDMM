@@ -254,9 +254,6 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
             </div>
           ))}
 
-          {/* Current time indicator */}
-          {isToday(date) && <CurrentTimeIndicator startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />}
-
           {/* Gap indicators (real column only) */}
           {gapIndicators.map((gap, i) => (
             <div
@@ -291,6 +288,10 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           <div className="absolute right-0 top-0 bottom-0 w-1/2" onClick={makeColumnTapHandler('plan')}>
             {renderEventBlocks(planBlocks)}
           </div>
+
+          {/* Current time indicator — last in DOM so it paints above event
+              blocks and the live session block (see zIndex inside). */}
+          {isToday(date) && <CurrentTimeIndicator startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />}
         </div>
       </div>
     </section>
