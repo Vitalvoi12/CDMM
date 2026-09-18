@@ -480,7 +480,7 @@ export function CalendarPage() {
       );
     }
     return (
-      <div className="mb-8 flex gap-2 flex-wrap">
+      <div className="mb-4 flex gap-2 flex-wrap flex-shrink-0">
         {VIEWS.map((v) => (
         <button
           key={v.id}
@@ -508,7 +508,7 @@ export function CalendarPage() {
     );
 
   return (
-    <div className="flex flex-col w-full h-full min-h-0 relative overflow-hidden">
+    <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
       <DateHeader
         currentDate={currentDate}
         onPrev={goToPrevious}
@@ -521,7 +521,7 @@ export function CalendarPage() {
       {view === 'day' &&
         (isMobile ? (
           dayPanel === 'stats' ? (
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               <StatsSidebar
                 events={dayEvents}
                 subjects={subjects}
@@ -544,7 +544,7 @@ export function CalendarPage() {
             </div>
           )
         ) : (
-          <div className="grid grid-cols-12 gap-16 flex-1 min-h-0 lg:pb-24">
+          <div className="grid grid-cols-12 gap-16 flex-1 min-h-0 lg:pb-4">
             <Timeline
               events={dayEvents}
               subjects={subjects}

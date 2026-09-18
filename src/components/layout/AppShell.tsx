@@ -5,7 +5,7 @@ import { MobileNav } from './MobileNav';
 
 export function AppShell() {
   return (
-    <div className="min-h-dvh bg-background flex flex-col">
+    <div className="h-dvh bg-background flex flex-col overflow-hidden">
       <Sidebar />
       <TopHeader />
       <div className="pl-72 max-lg:pl-0 max-lg:pb-16 pt-20 max-lg:pt-0 flex flex-col flex-1 min-h-0">
