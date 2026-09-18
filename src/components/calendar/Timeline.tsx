@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useRef } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
 import { TimelineEvent } from './TimelineEvent';
+import { LiveEventBlock } from './LiveEventBlock';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { isToday } from '../../utils/time';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -10,6 +11,8 @@ interface TimelineProps {
   events: CalendarEvent[];
   subjects: Subject[];
   date: Date;
+  /** Running study session (start ISO + subject id) — rendered transiently in the Real column. */
+  activeSession?: { subjectId: string; start: string } | null;
   onEventClick?: (event: CalendarEvent) => void;
   onEventMove?: (eventId: string, newStart: Date, newEnd: Date) => void;
   onEventResize?: (eventId: string, newEnd: Date) => void;
@@ -26,7 +29,7 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function Timeline({ events, subjects, date, onEventClick, onEventMove, onEventResize, onBackgroundClick }: TimelineProps) {
+export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick }: TimelineProps) {
   const isMobile = useIsMobile();
   const TOTAL_HOURS = END_HOUR - START_HOUR;
   const HOUR_HEIGHT = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
@@ -270,6 +273,15 @@ export function Timeline({ events, subjects, date, onEventClick, onEventMove, on
           {/* Left column: real events */}
           <div className="absolute left-0 top-0 bottom-0 w-1/2" onClick={makeColumnTapHandler('real')}>
             {renderEventBlocks(realBlocks)}
+            {isToday(date) && activeSession && (
+              <LiveEventBlock
+                start={activeSession.start}
+                startHour={START_HOUR}
+                endHour={END_HOUR}
+                hourHeight={HOUR_HEIGHT}
+                subject={subjectMap[activeSession.subjectId]}
+              />
+            )}
           </div>
 
           {/* Divider between columns */}

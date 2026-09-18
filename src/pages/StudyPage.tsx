@@ -61,7 +61,7 @@ export function StudyPage() {
 
   const todayTotalMinutes = useMemo(
     () =>
-      todayEvents.reduce((sum, e) => {
+      todayEvents.filter((event) => event.kind !== 'plan').reduce((sum, e) => {
         const start = new Date(e.start).getTime();
         const end = new Date(e.end).getTime();
         return sum + Math.round((end - start) / 60000);

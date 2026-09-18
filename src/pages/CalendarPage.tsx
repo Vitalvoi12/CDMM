@@ -31,7 +31,7 @@ export function CalendarPage() {
   const location = useLocation();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
-  const { startSession } = useActiveSession();
+  const { startSession, isActive, subjectId, startTime } = useActiveSession();
   const navigate = useNavigate();
 
   // Deep link from the Statistics heatmap: jump to the tapped day.
@@ -53,6 +53,11 @@ export function CalendarPage() {
   const [dayPanel, setDayPanel] = useState<'timeline' | 'stats'>('timeline');
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
+
+  const activeSession = useMemo(
+    () => (isActive && subjectId && startTime ? { subjectId, start: startTime } : null),
+    [isActive, subjectId, startTime]
+  );
   const stats = useMemo(
     () => calculateDailyStats(events, currentDate),
     [events, currentDate]
@@ -250,6 +255,7 @@ export function CalendarPage() {
                 events={dayEvents}
                 subjects={subjects}
                 date={currentDate}
+                activeSession={activeSession}
                 onEventClick={handleEventClick}
                 onEventMove={handleEventMove}
                 onEventResize={handleEventResize}
@@ -263,6 +269,7 @@ export function CalendarPage() {
               events={dayEvents}
               subjects={subjects}
               date={currentDate}
+              activeSession={activeSession}
               onEventClick={handleEventClick}
               onEventMove={handleEventMove}
               onEventResize={handleEventResize}

@@ -14,6 +14,18 @@ const COLORS = [
   { value: '#5d4037', label: 'Brown' },
   { value: '#455a64', label: 'Blue Grey' },
   { value: '#00838f', label: 'Cyan' },
+  { value: '#cddc39', label: 'Lime' },
+  { value: '#8bc34a', label: 'Light Green' },
+  { value: '#fdd835', label: 'Yellow' },
+  { value: '#ffb300', label: 'Amber' },
+  { value: '#f4511e', label: 'Deep Orange' },
+  { value: '#ff8a65', label: 'Coral' },
+  { value: '#ec407a', label: 'Rose' },
+  { value: '#ce93d8', label: 'Lavender' },
+  { value: '#5e35b1', label: 'Deep Purple' },
+  { value: '#039be5', label: 'Sky Blue' },
+  { value: '#4db6ac', label: 'Mint' },
+  { value: '#9e9e9e', label: 'Grey' },
 ];
 
 interface SubjectFormProps {

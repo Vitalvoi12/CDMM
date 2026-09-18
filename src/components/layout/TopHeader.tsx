@@ -62,7 +62,7 @@ export function TopHeader() {
           <span className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
             <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
           </span>
-          <span className="font-label-sm text-label-sm text-on-surface-variant max-w-24 truncate leading-none">
+          <span className="font-label-sm text-label-sm text-on-surface-variant max-w-24 truncate leading-none -mt-[5px]">
             {username ?? 'Account'}
           </span>
         </button>
