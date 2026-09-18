@@ -57,22 +57,18 @@ export function TopHeader() {
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label="Account"
-          className="flex flex-col items-center gap-0.5 rounded p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="rounded px-2 py-1 font-body-lg text-body-lg font-bold text-on-surface max-w-48 truncate hover:bg-surface-container transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          <span className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
-          </span>
-          <span className="font-label-sm text-label-sm text-on-surface-variant max-w-24 truncate leading-none -mt-[5px]">
-            {username ?? 'Account'}
-          </span>
+          {username ?? 'Account'}
         </button>
 
         {open && (
-          <div
-            role="menu"
-            aria-label="Account"
-            className="absolute right-0 top-full mt-2 w-56 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl p-2 flex flex-col"
-          >
+          <div className="absolute right-0 top-full pt-2">
+            <div
+              role="menu"
+              aria-label="Account"
+              className="w-56 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl p-2 flex flex-col"
+            >
             <div className="px-4 py-3 border-b border-outline-variant mb-1">
               <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
                 Signed in as
@@ -99,6 +95,7 @@ export function TopHeader() {
               <span className="material-symbols-outlined text-[18px]">logout</span>
               Logout
             </button>
+            </div>
           </div>
         )}
       </div>

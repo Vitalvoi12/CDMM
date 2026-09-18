@@ -12,6 +12,10 @@ export interface Subject {
 export interface CalendarEvent {
   id: string;
   uid: string;
+  /**
+   * Subject id, or '' for custom plan events not tied to any subject.
+   * Only plan events may be subject-less; real events always have one.
+   */
   subjectId: string;
   title: string;
   description?: string;

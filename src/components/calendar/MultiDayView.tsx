@@ -163,6 +163,7 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
                 const endPx = timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT);
                 let height = Math.max(endPx - top, 16);
                 const subject = subjectMap[ev.subjectId];
+                const displayName = subject?.name || ev.title || 'Untitled';
                 const tiny = height < HOUR_HEIGHT * 0.5;
                 const plan = ev.kind === 'plan';
                 let visualTop = top;
@@ -178,14 +179,14 @@ export function MultiDayView({ date, days, events, subjects, onEventMove, onEven
                     <div className="absolute left-0 top-0 bottom-0 w-[5px]" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
                     {tiny ? (
                       <span className="font-label-sm text-label-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface truncate" style={{ color: subject?.color }}>
-                        {subject?.name}
+                        {displayName}
                       </span>
                     ) : (
                       <>
                         <div className="flex items-center gap-1">
                           <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
                           <span className="font-label-sm text-label-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface truncate">
-                            {subject?.name}
+                            {displayName}
                           </span>
                         </div>
                         {height > HOUR_HEIGHT * 0.67 && (

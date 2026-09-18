@@ -25,6 +25,8 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
     border: plan ? '1px dashed var(--color-outline-variant)' : undefined,
   };
 
+  const displayName = subject?.name || event.title || 'Untitled';
+
   const colorBar = subject?.color || "var(--color-on-surface-variant)";
 
   if (tiny) {
@@ -41,7 +43,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
         />
         <div className="flex items-center h-full pl-3 min-w-0">
           <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || "var(--color-on-surface)" }}>
-            {subject?.name || 'Unknown'}
+            {displayName}
           </span>
         </div>
       </div>
@@ -62,7 +64,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
         />
         <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">
           <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || "var(--color-on-surface)" }}>
-            {subject?.name || 'Unknown'}
+            {displayName}
           </span>
           <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
             {timeFromDate(event.start)} - {timeFromDate(event.end)}
@@ -86,7 +88,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
       <div className="flex justify-between items-start p-3 max-lg:pl-3 max-lg:pr-2 max-lg:pt-1.5 max-lg:pb-1.5 max-lg:gap-2 min-w-0">
         <div className="flex flex-col items-start gap-1 max-lg:gap-0.5 min-w-0">
           <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none font-bold truncate" style={{ color: subject?.color || "var(--color-on-surface)" }}>
-            {subject?.name || 'Unknown'}
+            {displayName}
           </span>
           {tall && event.description && (
             <p className="hidden lg:block font-body-sm text-body-sm text-on-surface-variant line-clamp-2">

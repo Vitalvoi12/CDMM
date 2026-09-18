@@ -50,7 +50,7 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId }
                     {String(i + 1).padStart(2, '0')}
                   </span>
                   <span className={`font-headline-md text-headline-md max-lg:!text-[13px] ${isCurrent ? 'text-primary' : 'text-primary-container'}`}>
-                    {subject?.name || event.subjectId}
+                    {subject?.name || event.title || 'Untitled'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

@@ -32,14 +32,26 @@ function combine(dateVal: string, timeVal: string): Date {
   return new Date(`${dateVal}T${timeVal}`);
 }
 
+/** Select value meaning "a free-form plan event, not tied to any subject". */
+const CUSTOM_SUBJECT = '__custom__';
+
 export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 'plan', subjects, onSave, onDelete, onCancel }: EventFormProps) {
   const initialStart = event ? new Date(event.start) : new Date(defaultDate);
   const initialEnd = event
     ? new Date(event.end)
     : new Date(initialStart.getTime() + 60 * 60000);
 
-  const [subjectId, setSubjectId] = useState(event?.subjectId || defaultSubjectId);
-  const [kind, setKind] = useState<'real' | 'plan'>(event?.kind || defaultKind);
+  const initialKind = event?.kind || defaultKind;
+  const [subjectSel, setSubjectSel] = useState<string>(() => {
+    const sid = event?.subjectId || defaultSubjectId;
+    if (sid && subjects.some((s) => s.id === sid)) return sid;
+    // Unknown/empty subject: heal into custom mode for plan events,
+    // fall back to the first subject for real events (they require one).
+    if (initialKind === 'plan') return CUSTOM_SUBJECT;
+    return subjects[0]?.id || '';
+  });
+  const [kind, setKind] = useState<'real' | 'plan'>(initialKind);
+  const [title, setTitle] = useState(event?.title || '');
   const [description, setDescription] = useState(event?.description || '');
   const [startDate, setStartDate] = useState(toLocalInputValue(initialStart, 'date'));
   const [startTime, setStartTime] = useState(toLocalInputValue(initialStart, 'time'));
@@ -67,10 +79,29 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
       alert('End time must be after start time');
       return;
     }
-    const subject = subjects.find((s) => s.id === subjectId);
+    const isCustom = kind === 'plan' && subjectSel === CUSTOM_SUBJECT;
+    let finalSubjectId: string;
+    let finalTitle: string;
+    if (isCustom) {
+      const t = title.trim();
+      if (!t) {
+        setError('Enter a title for the custom event');
+        return;
+      }
+      finalSubjectId = '';
+      finalTitle = t;
+    } else {
+      const subject = subjects.find((s) => s.id === subjectSel);
+      if (!subject) {
+        setError(subjects.length > 0 ? 'Pick a subject' : 'Create a subject first');
+        return;
+      }
+      finalSubjectId = subject.id;
+      finalTitle = subject.name;
+    }
     onSave({
-      subjectId,
-      title: subject?.name || subjectId,
+      subjectId: finalSubjectId,
+      title: finalTitle,
       description: description.trim() || undefined,
       start,
       end,
@@ -120,19 +151,46 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               Subject
             </label>
             <select
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
+              value={subjectSel}
+              onChange={(e) => setSubjectSel(e.target.value)}
               className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none appearance-none transition-colors cursor-pointer"
             >
+              {kind === 'plan' && (
+                <option value={CUSTOM_SUBJECT}>Custom event (no subject)</option>
+              )}
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>
+          {kind === 'plan' && subjectSel === CUSTOM_SUBJECT && (
+            <div className="flex flex-col gap-1">
+              <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                Title
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setError(null);
+                }}
+                placeholder="e.g. Dentist, Gym, Meeting"
+                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+              />
+            </div>
+          )}
           <Toggle
             label={kind === 'plan' ? 'Planned' : 'Real'}
             checked={kind === 'plan'}
-            onChange={(isPlan) => setKind(isPlan ? 'plan' : 'real')}
+            onChange={(isPlan) => {
+              const next = isPlan ? 'plan' : 'real';
+              setKind(next);
+              // Real events must be tied to a subject — leave custom mode.
+              if (next === 'real' && subjectSel === CUSTOM_SUBJECT) {
+                setSubjectSel(subjects[0]?.id || '');
+              }
+            }}
           />
           <div className="flex flex-col gap-1">
             <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
