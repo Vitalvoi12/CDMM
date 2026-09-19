@@ -1,5 +1,6 @@
 import type { CalendarEvent, Subject } from '../../types';
 import { timeFromDate } from '../../utils/time';
+import { contrastOn } from '../../utils/color';
 
 interface TimelineEventProps {
   event: CalendarEvent;
@@ -20,13 +21,15 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
 
   const color = subject?.color || 'var(--color-on-surface-variant)';
   const displayName = subject?.name || event.title || 'Untitled';
+  // Planned events are a solid subject-color fill — foreground picked for
+  // contrast so any subject color stays legible in any theme.
+  const fgStyle = plan ? { color: contrastOn(subject?.color || '#888888') } : undefined;
 
   const baseStyle: React.CSSProperties = plan
     ? {
         top: `${top}px`,
         height: `${height}px`,
-        backgroundColor: `${subject?.color || '#888888'}1f`,
-        border: `1px dashed ${subject?.color || 'var(--color-outline-variant)'}99`,
+        backgroundColor: subject?.color || '#888888',
       }
     : {
         top: `${top}px`,
@@ -35,9 +38,8 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
         border: '1px solid var(--color-outline-variant)',
       };
 
-  const shellClass = `absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded-lg overflow-hidden cursor-pointer group ${
-    plan ? 'plan-hatch' : ''
-  }`;
+  const shellClass =
+    'absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded-lg overflow-hidden cursor-pointer group';
 
   if (tiny) {
     return (
@@ -49,7 +51,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
           />
         )}
         <div className="flex items-center h-full pl-3 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface">
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface" style={fgStyle}>
             {displayName}
           </span>
         </div>
@@ -67,10 +69,10 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
           />
         )}
         <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface">
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface" style={fgStyle}>
             {displayName}
           </span>
-          <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
+          <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0" style={fgStyle}>
             {timeFromDate(event.start)} - {timeFromDate(event.end)}
           </span>
         </div>
@@ -88,16 +90,16 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
       )}
       <div className="flex justify-between items-start p-3 max-lg:pl-3 max-lg:pr-2 max-lg:pt-1.5 max-lg:pb-1.5 max-lg:gap-2 min-w-0">
         <div className="flex flex-col items-start gap-1 max-lg:gap-0.5 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none font-bold truncate text-on-surface">
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none font-bold truncate text-on-surface" style={fgStyle}>
             {displayName}
           </span>
           {tall && event.description && (
-            <p className="hidden lg:block font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+            <p className="hidden lg:block font-body-sm text-body-sm text-on-surface-variant line-clamp-2" style={fgStyle}>
               {event.description}
             </p>
           )}
         </div>
-        <span className="font-label-sm text-label-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-4">
+        <span className="font-label-sm text-label-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-4" style={fgStyle}>
           {timeFromDate(event.start)} - {timeFromDate(event.end)}
         </span>
       </div>
