@@ -19,13 +19,13 @@ export function MobileNav() {
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) =>
-              `flex flex-col items-center justify-center gap-1 px-1.5 py-1 transition-colors ${
+              `relative flex flex-col items-center justify-center gap-1 px-1.5 py-1 transition-colors ${
                 isActive ? 'text-primary' : 'text-on-surface-variant'
               }`
             }
           >
-            <span className="material-symbols-outlined max-lg:!text-[21px]">{item.icon}</span>
-            <span className="font-label-sm text-label-sm max-[400px]:!text-[10px]">{item.label}</span>
+            <span className="material-symbols-outlined max-lg:!text-[17px]">{item.icon}</span>
+            <span className="font-label-sm text-label-sm max-[400px]:!text-[8px] uppercase tracking-[0.08em]">{item.label}</span>
           </NavLink>
         ))}
       </div>

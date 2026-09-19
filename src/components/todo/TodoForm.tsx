@@ -96,16 +96,16 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
         role="dialog"
         aria-modal="true"
         aria-label={task ? 'Edit task' : 'New task'}
-        className="bg-surface-container-lowest rounded-xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
+        className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
         <h2 className="font-headline-md text-headline-md text-on-surface mb-6">
           {task ? 'Edit Task' : 'New Task'}
         </h2>
-        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label htmlFor="todo-title" className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="todo-title" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
               Title
             </label>
             <input
@@ -115,11 +115,11 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="todo-desc" className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="todo-desc" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
               Description
             </label>
             <textarea
@@ -128,7 +128,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional notes"
               rows={3}
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors resize-none"
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors resize-none placeholder:text-on-surface-variant/60"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -142,8 +142,8 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               }}
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="todo-due" className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+          <div className="flex flex-col gap-2">
+            <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
               Due Date{urgent && <span className="text-error"> *</span>}
             </label>
             <input
@@ -155,7 +155,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                 if (e.target.value) setError(null);
               }}
               aria-invalid={error ? true : undefined}
-              className={`w-full bg-surface-container-lowest border rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
+              className={`w-full bg-surface-container-low border rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
             />
             {error && (
               <p role="alert" className="font-body-sm text-body-sm text-error">
@@ -163,12 +163,12 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               </p>
             )}
           </div>
-          <div className="flex gap-4 mt-2">
+          <div className="flex gap-3 mt-1">
             {task && onDelete && (
               <button
                 type="button"
                 onClick={() => onDelete(task.id)}
-                className="px-4 py-2 bg-error-container text-on-error-container rounded font-label-md text-label-md uppercase tracking-widest hover:opacity-80 transition-opacity"
+                className="px-4 py-2.5 bg-error-container text-on-error-container rounded-xl font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
               >
                 Delete
               </button>
@@ -176,13 +176,13 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 py-2 border border-outline-variant rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors uppercase tracking-widest"
+              className="flex-1 py-2.5 border border-outline-variant rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-2 bg-primary text-on-primary rounded font-label-md text-label-md uppercase tracking-widest hover:opacity-90 transition-opacity"
+              className="flex-1 py-2.5 bg-primary text-on-primary rounded-xl font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
             >
               {task ? 'Save' : 'Add'}
             </button>

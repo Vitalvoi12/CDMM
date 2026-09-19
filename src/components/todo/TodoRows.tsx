@@ -1,17 +1,40 @@
 import type { TodoTask } from '../../types';
 import { TodoCheckbox } from './TodoCheckbox';
 
-function formatDue(iso: string): string {
+/** Relative day label for a due date (mockup style). Times are not shown:
+ *  stored due times are a fixed 18:00 placeholder, not real deadlines. */
+export function formatDueLabel(iso: string | undefined, completed: boolean): string | null {
+  if (!iso) return completed ? null : 'Someday';
   const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const diff = Math.round((day.getTime() - today.getTime()) / 86400000);
-  const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (diff < 0) return `${label} · overdue`;
-  if (diff === 0) return `${label} · today`;
-  if (diff === 1) return `${label} · tomorrow`;
-  return label;
+  if (!completed && d.getTime() < Date.now() && diff < 0) return 'Overdue';
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff > 1 && diff < 7) return d.toLocaleDateString('en-US', { weekday: 'short' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+export function isOverdue(task: TodoTask): boolean {
+  return !!task.dueDate && !task.completed && new Date(task.dueDate).getTime() < Date.now();
+}
+
+function DueLabel({ task }: { task: TodoTask }) {
+  const label = formatDueLabel(task.dueDate, task.completed);
+  if (!label) return null;
+  const overdue = isOverdue(task);
+  return (
+    <span
+      className={`font-label-sm text-label-sm flex-shrink-0 uppercase tracking-[0.1em] ${
+        overdue ? 'text-error' : 'text-on-surface-variant'
+      }`}
+    >
+      {label}
+    </span>
+  );
 }
 
 export function CompactTodoRow({
@@ -23,27 +46,26 @@ export function CompactTodoRow({
   onToggle: (id: string, completed: boolean) => void;
   onOpen: (task: TodoTask) => void;
 }) {
-  const overdue = !!task.dueDate && !task.completed && new Date(task.dueDate).getTime() < Date.now();
   return (
-    <div className="flex items-center gap-2 min-w-0 group/row">
+    <div
+      className={`flex items-center gap-3 min-w-0 border border-outline-variant rounded-xl px-4 py-3 transition-colors hover:border-outline ${
+        task.completed ? 'opacity-60' : ''
+      }`}
+    >
       <TodoCheckbox task={task} onToggle={onToggle} />
       <button
         type="button"
         onClick={() => onOpen(task)}
-        className="flex items-center gap-2 min-w-0 flex-1 text-left py-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="flex items-center gap-3 min-w-0 flex-1 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <span
-          className={`font-body-sm text-body-sm truncate min-w-0 ${
+          className={`font-body-md text-body-md truncate min-w-0 flex-1 ${
             task.completed ? 'line-through text-on-surface-variant' : 'text-on-surface'
           }`}
         >
           {task.title}
         </span>
-        {task.dueDate && !task.completed && (
-          <span className={`font-label-sm text-label-sm flex-shrink-0 ml-auto ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
-            {formatDue(task.dueDate)}
-          </span>
-        )}
+        <DueLabel task={task} />
       </button>
     </div>
   );
@@ -58,9 +80,9 @@ export function FullTodoRow({
   onToggle: (id: string, completed: boolean) => void;
   onOpen: (task: TodoTask) => void;
 }) {
-  const overdue = !!task.dueDate && !task.completed && new Date(task.dueDate).getTime() < Date.now();
+  const overdue = isOverdue(task);
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-outline-variant last:border-b-0 group/row">
+    <div className={`flex items-start gap-3 py-3 border-b border-outline-variant last:border-b-0 ${task.completed ? 'opacity-60' : ''}`}>
       <div className="pt-0.5">
         <TodoCheckbox task={task} onToggle={onToggle} />
       </div>
@@ -82,8 +104,8 @@ export function FullTodoRow({
           </span>
         )}
         {task.dueDate && (
-          <span className={`font-label-sm text-label-sm inline-block mt-1 ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
-            Due {new Date(task.dueDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          <span className={`font-label-sm text-label-sm inline-block mt-1 uppercase tracking-[0.1em] ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
+            {formatDueLabel(task.dueDate, task.completed)}
           </span>
         )}
       </button>

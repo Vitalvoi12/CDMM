@@ -7,7 +7,7 @@ export function HeatmapLegend() {
       {[0, 1, 2, 3, 4].map((level) => (
         <span
           key={level}
-          className={`w-3 h-3 rounded-[3px] ${heatmapCellClass(level as 0 | 1 | 2 | 3 | 4)}`}
+          className={`w-3 h-3 rounded-[2px] ${heatmapCellClass(level as 0 | 1 | 2 | 3 | 4)}`}
         />
       ))}
       <span className="font-label-sm text-label-sm text-on-surface-variant ml-1">More</span>

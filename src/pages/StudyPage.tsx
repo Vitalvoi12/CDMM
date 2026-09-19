@@ -59,6 +59,13 @@ export function StudyPage() {
     [startSession]
   );
 
+  const handleQuickStart = useCallback(
+    (id: string) => {
+      startSession(id);
+    },
+    [startSession]
+  );
+
   // Today list: real sessions only — no planned events, no future events.
   // Shows finished sessions, the ongoing stored session (if any), plus the
   // running live session (if any). Total = past minutes + live elapsed.
@@ -82,16 +89,16 @@ export function StudyPage() {
 
   return (
     <div className="flex flex-1 w-full relative min-h-0 overflow-hidden">
-      <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-outline-variant z-10 hidden 2xl:block" />
-
-      <div className="flex flex-col 2xl:flex-row w-full h-full relative min-h-0">
+      <div className="flex flex-col xl:flex-row w-full h-full relative min-h-0 overflow-y-auto">
         <LiveSession
           isActive={isActive}
           subjectName={subject?.name || ''}
           startTime={startTime || null}
           elapsed={elapsed}
+          subjects={subjects}
           onStop={isActive ? handleStop : undefined}
           onStart={!isActive ? handleStart : undefined}
+          onQuickStart={!isActive ? handleQuickStart : undefined}
         />
 
         <TodaySessions

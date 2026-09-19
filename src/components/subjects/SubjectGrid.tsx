@@ -6,51 +6,59 @@ interface SubjectGridProps {
 }
 
 export function SubjectGrid({ subjects, onEdit }: SubjectGridProps) {
+  if (subjects.length === 0) {
+    return (
+      <div className="border border-dashed border-outline-variant rounded-2xl py-14 px-4 flex flex-col items-center justify-center gap-2 text-center">
+        <span className="material-symbols-outlined text-[22px] text-on-surface-variant opacity-60">layers</span>
+        <p className="font-body-md text-body-md text-on-surface-variant">No subjects yet</p>
+      </div>
+    );
+  }
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-lg:gap-2 max-lg:mt-[10px] relative">
-      <div className="absolute -inset-4 bg-gradient-to-br from-surface-container to-transparent opacity-50 pointer-events-none rounded-xl" />
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-lg:gap-2 max-lg:mt-[8px] relative">
       {subjects.map((subject) => {
         const progress = subject.progress || 0;
         return (
           <div
             key={subject.id}
             onClick={() => onEdit(subject)}
-            className="relative bg-surface-container-lowest rounded-xl p-6 max-lg:p-3 shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-between group cursor-pointer overflow-hidden z-10"
+            className="relative bg-surface-container-lowest border border-outline-variant hover:border-outline rounded-2xl p-5 max-lg:p-3 transition-colors flex items-center justify-between gap-4 cursor-pointer group"
           >
-            <div
-              className="absolute inset-0 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"
-              style={{ backgroundColor: `${subject.color}0d` }}
-            />
-            <div className="flex items-center gap-6 max-lg:gap-3 relative z-10">
+            <div className="flex items-center gap-4 max-lg:gap-3 min-w-0">
               <div
-                className="w-3 h-3 max-lg:w-2 max-lg:h-2 rounded-full shadow-sm group-hover:scale-125 transition-transform duration-300"
+                className="w-3 h-3 max-lg:w-2.5 max-lg:h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: subject.color }}
               />
-              <div>
-                <h3 className="font-headline-md text-headline-md max-lg:!text-[13px] max-lg:leading-tight text-on-surface">{subject.name}</h3>
-                <p className="font-body-sm text-body-sm max-lg:!text-[10px] max-lg:mt-0 text-on-surface-variant mt-1 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px] max-lg:text-[10px]">{subject.icon || 'school'}</span>
-                  {subject.modules} modules
+              <div className="min-w-0">
+                <h3 className="font-body-lg text-body-lg max-lg:!text-[11px] max-lg:leading-tight text-on-surface font-medium truncate">{subject.name}</h3>
+                <p className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant mt-1 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[11px] max-lg:text-[8px]">{subject.icon || 'school'}</span>
+                  {subject.modules ?? 0} modules
                 </p>
               </div>
             </div>
-            <div className="relative w-12 h-12 max-lg:w-7 max-lg:h-7 z-10">
-              <svg className="w-full h-full transform -rotate-90 text-surface-container-high" viewBox="0 0 36 36">
-                <path
-                  className="stroke-current"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  strokeWidth="3"
-                />
-                <path
-                  className="drop-shadow-sm"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke={subject.color}
-                  strokeDasharray={`${progress}, 100`}
-                  strokeWidth="3"
-                />
-              </svg>
+            <div className="flex items-center gap-3 max-lg:gap-2 flex-shrink-0">
+              <div className="relative w-12 h-12 max-lg:w-8 max-lg:h-8">
+                <svg className="w-full h-full transform -rotate-90 text-surface-container-high" viewBox="0 0 36 36">
+                  <path
+                    className="stroke-current"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    strokeWidth="3"
+                  />
+                  <path
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke={subject.color}
+                    strokeDasharray={`${progress}, 100`}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              <span className="material-symbols-outlined text-[16px] max-lg:text-[13px] text-on-surface-variant group-hover:text-on-surface group-hover:translate-x-0.5 transition-all">
+                chevron_right
+              </span>
             </div>
           </div>
         );

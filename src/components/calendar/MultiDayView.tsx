@@ -1,7 +1,8 @@
 import { useMemo, useCallback, useRef, useState } from 'react';
-import type { CalendarEvent, Subject } from '../../types';
+import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { getEventsForDate } from '../../utils/stats';
-import { addDays, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
+import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
+import { bodyZoom } from '../../utils/zoom';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 
@@ -15,15 +16,18 @@ interface MultiDayViewProps {
   onEventResize?: (eventId: string, newEnd: Date) => void;
   onDateSelect?: (date: Date) => void;
   onBackgroundClick?: (start: Date, kind: 'real' | 'plan') => void;
+  /** Which kinds to show: 'all' (default) splits each day into Real|Plan
+      halves, 'real'/'plan' renders each day as a single full-width column. */
+  mode?: EventFilter;
 }
 
 const START_HOUR = 5;
 const END_HOUR = 24;
 const HOUR_HEIGHT_DESKTOP = 48;
-/** Upper bound for the stretch-to-fill hour height (× base). */
-const MAX_STRETCH = 2.5;
-/** Lower bound: below this the grid scrolls instead of compressing further. */
-const MIN_HOUR_HEIGHT = 30;
+/** Lower bound: below this the grid scrolls instead of compressing further.
+ *  No upper bound — the grid must reach the bottom of the screen at any
+ *  window height. */
+const MIN_HOUR_HEIGHT = 24;
 const MOBILE_SCALE = 2.5;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SNAP = 15;
@@ -32,20 +36,20 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function MultiDayView({ date, days, events, subjects, onEventClick, onEventMove, onEventResize, onDateSelect, onBackgroundClick }: MultiDayViewProps) {
+export function MultiDayView({ date, days, events, subjects, onEventClick, onEventMove, onEventResize, onDateSelect, onBackgroundClick, mode = 'all' }: MultiDayViewProps) {
   const isMobile = useIsMobile();
   const baseHourHeight = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
-  // Stretch-to-fill: grow the hour height so the 8:00–20:00 grid occupies all
-  // free vertical space inside <main>. Never shrinks below the base height —
-  // short screens scroll the page instead.
+  // Single-column mode ('real' or 'plan'): day cells are not split.
+  const single = mode !== 'all';
+  const singleKind: 'real' | 'plan' = mode === 'plan' ? 'plan' : 'real';
+  // Exact-fit: the 5:00–24:00 grid always spans the free vertical space so
+  // no dead space is left below the last hour line. Compresses down to
+  // MIN_HOUR_HEIGHT (shorter screens scroll instead), grows unbounded on
+  // tall screens. Fractional heights are fine: all event math is linear
+  // in HOUR_HEIGHT.
   const gridAnchorRef = useRef<HTMLDivElement>(null);
   const availPx = useAvailableHeight(gridAnchorRef);
-  // Adaptive: fit the whole 5:00–00:00 range into the free height when
-  // possible (compressing down to MIN_HOUR_HEIGHT), stretch on tall screens.
-  const HOUR_HEIGHT = Math.min(
-    Math.round(baseHourHeight * MAX_STRETCH),
-    Math.max(MIN_HOUR_HEIGHT, availPx > 0 ? Math.floor(availPx / TOTAL_HOURS) : baseHourHeight)
-  );
+  const HOUR_HEIGHT = availPx > 0 ? Math.max(MIN_HOUR_HEIGHT, availPx / TOTAL_HOURS) : baseHourHeight;
   const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
   const subjectMap = useMemo(() => {
     const m: Record<string, Subject> = {};
@@ -65,7 +69,10 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   const lastDragEndRef = useRef(0);
 
   const dayList = useMemo(() => {
-    return Array.from({ length: days }, (_, i) => addDays(date, i));
+    // Week view is always a full Monday–Sunday week; shorter ranges stay
+    // anchored at the selected day.
+    const anchor = days >= 7 ? startOfWeek(date) : date;
+    return Array.from({ length: days }, (_, i) => addDays(anchor, i));
   }, [date, days]);
 
   const hourTicks = useMemo(() => {
@@ -78,6 +85,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     if (isMobile) return;
     e.preventDefault();
     e.stopPropagation();
+    // clientY is visual px, layout math is layout px (body zoom).
+    const zoom = bodyZoom();
     const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
     const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
     const minDelta = -startPx;
@@ -101,7 +110,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     document.body.style.userSelect = 'none';
     const onMove = (ev: MouseEvent) => {
       const R = dragRef.current;
-      const delta = ev.clientY - R.startY;
+      const delta = (ev.clientY - R.startY) / zoom;
       if (Math.abs(delta) > 4 || Math.abs(ev.clientX - R.startX) > 4) R.moved = true;
       const clamped = Math.max(R.minDelta, Math.min(R.maxDelta, delta));
       // Snap DURING the drag, same as resize: jump in 15-minute steps
@@ -189,6 +198,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     if (isMobile) return;
     e.preventDefault();
     e.stopPropagation();
+    const zoom = bodyZoom();
     const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
     const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
     // Allow shrinking down to the 15-minute minimum: the pixel delta needed to
@@ -199,7 +209,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     document.body.style.cursor = 'ns-resize';
     document.body.style.userSelect = 'none';
     const onMove = (ev: MouseEvent) => {
-      const delta = ev.clientY - resizeRef.current.startY;
+      const delta = (ev.clientY - resizeRef.current.startY) / zoom;
       if (Math.abs(delta) > 4) resizeRef.current.moved = true;
       const clamped = Math.max(resizeRef.current.minDelta, Math.min(resizeRef.current.maxDelta, delta));
       // Snap DURING the drag: convert to 15-min steps first, then back to
@@ -250,7 +260,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
         // over empty space — it is the tail of the move gesture, not a tap.
         if (Date.now() - lastDragEndRef.current < 500) return;
         const rect = e.currentTarget.getBoundingClientRect();
-        const minutes = snapToGrid(Math.round((e.clientY - rect.top) * MINUTES_PER_PIXEL));
+        // Visual px → layout px (body zoom) before converting to minutes.
+        const minutes = snapToGrid(Math.round(((e.clientY - rect.top) / bodyZoom()) * MINUTES_PER_PIXEL));
         const clamped = Math.max(0, Math.min(minutes, TOTAL_HOURS * 60 - SNAP));
         const start = new Date(day);
         start.setHours(START_HOUR + Math.floor(clamped / 60), clamped % 60, 0, 0);
@@ -266,8 +277,10 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
       {/* Page chrome stays fixed; only this area scrolls (short screens,
           horizontal overflow). Sticky day headers keep working inside it. */}
       <div className="flex-1 min-h-0 overflow-auto">
-      <div className="min-w-[560px] flex flex-col">
-        {/* Header row: corner cell + clickable day headers */}
+      <div className="min-w-[448px] flex flex-col">
+        {/* Header row: corner cell + clickable day headers. Single compact
+            line ("MON 14") — the old stacked layout with the static
+            Real/Plan filler cost ~70px of vertical space. */}
         <div className="flex sticky top-0 z-10 bg-background">
             <div className="w-12 flex-shrink-0 border-b border-outline-variant" />
             <div className="flex flex-1 min-w-0">
@@ -279,17 +292,13 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     type="button"
                     onClick={() => onDateSelect?.(day)}
                     title="Open day view"
-                    className={`flex-1 min-w-[140px] max-w-full p-2 text-center border-b border-outline-variant transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${today ? 'bg-surface-container' : ''}`}
+                    className={`flex-1 min-w-[112px] max-w-full px-2 py-1.5 flex items-baseline justify-center gap-1.5 border-b border-outline-variant transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${today ? 'bg-surface-container-low' : ''}`}
                   >
-                    <span className={`font-label-sm text-label-sm uppercase tracking-widest ${today ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
+                    <span className={`font-label-sm text-label-sm uppercase tracking-[0.14em] ${today ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
                       {formatWeekdayShort(day)}
                     </span>
-                    <span className={`font-display-lg block mt-1 ${today ? 'text-primary' : 'text-on-surface'}`}>
+                    <span className={`font-label-md ${today ? 'text-primary' : 'text-on-surface'}`}>
                       {formatDayOfMonth(day)}
-                    </span>
-                    <span className="flex justify-between mt-1 px-1 text-[9px] uppercase tracking-widest text-on-surface-variant">
-                      <span>Real</span>
-                      <span>Plan</span>
                     </span>
                   </button>
                 );
@@ -307,7 +316,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
               {hourTicks.filter((hour) => hour !== START_HOUR).map((hour) => (
                 <span
                   key={hour}
-                  className="absolute right-1 -translate-y-1/2 max-lg:!text-[9px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant tabular-nums"
+                  className="absolute right-1 -translate-y-1/2 max-lg:!text-[7px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant tabular-nums"
                   style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
                 >
                   {String(hour).padStart(2, '0')}
@@ -319,15 +328,17 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                 const dayEvents = getEventsForDate(events, day).sort(
                   (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
                 );
-                const realEvents = dayEvents.filter((e) => e.kind !== 'plan');
+                const realEvents = dayEvents.filter((e) => (e.kind ?? 'real') !== 'plan');
                 const planEvents = dayEvents.filter((e) => e.kind === 'plan');
+                const visibleReal = single ? (singleKind === 'real' ? realEvents : []) : realEvents;
+                const visiblePlan = single ? (singleKind === 'plan' ? planEvents : []) : planEvents;
                 const isDropTarget = dragPos != null && dragPos.targetDayIdx === idx;
 
                 const renderColumn = (list: typeof realEvents) =>
                   list.map((ev) => {
                     const top = timeToPixels(ev.start, START_HOUR, HOUR_HEIGHT);
                     const endPx = timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT);
-                    let height = Math.max(endPx - top, 16);
+                    let height = Math.max(endPx - top, 13);
                     const subject = subjectMap[ev.subjectId];
                     const displayName = subject?.name || ev.title || 'Untitled';
                     const tiny = height < HOUR_HEIGHT * 0.5;
@@ -340,33 +351,33 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       visualDx = dragPos.deltaX;
                       dragging = true;
                     }
-                    if (resizePos?.eventId === ev.id) height = Math.max(height + resizePos.deltaY, 16);
+                    if (resizePos?.eventId === ev.id) height = Math.max(height + resizePos.deltaY, 13);
                     return (
                       <div
                         key={ev.id}
-                        className="absolute left-0.5 right-0.5 rounded overflow-hidden cursor-pointer hover:brightness-95 transition-all pl-2 pt-1 pb-1 pr-1 group"
-                        style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: 'var(--color-background)', border: plan ? '1px dashed var(--color-outline-variant)' : undefined, transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
+                        className={`absolute left-0.5 right-0.5 rounded-lg overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2 pt-1 pb-1 pr-1 group ${plan ? 'plan-hatch' : ''}`}
+                        style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: plan ? `${subject?.color || '#888888'}1f` : 'var(--color-surface-dim)', border: plan ? `1px dashed ${subject?.color || 'var(--color-outline-variant)'}99` : '1px solid var(--color-outline-variant)', transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEventClick?.(ev);
                         }}
                         onMouseDown={(e) => handleDragStart(ev, idx, e)}
                       >
-                        <div className="absolute left-0 top-0 bottom-0 w-[5px]" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
+                        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
                         {tiny ? (
-                          <span className="font-label-sm text-label-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface truncate" style={{ color: subject?.color }}>
+                          <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface truncate">
                             {displayName}
                           </span>
                         ) : (
                           <>
                             <div className="flex items-center gap-1">
                               <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
-                              <span className="font-label-sm text-label-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface truncate">
+                              <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface truncate">
                                 {displayName}
                               </span>
                             </div>
                             {height > HOUR_HEIGHT * 0.67 && (
-                              <span className="font-body-sm text-body-sm max-lg:!text-[8px] max-lg:leading-none text-on-surface-variant block truncate">
+                              <span className="font-body-sm text-body-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant block truncate">
                                 {timeFromDate(ev.start)} - {timeFromDate(ev.end)}
                               </span>
                             )}
@@ -388,7 +399,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     ref={(el) => {
                       dayGridRefs.current[idx] = el;
                     }}
-                    className={`flex-1 min-w-[140px] max-w-full relative border-l border-outline-variant ${isDropTarget ? 'bg-primary/10' : ''}`}
+                    className={`flex-1 min-w-[112px] max-w-full relative border-l border-outline-variant ${isDropTarget ? 'bg-primary/10' : ''}`}
                     style={{ height: `${gridPx}px`, minHeight: '100%' }}
                   >
                     {hourTicks.map((hour) => (
@@ -398,19 +409,28 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                         style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
                       />
                     ))}
-                    {/* Left column: real events */}
-                    <div className="absolute left-0 top-0 bottom-0 w-1/2" onClick={makeCellTapHandler(day, 'real')}>
-                      {renderColumn(realEvents)}
-                    </div>
-                    {/* 2px hairline centered on the middle: a 1px line at
-                        left-1/2 lands on a fractional pixel whenever the
-                        column width is odd and anti-aliases into invisibility;
-                        2px always covers at least one full pixel. */}
-                    <div className="absolute left-1/2 top-0 bottom-0 w-[2px] -translate-x-1/2 bg-outline-variant/60" />
-                    {/* Right column: plan events */}
-                    <div className="absolute right-0 top-0 bottom-0 w-1/2" onClick={makeCellTapHandler(day, 'plan')}>
-                      {renderColumn(planEvents)}
-                    </div>
+                    {/* Single-kind mode: one full-width column, no split. */}
+                    {single ? (
+                      <div className="absolute left-0 right-0 top-0 bottom-0" onClick={makeCellTapHandler(day, singleKind)}>
+                        {renderColumn(singleKind === 'real' ? visibleReal : visiblePlan)}
+                      </div>
+                    ) : (
+                      <>
+                        {/* Left column: real events */}
+                        <div className="absolute left-0 top-0 bottom-0 w-1/2" onClick={makeCellTapHandler(day, 'real')}>
+                          {renderColumn(visibleReal)}
+                        </div>
+                        {/* 2px hairline centered on the middle: a 1px line at
+                            left-1/2 lands on a fractional pixel whenever the
+                            column width is odd and anti-aliases into invisibility;
+                            2px always covers at least one full pixel. */}
+                        <div className="absolute left-1/2 top-0 bottom-0 w-[2px] -translate-x-1/2 bg-outline-variant/60" />
+                        {/* Right column: plan events */}
+                        <div className="absolute right-0 top-0 bottom-0 w-1/2" onClick={makeCellTapHandler(day, 'plan')}>
+                          {renderColumn(visiblePlan)}
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}

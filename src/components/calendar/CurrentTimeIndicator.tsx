@@ -17,10 +17,12 @@ export function CurrentTimeIndicator({ startHour = 8, endHour = 24, hourHeight =
 
   // Scroll the day grid so "now" is in view when the timeline first opens
   // (e.g. after returning from the Study page with a running session).
-  // Runs only on mount — never hijacks the user's scroll position after that.
+  // Re-runs when hourHeight changes (grid resized after mount) so the line
+  // stays centered — never on user scroll (no scroll listener here).
   useEffect(() => {
     lineRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hourHeight]);
 
   const totalMinutes = now.getHours() * 60 + now.getMinutes();
   const startMinutes = startHour * 60;
@@ -31,10 +33,10 @@ export function CurrentTimeIndicator({ startHour = 8, endHour = 24, hourHeight =
   if (!visible) return null;
 
   return (
-    <div ref={lineRef} className="absolute left-0 right-0 flex items-center -ml-[5px] pointer-events-none"
-      style={{ top: `${top}px`, zIndex: 10 }}>
-      <div className="w-[10px] h-[10px] rounded-full bg-primary border-2 border-surface-container-lowest" />
-      <div className="h-px bg-primary w-full opacity-50" />
+    <div ref={lineRef} className="absolute left-0 right-0 flex items-center -ml-[5px] pointer-events-none z-[5] max-lg:z-0"
+      style={{ top: `${top}px` }}>
+      <div className="w-[9px] h-[9px] rounded-full bg-now flex-shrink-0" />
+      <div className="h-[2px] bg-now w-full opacity-80" />
     </div>
   );
 }

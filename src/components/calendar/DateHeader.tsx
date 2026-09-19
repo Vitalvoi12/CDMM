@@ -6,9 +6,13 @@ interface DateHeaderProps {
   onNext: () => void;
   onToday: () => void;
   view: string;
+  /** Middle slot (e.g. the view switcher) — centered between title and Today. */
+  center?: React.ReactNode;
+  /** Right slot (e.g. the event filter) — just left of the Today button. */
+  right?: React.ReactNode;
 }
 
-export function DateHeader({ currentDate, onPrev, onNext, onToday, view }: DateHeaderProps) {
+export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center, right }: DateHeaderProps) {
   const getViewTitle = () => {
     switch (view) {
       case 'day':
@@ -36,27 +40,40 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view }: DateH
   };
 
   return (
-    <header className="flex items-center justify-between mb-4 max-lg:mb-2 flex-shrink-0">
-      <div className="flex items-center gap-4 min-w-0">
+    <header className="flex items-center gap-4 mb-5 max-lg:mb-2 flex-shrink-0">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         <button
           onClick={onPrev}
-          className="p-1 text-on-background hover:bg-surface-container-low transition-colors rounded flex-shrink-0"
+          aria-label="Previous"
+          className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg flex-shrink-0"
         >
-          <span className="material-symbols-outlined text-[20px] max-lg:text-[18px]">chevron_left</span>
+          <span className="material-symbols-outlined text-[16px] max-lg:text-[14px]">chevron_left</span>
         </button>
-        <h1 className="font-headline-lg text-headline-lg max-lg:!text-[17px] max-lg:leading-tight text-on-background tracking-tight truncate">
+        <h1 className="font-headline-md text-headline-md max-lg:!text-[14px] max-lg:leading-tight text-on-surface tracking-tight truncate">
           {getViewTitle()}
         </h1>
         <button
           onClick={onNext}
-          className="p-1 text-on-background hover:bg-surface-container-low transition-colors rounded flex-shrink-0"
+          aria-label="Next"
+          className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg flex-shrink-0"
         >
-          <span className="material-symbols-outlined text-[20px] max-lg:text-[18px]">chevron_right</span>
+          <span className="material-symbols-outlined text-[16px] max-lg:text-[14px]">chevron_right</span>
         </button>
       </div>
+      {center && (
+        <div className="flex-shrink-0 max-lg:hidden">
+          {center}
+        </div>
+      )}
+      <div className="flex-1 max-lg:hidden" />
+      {right && (
+        <div className="flex-shrink-0 max-lg:hidden">
+          {right}
+        </div>
+      )}
       <button
         onClick={onToday}
-        className="px-4 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[11px] max-lg:tracking-normal bg-surface-container-lowest border border-outline-variant text-on-background font-label-md text-label-md rounded hover:bg-surface-container-low transition-colors uppercase tracking-widest flex-shrink-0"
+        className="px-5 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[9px] bg-transparent border border-outline-variant text-on-surface-variant font-label-md text-label-md rounded-lg hover:text-on-surface hover:border-outline transition-colors uppercase tracking-[0.12em] flex-shrink-0"
       >
         Today
       </button>

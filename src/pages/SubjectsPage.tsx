@@ -55,17 +55,16 @@ export function SubjectsPage() {
     <div className="flex flex-col w-full h-full relative">
       <div className="flex items-end justify-between mb-8 max-lg:mb-3">
         <div>
-          <p className="font-label-md text-label-md max-lg:!text-[10px] max-lg:mb-1 text-primary tracking-widest uppercase mb-2">
+          <p className="font-label-md text-label-md max-lg:!text-[8px] max-lg:mb-1 text-on-surface-variant tracking-[0.16em] uppercase mb-2">
             Curriculum
           </p>
-          <h2 className="font-display-lg text-display-lg max-lg:!text-[24px] max-lg:leading-none text-on-surface">Active Subjects</h2>
+          <h2 className="font-headline-lg text-headline-lg max-lg:!text-[19px] max-lg:leading-none text-on-surface">Active Subjects</h2>
         </div>
         <button
           onClick={handleAdd}
-          className="bg-primary hover:bg-tertiary-container transition-colors text-on-primary px-6 py-2 max-lg:px-3 max-lg:py-1 rounded flex items-center shadow-md gap-2"
+          className="bg-primary hover:opacity-90 transition-opacity text-on-primary px-6 py-2.5 max-lg:px-3 max-lg:py-1.5 rounded-xl font-label-md text-label-md max-lg:!text-[8px] uppercase tracking-[0.1em]"
         >
-          <span className="material-symbols-outlined text-[20px] max-lg:text-[16px]">add</span>
-          <span className="font-label-md text-label-md max-lg:!text-[10px] uppercase">Add Subject</span>
+          Add Subject
         </button>
       </div>
 

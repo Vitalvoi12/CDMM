@@ -22,80 +22,79 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId, 
   const liveSubject = liveSession ? subjectMap[liveSession.subjectId] : undefined;
   const liveMinutes = liveSession ? Math.floor(liveSession.elapsedMs / 60000) : 0;
 
+  const renderRow = (
+    key: string,
+    index: number,
+    name: string,
+    color: string | undefined,
+    duration: string,
+    opts: { highlight?: boolean; live?: boolean } = {}
+  ) => (
+    <div
+      key={key}
+      className={`relative flex items-center gap-3 px-4 py-3 max-lg:px-3 max-lg:py-2 rounded-xl border transition-colors ${
+        opts.highlight
+          ? 'border-outline bg-surface-container'
+          : 'border-outline-variant bg-transparent hover:border-outline'
+      }`}
+    >
+      {opts.highlight && (
+        <span className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: color || 'var(--color-primary)' }} />
+      )}
+      <span className="font-label-sm text-label-sm max-lg:!text-[8px] tabular-nums text-on-surface-variant w-6 flex-shrink-0">
+        {String(index).padStart(2, '0')}
+      </span>
+      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color || 'var(--color-on-surface-variant)' }} />
+      <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface truncate min-w-0 flex-1">
+        {name}
+      </span>
+      {opts.live && <span className="w-1.5 h-1.5 bg-now rounded-full animate-pulse flex-shrink-0" />}
+      <span className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 ${opts.live ? 'text-error font-semibold' : 'text-on-surface-variant'}`}>
+        {duration}
+      </span>
+    </div>
+  );
+
   return (
-    <div className="flex-1 bg-surface-container-lowest p-8 lg:p-16 max-lg:p-4 flex flex-col min-h-0 overflow-hidden">
-      <div className="flex items-end justify-between mb-8 max-lg:mb-3 border-b border-outline-variant pb-4 max-lg:pb-2">
-        <h3 className="font-headline-lg text-headline-lg max-lg:!text-[16px] text-primary-container uppercase tracking-tight">
-          Today
-        </h3>
-        <span className="font-label-md text-label-md max-lg:!text-[10px] text-on-secondary-container uppercase tracking-widest">
-          {formatDuration(totalMinutes)} Total
-        </span>
-      </div>
-      <div className="flex flex-col flex-1 overflow-y-auto min-h-0">
-        {sorted.map((event, i) => {
-          const subject = subjectMap[event.subjectId];
-          const mins = minutesBetween(event.start, event.end);
-          const isCurrent = event.id === currentEventId;
-          return (
-            <div
-              key={event.id}
-              className={`flex flex-col border-b py-4 max-lg:py-2 px-2 group cursor-default relative ${
-                isCurrent
-                  ? 'border-primary bg-surface-container-high'
-                  : 'border-outline-variant hover:bg-surface-container-low transition-colors'
-              }`}
-            >
-              {isCurrent && (
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
-              )}
-              <div className="flex items-center justify-between pl-1">
-                <div className="flex items-center gap-4 max-lg:gap-2">
-                  <span className={`font-label-md text-label-md max-lg:!text-[10px] tabular-nums ${isCurrent ? 'text-primary' : 'text-on-secondary-container'}`}>
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <span className={`font-headline-md text-headline-md max-lg:!text-[13px] ${isCurrent ? 'text-primary' : 'text-primary-container'}`}>
-                    {subject?.name || event.title || 'Untitled'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isCurrent && (
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                  )}
-                  <span className={`font-body-md text-body-md max-lg:!text-[11px] ${isCurrent ? 'text-primary font-semibold' : 'text-on-secondary-container'}`}>
-                    {formatDuration(mins)}
-                  </span>
-                </div>
-              </div>
+    <div className="flex-1 p-8 lg:p-12 max-lg:p-4 flex flex-col min-h-0">
+      <div className="w-full max-w-xl mx-auto bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 max-lg:p-4 flex flex-col min-h-0 max-h-full">
+        <div className="flex items-center justify-between mb-5 max-lg:mb-3 flex-shrink-0">
+          <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-[0.18em]">
+            Today
+          </h3>
+          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.14em] tabular-nums">
+            {formatDuration(totalMinutes)} total
+          </span>
+        </div>
+        <div className="flex flex-col gap-2 flex-1 overflow-y-auto min-h-0">
+          {sorted.map((event, i) => {
+            const subject = subjectMap[event.subjectId];
+            const mins = minutesBetween(event.start, event.end);
+            const isCurrent = event.id === currentEventId;
+            return renderRow(
+              event.id,
+              i + 1,
+              subject?.name || event.title || 'Untitled',
+              subject?.color,
+              formatDuration(mins),
+              { highlight: isCurrent, live: isCurrent }
+            );
+          })}
+          {liveSession &&
+            renderRow(
+              'live',
+              sorted.length + 1,
+              liveSubject?.name || 'Live session',
+              liveSubject?.color,
+              `${formatDuration(liveMinutes)} · live`,
+              { highlight: true, live: true }
+            )}
+          {sorted.length === 0 && !liveSession && (
+            <div className="border border-dashed border-outline-variant rounded-xl py-10 px-4 flex items-center justify-center">
+              <p className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface-variant">No sessions today</p>
             </div>
-          );
-        })}
-        {sorted.length === 0 && !liveSession && (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="font-body-md text-body-md max-lg:!text-[12px] text-on-surface-variant">No sessions today</p>
-          </div>
-        )}
-        {liveSession && (
-          <div className="flex flex-col border-b py-4 max-lg:py-2 px-2 group cursor-default relative border-primary bg-surface-container-high">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
-            <div className="flex items-center justify-between pl-1">
-              <div className="flex items-center gap-4 max-lg:gap-2">
-                <span className="font-label-md text-label-md max-lg:!text-[10px] tabular-nums text-primary">
-                  {String(sorted.length + 1).padStart(2, '0')}
-                </span>
-                <span className="font-headline-md text-headline-md max-lg:!text-[13px] text-primary">
-                  {liveSubject?.name || 'Live session'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
-                <span className="font-body-md text-body-md max-lg:!text-[11px] text-primary font-semibold">
-                  {formatDuration(liveMinutes)} · live
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

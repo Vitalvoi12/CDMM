@@ -10,8 +10,10 @@ import { SettingsNav } from '../components/settings/SettingsNav';
 import type { UserSettings, ThemeMode } from '../types';
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
-  { value: 'light', label: 'Light', hint: 'Bright surfaces, dark text' },
-  { value: 'dark', label: 'Dark', hint: 'Deep surfaces, light text' },
+  { value: 'bw', label: 'B&W', hint: 'Classic grayscale light' },
+  { value: 'bw-dark', label: 'B&W Dark', hint: 'Classic grayscale dark' },
+  { value: 'latte', label: 'Latte', hint: 'Catppuccin light' },
+  { value: 'mocha', label: 'Mocha', hint: 'Catppuccin dark' },
 ];
 
 interface SettingsPageProps {
@@ -77,33 +79,30 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
     <div className="flex flex-col w-full h-full relative">
       <div className="grid grid-cols-12 gap-6 relative">
         <div className="col-span-12 lg:col-span-3 mb-8 lg:mb-0">
-          <div className="sticky top-[112px]">
+          <div className="sticky top-[90px]">
             <h2 className="font-headline-md text-headline-md text-on-surface mb-6">Settings</h2>
             <SettingsNav active={activeSection} onChange={setActiveSection} />
           </div>
         </div>
         <div className="col-span-12 lg:col-span-8 lg:col-start-5">
           {activeSection === 'account' && (
-            <div className="mb-16 flex flex-col gap-2">
-              <h1 className="font-display-lg text-display-lg text-on-background">Account</h1>
-              <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
-                Your data syncs across devices under this account.
-              </p>
-              <div className="mt-8 bg-surface-container-lowest border border-outline-variant rounded p-8 flex flex-col gap-6 max-w-xl">
+            <div className="mb-16 flex flex-col gap-5">
+              <h1 className="font-headline-lg text-headline-lg text-on-surface">Account</h1>
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex flex-col gap-5 max-w-xl">
                 <div className="flex flex-col gap-1">
-                  <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                  <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
                     Username
                   </span>
                   <span className="font-body-lg text-body-lg text-on-surface">{getUsername() ?? '—'}</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={handleSync}
                     disabled={syncing}
-                    className="px-6 py-2 rounded bg-primary text-on-primary font-label-md text-label-md uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                    className="px-5 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-label-md text-label-md uppercase tracking-[0.1em] flex items-center gap-2 hover:bg-surface-container-highest disabled:opacity-50 transition-colors"
                   >
-                    <span className={`material-symbols-outlined text-[18px] ${syncing ? 'animate-spin' : ''}`}>
+                    <span className={`material-symbols-outlined text-[14px] ${syncing ? 'animate-spin' : ''}`}>
                       sync
                     </span>
                     {syncing ? 'Syncing…' : 'Sync'}
@@ -111,7 +110,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="px-6 py-2 rounded bg-error text-on-error font-label-md text-label-md uppercase tracking-widest"
+                    className="px-5 py-2.5 rounded-xl bg-error-container text-on-error-container font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
                   >
                     Logout
                   </button>
@@ -122,119 +121,149 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                 {syncError && (
                   <p role="alert" className="font-body-sm text-body-sm text-error">{syncError}</p>
                 )}
+                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                  Your data syncs across devices under this account.
+                </p>
               </div>
             </div>
           )}
           {activeSection === 'general' && (
-            <div className="mb-16 flex flex-col gap-2">
-              <h1 className="font-display-lg text-display-lg text-on-background">General</h1>
-              <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
-                General application settings.
-              </p>
-              <div className="mt-8 bg-surface-container-lowest border border-outline-variant rounded p-8 flex flex-col gap-8 max-w-xl">
-                <div className="flex flex-col gap-4">
-                  <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                    Appearance
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {THEME_OPTIONS.map((option) => {
-                      const isSelected = theme === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setTheme(option.value)}
-                          aria-pressed={isSelected}
-                          className={`flex flex-col items-start gap-1 p-4 rounded border text-left transition-colors ${
-                            isSelected
-                              ? 'border-primary bg-surface-container'
-                              : 'border-outline-variant hover:border-outline bg-surface-container-lowest'
-                          }`}
-                        >
-                          <span className="flex items-center gap-2 font-label-md text-label-md text-on-surface">
-                            <span
-                              className={`material-symbols-outlined text-[18px] ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}
-                            >
-                              {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
-                            </span>
-                            {option.label}
+            <div className="mb-16 flex flex-col gap-5">
+              <h1 className="font-headline-lg text-headline-lg text-on-surface">General</h1>
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex flex-col gap-2 max-w-xl">
+                <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+                  Appearance
+                </label>
+                <div className="flex flex-col gap-2.5 mt-1">
+                  {THEME_OPTIONS.map((option) => {
+                    const isSelected = theme === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setTheme(option.value)}
+                        aria-pressed={isSelected}
+                        className={`flex items-center justify-between gap-2 px-5 py-3.5 rounded-xl border text-left transition-colors ${
+                          isSelected
+                            ? 'border-outline bg-surface-container'
+                            : 'border-outline-variant hover:border-outline bg-transparent'
+                        }`}
+                      >
+                        <span className="flex items-center gap-3 font-body-md text-body-md text-on-surface">
+                          <span
+                            className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-primary' : 'border-outline'}`}
+                          >
+                            {isSelected && <span className="w-2 h-2 rounded-full bg-primary" />}
                           </span>
-                          <span className="font-body-sm text-body-sm text-on-surface-variant pl-[26px]">
-                            {option.hint}
+                          {option.label}
+                        </span>
+                        {isSelected && (
+                          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.14em]">
+                            Active
                           </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                    Daily Study Goal
-                  </label>
-                    <div className="flex items-center gap-4">
-                      <input
-                        type="number"
-                        min="0"
-                        max="24"
-                        value={Math.floor(settings.dailyGoalMinutes / 60)}
-                        onChange={(e) => {
-                          const h = Number(e.target.value);
-                          const m = settings.dailyGoalMinutes % 60;
-                          handleSave({ dailyGoalMinutes: h * 60 + m });
-                        }}
-                        className="w-20 bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
-                      />
-                      <span className="font-body-md text-body-md text-on-surface-variant">h</span>
-                      <input
-                        type="number"
-                        min="0"
-                        max="59"
-                        value={settings.dailyGoalMinutes % 60}
-                        onChange={(e) => {
-                          const m = Number(e.target.value);
-                          const h = Math.floor(settings.dailyGoalMinutes / 60);
-                          handleSave({ dailyGoalMinutes: h * 60 + m });
-                        }}
-                        className="w-20 bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
-                      />
-                      <span className="font-body-md text-body-md text-on-surface-variant">min</span>
-                    </div>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                    Synchronization
-                  </label>
-                  <div className="flex flex-wrap items-center gap-4">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex flex-col gap-3 max-w-xl">
+                <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+                  Daily Goal
+                </label>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-1 border border-outline-variant rounded-xl px-1.5 py-1">
                     <button
                       type="button"
-                      onClick={handleSync}
-                      disabled={syncing}
-                      className="px-6 py-2 rounded bg-primary text-on-primary font-label-md text-label-md uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
+                      aria-label="Decrease hours"
+                      onClick={() => {
+                        const h = Math.max(0, Math.floor(settings.dailyGoalMinutes / 60) - 1);
+                        handleSave({ dailyGoalMinutes: h * 60 + (settings.dailyGoalMinutes % 60) });
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
                     >
-                      <span className={`material-symbols-outlined text-[18px] ${syncing ? 'animate-spin' : ''}`}>
-                        sync
-                      </span>
-                      {syncing ? 'Syncing…' : 'Sync'}
+                      <span className="material-symbols-outlined text-[14px]">remove</span>
                     </button>
-                    {syncMessage && (
-                      <span className="font-body-sm text-body-sm text-success">{syncMessage}</span>
-                    )}
-                    {syncError && (
-                      <span role="alert" className="font-body-sm text-body-sm text-error">{syncError}</span>
-                    )}
+                    <span className="font-body-lg text-body-lg text-on-surface tabular-nums w-8 text-center">
+                      {Math.floor(settings.dailyGoalMinutes / 60)}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Increase hours"
+                      onClick={() => {
+                        const h = Math.min(24, Math.floor(settings.dailyGoalMinutes / 60) + 1);
+                        handleSave({ dailyGoalMinutes: h * 60 + (settings.dailyGoalMinutes % 60) });
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">add</span>
+                    </button>
                   </div>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    Force push/pull all local changes right now.
-                  </p>
+                  <span className="font-body-md text-body-md text-on-surface-variant">hours</span>
+                  <div className="flex items-center gap-1 border border-outline-variant rounded-xl px-1.5 py-1">
+                    <button
+                      type="button"
+                      aria-label="Decrease minutes"
+                      onClick={() => {
+                        const total = Math.max(0, settings.dailyGoalMinutes - 5);
+                        handleSave({ dailyGoalMinutes: total });
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">remove</span>
+                    </button>
+                    <span className="font-body-lg text-body-lg text-on-surface tabular-nums w-8 text-center">
+                      {settings.dailyGoalMinutes % 60}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Increase minutes"
+                      onClick={() => {
+                        const total = Math.min(24 * 60, settings.dailyGoalMinutes + 5);
+                        handleSave({ dailyGoalMinutes: total });
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">add</span>
+                    </button>
+                  </div>
+                  <span className="font-body-md text-body-md text-on-surface-variant">minutes</span>
                 </div>
+              </div>
+
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex flex-col gap-3 max-w-xl">
+                <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+                  Synchronization
+                </label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSync}
+                    disabled={syncing}
+                    className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md uppercase tracking-[0.1em] flex items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+                  >
+                    <span className={`material-symbols-outlined text-[14px] ${syncing ? 'animate-spin' : ''}`}>
+                      sync
+                    </span>
+                    {syncing ? 'Syncing…' : 'Sync'}
+                  </button>
+                  {syncMessage && (
+                    <span className="font-body-sm text-body-sm text-success">{syncMessage}</span>
+                  )}
+                  {syncError && (
+                    <span role="alert" className="font-body-sm text-body-sm text-error">{syncError}</span>
+                  )}
+                </div>
+                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                  Force push/pull all local changes right now.
+                </p>
               </div>
             </div>
           )}
           {(activeSection === 'study-preferences' || activeSection === 'notifications') && (
             <div className="mb-16 flex flex-col gap-2">
-              <h1 className="font-display-lg text-display-lg text-on-background capitalize">
+              <h1 className="font-headline-lg text-headline-lg text-on-surface capitalize">
                 {activeSection.replace('-', ' ')}
               </h1>
               <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">

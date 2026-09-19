@@ -47,17 +47,27 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim" onClick={onCancel}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4" onClick={onCancel}>
       <div
-        className="bg-surface-container-lowest rounded-xl p-8 max-lg:p-5 shadow-xl w-full max-w-sm mx-4"
+        className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 max-lg:p-5 shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-headline-md text-headline-md max-lg:!text-[14px] max-lg:mb-3 text-on-surface mb-6">
-          {subject ? 'Edit Subject' : 'Add Subject'}
-        </h2>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-lg:gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="font-label-md text-label-md max-lg:!text-[10px] text-on-surface-variant uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-6 max-lg:mb-4">
+          <h2 className="font-headline-md text-headline-md max-lg:!text-[13px] text-on-surface">
+            {subject ? 'Edit Subject' : 'Add Subject'}
+          </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container transition-colors text-on-surface-variant hover:text-on-surface"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-lg:gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
               Name
             </label>
             <input
@@ -65,22 +75,24 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Subject name"
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 max-lg:py-1.5 max-lg:px-3 font-body-md text-body-md max-lg:!text-[12px] text-on-surface outline-none transition-colors"
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:py-2 max-lg:px-3 font-body-md text-body-md max-lg:!text-[10px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
               autoFocus
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="font-label-md text-label-md max-lg:!text-[10px] text-on-surface-variant uppercase tracking-wider">
+          <div className="flex flex-col gap-2">
+            <label className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
               Color
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {COLORS.map((c) => (
                 <button
                   key={c.value}
                   type="button"
                   onClick={() => setColor(c.value)}
-                  className={`w-8 h-8 max-lg:w-6 max-lg:h-6 rounded-full transition-all ${
-                    color === c.value ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'hover:scale-110'
+                  aria-label={c.label}
+                  aria-pressed={color === c.value}
+                  className={`w-8 h-8 max-lg:w-7 max-lg:h-7 rounded-full transition-transform ${
+                    color === c.value ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest scale-110' : 'hover:scale-110'
                   }`}
                   style={{ backgroundColor: c.value }}
                   title={c.label}
@@ -88,30 +100,26 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
               ))}
             </div>
           </div>
-          <div className="flex gap-4 max-lg:gap-2 mt-2">
-            {subject && onDelete && (
+          <button
+            type="submit"
+            className="w-full py-3 max-lg:py-2.5 bg-primary text-on-primary rounded-xl font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+          >
+            {subject ? 'Save subject' : 'Add subject'}
+          </button>
+          {subject && onDelete && (
+            <div className="border-t border-outline-variant pt-4">
+              <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] mb-2">
+                Danger zone
+              </p>
               <button
                 type="button"
                 onClick={() => onDelete(subject.id)}
-                className="px-4 py-2 max-lg:px-3 max-lg:py-1.5 max-lg:!text-[10px] bg-error-container text-on-error-container rounded font-label-md text-label-md uppercase tracking-widest hover:opacity-80 transition-opacity"
+                className="font-body-md text-body-md max-lg:!text-[10px] text-error hover:opacity-80 transition-opacity"
               >
-                Delete
+                Delete subject
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 py-2 max-lg:py-1.5 max-lg:!text-[10px] border border-outline-variant rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors uppercase tracking-widest"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-2 max-lg:py-1.5 max-lg:!text-[10px] bg-primary text-on-primary rounded font-label-md text-label-md uppercase tracking-widest hover:bg-tertiary-container transition-colors"
-            >
-              {subject ? 'Save' : 'Add'}
-            </button>
-          </div>
+            </div>
+          )}
         </form>
       </div>
     </div>

@@ -18,31 +18,38 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   const roomy = height >= hourHeight * 0.42;
   const tall = height >= hourHeight * 0.67;
 
-  const baseStyle: React.CSSProperties = {
-    top: `${top}px`,
-    height: `${height}px`,
-    backgroundColor: subject?.color ? `${subject.color}15` : undefined,
-    border: plan ? '1px dashed var(--color-outline-variant)' : undefined,
-  };
-
+  const color = subject?.color || 'var(--color-on-surface-variant)';
   const displayName = subject?.name || event.title || 'Untitled';
 
-  const colorBar = subject?.color || "var(--color-on-surface-variant)";
+  const baseStyle: React.CSSProperties = plan
+    ? {
+        top: `${top}px`,
+        height: `${height}px`,
+        backgroundColor: `${subject?.color || '#888888'}1f`,
+        border: `1px dashed ${subject?.color || 'var(--color-outline-variant)'}99`,
+      }
+    : {
+        top: `${top}px`,
+        height: `${height}px`,
+        backgroundColor: 'var(--color-surface-dim)',
+        border: '1px solid var(--color-outline-variant)',
+      };
+
+  const shellClass = `absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded-lg overflow-hidden cursor-pointer group ${
+    plan ? 'plan-hatch' : ''
+  }`;
 
   if (tiny) {
     return (
-      <div
-        className="absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded overflow-hidden cursor-pointer group"
-        style={baseStyle}
-        onClick={onClick}
-        onMouseDown={onDragStart}
-      >
-        <div
-          className="absolute left-0 top-0 bottom-0 w-[6px] max-lg:w-[5px]"
-          style={{ backgroundColor: colorBar }}
-        />
+      <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
+        {!plan && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+            style={{ backgroundColor: color }}
+          />
+        )}
         <div className="flex items-center h-full pl-3 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || "var(--color-on-surface)" }}>
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface">
             {displayName}
           </span>
         </div>
@@ -52,21 +59,18 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
 
   if (!roomy) {
     return (
-      <div
-        className="absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded overflow-hidden cursor-pointer group"
-        style={baseStyle}
-        onClick={onClick}
-        onMouseDown={onDragStart}
-      >
-        <div
-          className="absolute left-0 top-0 bottom-0 w-[6px] max-lg:w-[5px]"
-          style={{ backgroundColor: colorBar }}
-        />
+      <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
+        {!plan && (
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+            style={{ backgroundColor: color }}
+          />
+        )}
         <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none truncate font-semibold min-w-0" style={{ color: subject?.color || "var(--color-on-surface)" }}>
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface">
             {displayName}
           </span>
-          <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
+          <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
             {timeFromDate(event.start)} - {timeFromDate(event.end)}
           </span>
         </div>
@@ -75,19 +79,16 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   }
 
   return (
-    <div
-      className="absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded overflow-hidden cursor-pointer group bg-background border border-outline-variant"
-      style={{ ...baseStyle, backgroundColor: 'var(--color-background)' }}
-      onClick={onClick}
-      onMouseDown={onDragStart}
-    >
-      <div
-        className="absolute left-0 top-0 bottom-0 w-[6px] max-lg:w-[5px]"
-        style={{ backgroundColor: colorBar }}
-      />
+    <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
+      {!plan && (
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+          style={{ backgroundColor: color }}
+        />
+      )}
       <div className="flex justify-between items-start p-3 max-lg:pl-3 max-lg:pr-2 max-lg:pt-1.5 max-lg:pb-1.5 max-lg:gap-2 min-w-0">
         <div className="flex flex-col items-start gap-1 max-lg:gap-0.5 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none font-bold truncate" style={{ color: subject?.color || "var(--color-on-surface)" }}>
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none font-bold truncate text-on-surface">
             {displayName}
           </span>
           {tall && event.description && (
@@ -96,7 +97,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
             </p>
           )}
         </div>
-        <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-4">
+        <span className="font-label-sm text-label-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-4">
           {timeFromDate(event.start)} - {timeFromDate(event.end)}
         </span>
       </div>

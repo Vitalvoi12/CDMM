@@ -1,4 +1,4 @@
-import type { Subject, CalendarEvent, UserSettings, TodoTask } from '../types';
+import type { Subject, CalendarEvent, UserSettings, TodoTask, ThemeMode } from '../types';
 
 export type SyncEntity = 'subjects' | 'events' | 'todos';
 
@@ -331,11 +331,28 @@ export interface StoredSettings {
   updatedAt: number;
 }
 
+/** Legacy 'light'/'dark' values (pre-theme-expansion) map to the new set. */
+function migrateTheme(t: unknown): ThemeMode {
+  if (t === 'dark') return 'mocha';
+  if (t === 'light') return 'bw';
+  if (t === 'bw' || t === 'bw-dark' || t === 'latte' || t === 'mocha') return t;
+  return 'bw-dark';
+}
+
 class SettingsRepository {
-  private settings: UserSettings = load<UserSettings>(STORAGE_KEYS.settings, {
-    dailyGoalMinutes: 360,
-    theme: 'light',
-  });
+  private settings: UserSettings = (() => {
+    const loaded = load<UserSettings>(STORAGE_KEYS.settings, {
+      dailyGoalMinutes: 360,
+      theme: 'bw-dark',
+    });
+    const theme = migrateTheme((loaded as { theme?: unknown }).theme);
+    if (theme !== loaded.theme) {
+      const next = { ...loaded, theme };
+      save(STORAGE_KEYS.settings, next);
+      return next;
+    }
+    return loaded;
+  })();
   private updatedAt: number = load<number>('cdmm.settingsUpdatedAt', 0);
 
   get(): UserSettings {
@@ -363,7 +380,7 @@ class SettingsRepository {
   /** Apply remote settings (LWW). Never marks dirty. */
   applyRemote(data: UserSettings, updatedAt: number): boolean {
     if (updatedAt > this.updatedAt) {
-      this.settings = { ...data };
+      this.settings = { ...data, theme: migrateTheme((data as { theme?: unknown }).theme) };
       this.updatedAt = updatedAt;
       save(STORAGE_KEYS.settings, this.settings);
       save('cdmm.settingsUpdatedAt', this.updatedAt);
@@ -373,7 +390,7 @@ class SettingsRepository {
   }
 
   replaceAll(data: UserSettings, updatedAt: number): void {
-    this.settings = { ...data };
+    this.settings = { ...data, theme: migrateTheme((data as { theme?: unknown }).theme) };
     this.updatedAt = updatedAt;
     save(STORAGE_KEYS.settings, this.settings);
     save('cdmm.settingsUpdatedAt', this.updatedAt);

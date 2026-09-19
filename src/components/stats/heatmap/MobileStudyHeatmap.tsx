@@ -49,7 +49,7 @@ export function MobileStudyHeatmap({ days, year, onPrevYear, onNextYear }: Mobil
           aria-label="Previous year"
           className="w-9 h-9 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
         >
-          <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+          <span className="material-symbols-outlined text-[16px]">chevron_left</span>
         </button>
         <span className="font-headline-md text-headline-md text-on-surface tabular-nums w-16 text-center">
           {year}
@@ -59,7 +59,7 @@ export function MobileStudyHeatmap({ days, year, onPrevYear, onNextYear }: Mobil
           aria-label="Next year"
           className="w-9 h-9 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
         >
-          <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+          <span className="material-symbols-outlined text-[16px]">chevron_right</span>
         </button>
       </div>
 
@@ -71,7 +71,7 @@ export function MobileStudyHeatmap({ days, year, onPrevYear, onNextYear }: Mobil
             </p>
             <div className="grid grid-cols-7 gap-[2px] mb-1">
               {WEEKDAY_HEADERS.map((w, i) => (
-                <span key={i} className="text-center font-label-sm text-[8px] leading-none text-on-surface-variant">
+                <span key={i} className="text-center font-label-sm text-[6px] leading-none text-on-surface-variant">
                   {w}
                 </span>
               ))}
@@ -123,7 +123,7 @@ export function MobileStudyHeatmap({ days, year, onPrevYear, onNextYear }: Mobil
             className="flex-shrink-0 px-3 py-2 rounded border border-outline-variant font-label-sm text-label-sm text-on-surface uppercase tracking-wider hover:border-primary transition-colors flex items-center gap-1"
           >
             Calendar
-            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+            <span className="material-symbols-outlined text-[11px]">arrow_forward</span>
           </button>
         </div>
       )}

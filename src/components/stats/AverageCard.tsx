@@ -8,7 +8,7 @@ export function AverageCard({ averageMinutes }: AverageCardProps) {
   return (
     <div className="bg-primary rounded-xl p-6 shadow-xl text-on-primary flex flex-col justify-between h-full relative overflow-hidden">
       <div className="absolute -right-8 -bottom-8 opacity-10">
-        <span className="material-symbols-outlined text-[120px]">timer</span>
+        <span className="material-symbols-outlined text-[96px]">timer</span>
       </div>
       <div>
         <h3 className="font-label-md text-label-md uppercase tracking-widest text-on-primary/70 mb-2">

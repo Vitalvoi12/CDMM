@@ -44,7 +44,7 @@ export function MonthView({ date, events, subjects, onDateSelect }: MonthViewPro
         }}
       >
         {grid.map((d, i) => {
-          if (!d) return <div key={`empty-${i}`} className="min-h-[72px] bg-surface-container-low/30" />;
+          if (!d) return <div key={`empty-${i}`} className="min-h-[58px] bg-surface-container-low/30" />;
           const dayEvents = getEventsForDate(events, d);
           const totalMinutes = dayEvents.reduce((sum, e) => sum + minutesBetween(e.start, e.end), 0);
           const today = isSameDay(d, new Date());
@@ -52,7 +52,7 @@ export function MonthView({ date, events, subjects, onDateSelect }: MonthViewPro
             <button
               key={i}
               onClick={() => onDateSelect(d)}
-              className={`min-h-[72px] p-2 text-left overflow-hidden transition-colors hover:bg-surface-container-low ${
+              className={`min-h-[58px] p-2 text-left overflow-hidden transition-colors hover:bg-surface-container-low ${
                 today ? 'bg-surface-container' : 'bg-surface-container-low/30'
               }`}
             >
@@ -66,7 +66,7 @@ export function MonthView({ date, events, subjects, onDateSelect }: MonthViewPro
                     return (
                       <div
                         key={ev.id}
-                        className="flex items-center gap-1 px-1 py-0.5 rounded text-[10px] text-on-surface truncate"
+                        className="flex items-center gap-1 px-1 py-0.5 rounded text-[8px] text-on-surface truncate"
                       >
                         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subj?.color || 'var(--color-on-surface-variant)' }} />
                         <span className="truncate">{totalMinutes > 0 ? `${Math.round(minutesBetween(ev.start, ev.end))}m` : ''}</span>
@@ -74,7 +74,7 @@ export function MonthView({ date, events, subjects, onDateSelect }: MonthViewPro
                     );
                   })}
                   {dayEvents.length > 3 && (
-                    <span className="text-[10px] text-on-surface-variant">+{dayEvents.length - 3}</span>
+                    <span className="text-[8px] text-on-surface-variant">+{dayEvents.length - 3}</span>
                   )}
                 </div>
               )}

@@ -4,17 +4,20 @@ import type { ThemeMode } from '../types';
 
 const META_ID = 'theme-color-meta';
 const THEME_COLORS: Record<ThemeMode, string> = {
-  light: '#fdf8f8',
-  dark: '#131312',
+  bw: '#fdf8f8',
+  'bw-dark': '#131312',
+  latte: '#eff1f5',
+  mocha: '#1e1e2e',
 };
 
 function readTheme(): ThemeMode {
-  return settingsRepo.get().theme || 'light';
+  const t = settingsRepo.get().theme;
+  return t === 'bw' || t === 'bw-dark' || t === 'latte' || t === 'mocha' ? t : 'bw-dark';
 }
 
 function applyTheme(theme: ThemeMode) {
   const root = document.documentElement;
-  root.classList.toggle('dark', theme === 'dark');
+  root.dataset.theme = theme;
   let meta = document.getElementById(META_ID) as HTMLMetaElement | null;
   if (!meta) {
     meta = document.createElement('meta');
@@ -26,8 +29,8 @@ function applyTheme(theme: ThemeMode) {
 }
 
 /**
- * Explicit Light/Dark theme state persisted through the settings repository.
- * There is intentionally no system mode: the user always chooses.
+ * Explicit theme state (bw/latte/mocha) persisted through the settings
+ * repository. There is intentionally no system mode: the user always chooses.
  */
 export function useTheme() {
   const [theme, setThemeState] = useState<ThemeMode>(readTheme);

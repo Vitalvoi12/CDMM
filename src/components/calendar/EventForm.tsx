@@ -167,27 +167,42 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
     }
   };
 
+  const inputClass =
+    'w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60';
+  const labelClass =
+    'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]';
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4" onClick={onCancel}>
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="bg-surface-container-lowest rounded-xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
+        className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <h2 className="font-headline-md text-headline-md text-on-surface mb-6">
-          {event ? 'Edit Event' : 'New Study Event'}
-        </h2>
-        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-headline-md text-headline-md text-on-surface">
+            {event ? 'Edit Event' : 'New Study Event'}
+          </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container transition-colors text-on-surface-variant hover:text-on-surface"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+        <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>
               Subject
             </label>
             <select
               value={subjectSel}
               onChange={(e) => setSubjectSel(e.target.value)}
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none appearance-none transition-colors cursor-pointer"
+              className={`${inputClass} appearance-none cursor-pointer`}
             >
               {kind === 'plan' && (
                 <option value={CUSTOM_SUBJECT}>Custom event (no subject)</option>
@@ -198,8 +213,8 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
             </select>
           </div>
           {kind === 'plan' && subjectSel === CUSTOM_SUBJECT && (
-            <div className="flex flex-col gap-1">
-              <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+            <div className="flex flex-col gap-2">
+              <label className={labelClass}>
                 Title
               </label>
               <input
@@ -210,7 +225,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                   setError(null);
                 }}
                 placeholder="e.g. Dentist, Gym, Meeting"
-                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+                className={inputClass}
               />
             </div>
           )}
@@ -226,8 +241,8 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               }
             }}
           />
-          <div className="flex flex-col gap-1">
-            <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>
               Description
             </label>
             <input
@@ -235,12 +250,12 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional notes"
-              className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+              className={inputClass}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+            <div className="flex flex-col gap-2">
+              <label className={labelClass}>
                 Start Date
               </label>
               <input
@@ -250,11 +265,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                   setStartDate(e.target.value);
                   setError(null);
                 }}
-                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+                className={inputClass}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+            <div className="flex flex-col gap-2">
+              <label className={labelClass}>
                 Start Time
               </label>
               <input
@@ -264,11 +279,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                   setStartTime(e.target.value);
                   setError(null);
                 }}
-                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+                className={inputClass}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+            <div className="flex flex-col gap-2">
+              <label className={labelClass}>
                 End Date
               </label>
               <input
@@ -278,11 +293,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                   setEndDate(e.target.value);
                   setError(null);
                 }}
-                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+                className={inputClass}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+            <div className="flex flex-col gap-2">
+              <label className={labelClass}>
                 End Time
               </label>
               <input
@@ -292,14 +307,14 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                   setEndTime(e.target.value);
                   setError(null);
                 }}
-                className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+                className={inputClass}
               />
             </div>
           </div>
           {isNew && (
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+              <div className="flex flex-col gap-2">
+                <label className={labelClass}>
                   Repeat
                 </label>
                 <select
@@ -314,7 +329,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                       setRepeatUntil(defaultUntilFor(next, anchor));
                     }
                   }}
-                  className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none appearance-none transition-colors cursor-pointer"
+                  className={`${inputClass} appearance-none cursor-pointer`}
                 >
                   <option value="none">Does not repeat</option>
                   <option value="daily">Every day</option>
@@ -323,8 +338,8 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                   <option value="yearly">Every year</option>
                 </select>
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+              <div className="flex flex-col gap-2">
+                <label className={labelClass}>
                   Repeat until
                 </label>
                 <input
@@ -335,7 +350,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                     setRepeatUntil(e.target.value);
                     setError(null);
                   }}
-                  className="w-full bg-surface-container-lowest border border-outline-variant focus:border-primary rounded py-2 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors disabled:opacity-40"
+                  className={`${inputClass} disabled:opacity-40`}
                 />
               </div>
             </div>
@@ -345,12 +360,12 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               {error}
             </p>
           )}
-          <div className="flex gap-4 mt-2">
+          <div className="flex gap-3 mt-1">
             {event && onDelete && (
               <button
                 type="button"
                 onClick={() => onDelete(event.id)}
-                className="px-4 py-2 bg-error-container text-on-error-container rounded font-label-md text-label-md uppercase tracking-widest hover:opacity-80 transition-opacity"
+                className="px-4 py-2.5 bg-error-container text-on-error-container rounded-xl font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
               >
                 Delete
               </button>
@@ -359,7 +374,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               <button
                 type="button"
                 onClick={() => onDuplicate(event.id)}
-                className="px-4 py-2 border border-outline-variant rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors uppercase tracking-widest"
+                className="px-4 py-2.5 border border-outline-variant rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
               >
                 Duplicate
               </button>
@@ -367,13 +382,13 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 py-2 border border-outline-variant rounded font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors uppercase tracking-widest"
+              className="flex-1 py-2.5 border border-outline-variant rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-2 bg-primary text-on-primary rounded font-label-md text-label-md uppercase tracking-widest hover:bg-tertiary-container transition-colors"
+              className="flex-1 py-2.5 bg-primary text-on-primary rounded-xl font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
             >
               {event ? 'Save' : 'Add'}
             </button>

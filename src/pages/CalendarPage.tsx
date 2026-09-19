@@ -18,7 +18,7 @@ import { expandRecurrence } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
 import { checkpoint } from '../services/history';
-import type { CalendarEvent } from '../types';
+import type { CalendarEvent, EventFilter } from '../types';
 
 const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[] = [
   { id: 'day', label: 'Day' },
@@ -27,6 +27,17 @@ const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[]
   { id: 'month', label: 'Month' },
   { id: 'year', label: 'Year' },
 ];
+
+const FILTERS: { id: EventFilter; label: string; title: string }[] = [
+  { id: 'real', label: 'Real', title: 'Show real sessions only' },
+  { id: 'plan', label: 'Plan', title: 'Show planned events only' },
+  { id: 'all', label: 'All', title: 'Show real & plan side by side' },
+];
+
+function loadEventFilter(): EventFilter {
+  const saved = localStorage.getItem('cdmm.event-filter');
+  return saved === 'real' || saved === 'plan' || saved === 'all' ? saved : 'all';
+}
 
 /** Other occurrences of the same repeating series (empty for standalone events). */
 function getSeriesSiblings(event: CalendarEvent): CalendarEvent[] {
@@ -109,6 +120,17 @@ export function CalendarPage() {
     recurrenceId?: string | null;
   } | null>(null);
   const [dayPanel, setDayPanel] = useState<'timeline' | 'stats'>('timeline');
+  // Which event kinds the timelines show. 'all' splits days into Real|Plan
+  // halves; 'real'/'plan' renders a single full-width column. Persisted.
+  const [eventFilter, setEventFilterState] = useState<EventFilter>(loadEventFilter);
+  const setEventFilter = useCallback((f: EventFilter) => {
+    setEventFilterState(f);
+    try {
+      localStorage.setItem('cdmm.event-filter', f);
+    } catch {
+      // storage unavailable — ignore
+    }
+  }, []);
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
 
@@ -459,15 +481,53 @@ export function CalendarPage() {
     setEditingEvent(null);
   }, [editingEvent, dragUndo, refreshEvents]);
 
+  const renderViewSegmented = () => (
+    <div className="flex gap-1 border border-outline-variant rounded-xl p-1 bg-surface-container-low">
+      {VIEWS.map((v) => (
+        <button
+          key={v.id}
+          onClick={() => setView(v.id)}
+          className={`px-5 py-1.5 rounded-lg font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
+            view === v.id
+              ? 'bg-surface-container-high text-on-surface'
+              : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderEventFilter = () => (
+    <div className="flex gap-1 border border-outline-variant rounded-xl p-1 bg-surface-container-low" role="group" aria-label="Event kind filter">
+      {FILTERS.map((f) => (
+        <button
+          key={f.id}
+          title={f.title}
+          onClick={() => setEventFilter(f.id)}
+          className={`px-3 py-1.5 rounded-lg font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors ${
+            eventFilter === f.id
+              ? 'bg-surface-container-high text-on-surface'
+              : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  );
+
   const renderToolbar = () => {
     if (isMobile) {
       return (
-        <div className="mb-3 flex gap-1 flex-wrap">
+        <div className="mb-3 flex gap-2 flex-wrap items-center justify-between">
+          <div className="flex gap-1 flex-wrap">
           {(['timeline', 'stats'] as const).map((p) => (
             <button
               key={p}
               onClick={() => setDayPanel(p)}
-              className={`px-4 py-1 rounded font-label-sm text-label-sm max-lg:!text-[11px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
+              className={`px-4 py-1 rounded font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
                 dayPanel === p
                   ? 'bg-primary text-on-primary'
                   : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
@@ -476,26 +536,12 @@ export function CalendarPage() {
               {p === 'timeline' ? 'Day' : 'Stats'}
             </button>
           ))}
+          </div>
+          {renderEventFilter()}
         </div>
       );
     }
-    return (
-      <div className="mb-4 flex gap-2 flex-wrap flex-shrink-0">
-        {VIEWS.map((v) => (
-        <button
-          key={v.id}
-          onClick={() => setView(v.id)}
-          className={`px-4 py-1 rounded font-label-sm text-label-sm uppercase tracking-widest transition-colors ${
-            view === v.id
-              ? 'bg-primary text-on-primary'
-              : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
-          }`}
-        >
-          {v.label}
-        </button>
-      ))}
-      </div>
-    );
+    return null;
   };
 
   const renderSubjectPicker = () =>
@@ -515,6 +561,8 @@ export function CalendarPage() {
         onNext={goToNext}
         onToday={goToToday}
         view={view}
+        center={!isMobile ? renderViewSegmented() : undefined}
+        right={!isMobile && view !== 'month' && view !== 'year' ? renderEventFilter() : undefined}
       />
       {renderToolbar()}
 
@@ -540,6 +588,7 @@ export function CalendarPage() {
                 onEventMove={handleEventMove}
                 onEventResize={handleEventResize}
                 onBackgroundClick={handleTimelineBackgroundClick}
+                mode={eventFilter}
               />
             </div>
           )
@@ -554,6 +603,7 @@ export function CalendarPage() {
               onEventMove={handleEventMove}
               onEventResize={handleEventResize}
               onBackgroundClick={handleTimelineBackgroundClick}
+              mode={eventFilter}
             />
             <StatsSidebar
               events={dayEvents}
@@ -565,11 +615,11 @@ export function CalendarPage() {
         ))}
 
       {view === '3day' && (
-        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} />
+        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} />
       )}
 
       {view === 'week' && (
-        <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} />
+        <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} />
       )}
 
       {view === 'month' && (
@@ -588,19 +638,15 @@ export function CalendarPage() {
       {view === 'day' && (
         <div className="mt-auto pt-8 max-lg:pt-2 flex gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10 max-lg:bg-background/95">
           <button
-            onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: 'plan' })}
-            className="px-6 py-3 bg-surface-container-lowest border border-outline-variant text-on-background font-label-md text-label-md rounded hover:bg-surface-container-low transition-colors uppercase tracking-widest flex items-center justify-center gap-2"
+            onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
+            className="px-6 py-3 bg-surface-container-high text-on-surface font-label-md text-label-md rounded-xl hover:bg-surface-container-highest transition-colors uppercase tracking-[0.12em] flex items-center justify-center gap-2"
           >
-            <span className="material-symbols-outlined text-[20px]">event</span>
             New Event
           </button>
           <button
             onClick={handleStartStudying}
-            className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded hover:bg-tertiary-container transition-colors uppercase tracking-widest flex items-center justify-center gap-2 group"
+            className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded-xl hover:opacity-90 transition-opacity uppercase tracking-[0.12em] flex items-center justify-center gap-2"
           >
-            <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">
-              add
-            </span>
             Start studying
           </button>
         </div>

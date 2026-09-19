@@ -34,7 +34,7 @@ export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick
         role="dialog"
         aria-modal="true"
         aria-label={mode === 'edit' ? 'Edit recurring event' : 'Delete recurring event'}
-        className="bg-surface-container-lowest rounded-xl p-6 shadow-xl w-full max-w-md focus:outline-none"
+        className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 shadow-xl w-full max-w-md focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >

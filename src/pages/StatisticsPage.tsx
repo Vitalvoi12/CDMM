@@ -49,7 +49,7 @@ export function StatisticsPage() {
             aria-label="Previous year"
             className="w-10 h-10 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
           >
-            <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+            <span className="material-symbols-outlined text-[16px]">chevron_left</span>
           </button>
           <span className="font-headline-md text-headline-md text-on-surface tabular-nums w-16 text-center">
             {year}
@@ -59,7 +59,7 @@ export function StatisticsPage() {
             aria-label="Next year"
             className="w-10 h-10 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
           >
-            <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+            <span className="material-symbols-outlined text-[16px]">chevron_right</span>
           </button>
         </div>
       </div>
@@ -110,7 +110,7 @@ export function StatisticsPage() {
               aria-label="Previous week"
               className="w-9 h-9 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
             >
-              <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+              <span className="material-symbols-outlined text-[16px]">chevron_left</span>
             </button>
             <span className="font-label-md text-label-md text-on-surface tabular-nums">
               {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} –{' '}
@@ -121,7 +121,7 @@ export function StatisticsPage() {
               aria-label="Next week"
               className="w-9 h-9 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
             >
-              <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
             </button>
           </div>
         </div>

@@ -59,7 +59,7 @@ export interface WeeklyStatistics {
   mostStudiedSubject: { subjectId: string; minutes: number } | null;
 }
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'bw' | 'bw-dark' | 'latte' | 'mocha';
 
 export interface TodoTask {
   id: string;
@@ -81,3 +81,6 @@ export interface UserSettings {
 }
 
 export type CalendarView = 'day' | '3day' | 'week' | 'month' | 'year';
+
+/** Timeline event-kind filter: 'all' renders Real|Plan side by side. */
+export type EventFilter = 'real' | 'plan' | 'all';

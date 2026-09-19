@@ -9,10 +9,10 @@ import { QuadrantDialog } from '../components/todo/QuadrantDialog';
 import { TodoForm } from '../components/todo/TodoForm';
 
 const QUADRANTS = [
-  { key: 'ii', important: true, urgent: true, title: 'Важное и срочное' },
-  { key: 'ni', important: false, urgent: true, title: 'Срочное и не важное' },
-  { key: 'in', important: true, urgent: false, title: 'Важное и не срочное' },
-  { key: 'nn', important: false, urgent: false, title: 'Не важное и не срочное' },
+  { key: 'ii', important: true, urgent: true, title: 'Urgent & Important' },
+  { key: 'in', important: true, urgent: false, title: 'Important' },
+  { key: 'ni', important: false, urgent: true, title: 'Urgent' },
+  { key: 'nn', important: false, urgent: false, title: 'Neither' },
 ] as const;
 
 type QuadrantKey = (typeof QUADRANTS)[number]['key'];
@@ -112,7 +112,7 @@ export function TodoPage() {
   return (
     <div className="flex flex-col w-full h-full relative">
       <div className="mb-8">
-        <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">TODO</h1>
+        <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Todo</h1>
         <p className="font-body-lg text-body-lg text-on-surface-variant">
           {todos.filter((t) => !t.completed).length} open tasks
         </p>
