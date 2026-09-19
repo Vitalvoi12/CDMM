@@ -64,6 +64,7 @@ interface PendingRecurrence {
     start: Date;
     end: Date;
     kind: 'real' | 'plan';
+    color?: string;
   } | null;
 }
 
@@ -193,7 +194,7 @@ export function CalendarPage() {
   );
 
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; recurrence?: EventRecurrence }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; recurrence?: EventRecurrence; color?: string }) => {
       if (editingEvent) {
         const stored = eventRepo.getById(editingEvent.id);
         const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
@@ -238,6 +239,7 @@ export function CalendarPage() {
           start: data.start.toISOString(),
           end: data.end.toISOString(),
           kind: data.kind,
+          color: data.color,
         });
       } else if (data.recurrence && data.recurrence.freq !== 'none') {
         const occurrences = expandRecurrence(
@@ -257,6 +259,7 @@ export function CalendarPage() {
             start: occ.start.toISOString(),
             end: occ.end.toISOString(),
             kind: data.kind,
+            color: data.color,
             recurrenceId,
           });
         }
@@ -269,6 +272,7 @@ export function CalendarPage() {
           start: data.start.toISOString(),
           end: data.end.toISOString(),
           kind: data.kind,
+          color: data.color,
         });
       }
       setEditingEvent(null);
@@ -357,6 +361,7 @@ export function CalendarPage() {
               start: data.start.toISOString(),
               end: data.end.toISOString(),
               kind: data.kind,
+              color: data.color,
               recurrenceId: null,
             });
           }
@@ -376,6 +381,7 @@ export function CalendarPage() {
               start: data.start.toISOString(),
               end: data.end.toISOString(),
               kind: data.kind,
+              color: data.color,
             });
           }
           for (const s of following) {
@@ -390,6 +396,7 @@ export function CalendarPage() {
               start: new Date(shiftedStart).toISOString(),
               end: new Date(shiftedEnd).toISOString(),
               kind: data.kind,
+              color: data.color,
             });
           }
         }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { Toggle } from '../common/Toggle';
+import { SUBJECT_COLORS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
 
 export interface EventRecurrence {
@@ -22,6 +23,8 @@ interface EventFormProps {
     end: Date;
     kind: 'real' | 'plan';
     recurrence?: EventRecurrence;
+    /** Custom (subject-less) event color. Ignored for subject-bound events. */
+    color?: string;
   }) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -60,6 +63,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
   });
   const [kind, setKind] = useState<'real' | 'plan'>(initialKind);
   const [title, setTitle] = useState(event?.title || '');
+  const [color, setColor] = useState(event?.color || DEFAULT_CUSTOM_COLOR);
   const [description, setDescription] = useState(event?.description || '');
   const [startDate, setStartDate] = useState(toLocalInputValue(initialStart, 'date'));
   const [startTime, setStartTime] = useState(toLocalInputValue(initialStart, 'time'));
@@ -140,6 +144,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
       end,
       kind,
       recurrence,
+      color: isCustom ? color : undefined,
     });
   };
 
@@ -227,6 +232,29 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                 placeholder="e.g. Dentist, Gym, Meeting"
                 className={inputClass}
               />
+            </div>
+          )}
+          {kind === 'plan' && subjectSel === CUSTOM_SUBJECT && (
+            <div className="flex flex-col gap-2">
+              <label className={labelClass}>
+                Color
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {SUBJECT_COLORS.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setColor(c.value)}
+                    aria-label={c.label}
+                    aria-pressed={color === c.value}
+                    className={`w-7 h-7 rounded-full transition-transform ${
+                      color === c.value ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest scale-110' : 'hover:scale-110'
+                    }`}
+                    style={{ backgroundColor: c.value }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
             </div>
           )}
           <Toggle

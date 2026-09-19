@@ -1,6 +1,6 @@
 import type { CalendarEvent, Subject } from '../../types';
 import { timeFromDate } from '../../utils/time';
-import { contrastOn } from '../../utils/color';
+import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
 
 interface TimelineEventProps {
   event: CalendarEvent;
@@ -21,15 +21,17 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
 
   const color = subject?.color || 'var(--color-on-surface-variant)';
   const displayName = subject?.name || event.title || 'Untitled';
-  // Planned events are a solid subject-color fill — foreground picked for
-  // contrast so any subject color stays legible in any theme.
-  const fgStyle = plan ? { color: contrastOn(subject?.color || '#888888') } : undefined;
+  // Planned events are a solid fill — custom color for subject-less events,
+  // otherwise the subject color. Foreground picked for contrast.
+  const fill = eventFillColor(event, subject);
+  // Dark themes: text in the page-background color; light themes: contrast.
+  const fgStyle = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : undefined;
 
   const baseStyle: React.CSSProperties = plan
     ? {
         top: `${top}px`,
         height: `${height}px`,
-        backgroundColor: subject?.color || '#888888',
+        backgroundColor: fill,
       }
     : {
         top: `${top}px`,
@@ -39,19 +41,19 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
       };
 
   const shellClass =
-    'absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded-lg overflow-hidden cursor-pointer group';
+    'absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded-xl overflow-hidden cursor-pointer group';
 
   if (tiny) {
     return (
       <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
         {!plan && (
           <div
-            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
             style={{ backgroundColor: color }}
           />
         )}
         <div className="flex items-center h-full pl-3 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface" style={fgStyle}>
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-bold min-w-0 text-on-surface" style={fgStyle}>
             {displayName}
           </span>
         </div>
@@ -64,12 +66,12 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
       <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
         {!plan && (
           <div
-            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
             style={{ backgroundColor: color }}
           />
         )}
         <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface" style={fgStyle}>
+          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-bold min-w-0 text-on-surface" style={fgStyle}>
             {displayName}
           </span>
           <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0" style={fgStyle}>

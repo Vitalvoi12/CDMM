@@ -1,32 +1,6 @@
 import { useState } from 'react';
 import type { Subject } from '../../types';
-
-const COLORS = [
-  { value: '#111111', label: 'Black' },
-  { value: '#3f51b5', label: 'Indigo' },
-  { value: '#00897b', label: 'Teal' },
-  { value: '#d32f2f', label: 'Red' },
-  { value: '#f57c00', label: 'Orange' },
-  { value: '#7b1fa2', label: 'Purple' },
-  { value: '#0277bd', label: 'Blue' },
-  { value: '#2e7d32', label: 'Green' },
-  { value: '#c2185b', label: 'Pink' },
-  { value: '#5d4037', label: 'Brown' },
-  { value: '#455a64', label: 'Blue Grey' },
-  { value: '#00838f', label: 'Cyan' },
-  { value: '#cddc39', label: 'Lime' },
-  { value: '#8bc34a', label: 'Light Green' },
-  { value: '#fdd835', label: 'Yellow' },
-  { value: '#ffb300', label: 'Amber' },
-  { value: '#f4511e', label: 'Deep Orange' },
-  { value: '#ff8a65', label: 'Coral' },
-  { value: '#ec407a', label: 'Rose' },
-  { value: '#ce93d8', label: 'Lavender' },
-  { value: '#5e35b1', label: 'Deep Purple' },
-  { value: '#039be5', label: 'Sky Blue' },
-  { value: '#4db6ac', label: 'Mint' },
-  { value: '#9e9e9e', label: 'Grey' },
-];
+import { SUBJECT_COLORS as COLORS } from '../../utils/color';
 
 interface SubjectFormProps {
   subject: Subject | null;

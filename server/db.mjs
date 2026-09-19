@@ -91,6 +91,12 @@ export function openDb(dir) {
   } catch {
     // column already exists — ignore
   }
+  // Migration for custom event colors.
+  try {
+    db.exec('ALTER TABLE events ADD COLUMN color TEXT');
+  } catch {
+    // column already exists — ignore
+  }
   return db;
 }
 
@@ -152,7 +158,7 @@ function rowToPayload(entity, row) {
     return { id: row.id, name: row.name, color: row.color, icon: row.icon, progress: row.progress, updatedAt: row.updated_at };
   }
   if (entity === 'events') {
-    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, recurrenceId: row.recurrence_id || undefined, updatedAt: row.updated_at };
+    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, updatedAt: row.updated_at };
   }
   return {
     id: row.id, title: row.title, description: row.description,
@@ -164,14 +170,14 @@ function rowToPayload(entity, row) {
 
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
-  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id'],
+  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'completed', 'created_at'],
 };
 
 const FROM_CLIENT = {
   name: 'name', color: 'color', icon: 'icon', progress: 'progress',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
-  start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id',
+  start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id', color: 'color',
   important: 'important', urgent: 'urgent', dueDate: 'due_date', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
 };

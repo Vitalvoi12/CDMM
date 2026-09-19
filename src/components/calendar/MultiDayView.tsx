@@ -3,7 +3,7 @@ import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { getEventsForDate } from '../../utils/stats';
 import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
-import { contrastOn } from '../../utils/color';
+import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 
@@ -344,9 +344,11 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     const displayName = subject?.name || ev.title || 'Untitled';
                     const tiny = height < HOUR_HEIGHT * 0.5;
                     const plan = ev.kind === 'plan';
-                    // Solid subject-color fill for plans — foreground picked
+                    // Solid fill for plans (custom color for subject-less
+                    // events, else the subject color) — foreground picked
                     // for contrast; the color bar/dot are redundant on top.
-                    const planFg = plan ? { color: contrastOn(subject?.color || '#888888') } : undefined;
+                    const fill = eventFillColor(ev, subject);
+                    const planFg = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : undefined;
                     let visualTop = top;
                     let visualDx = 0;
                     let dragging = false;
@@ -359,8 +361,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     return (
                       <div
                         key={ev.id}
-                        className="absolute left-0.5 right-0.5 rounded-lg overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2 pt-1 pb-1 pr-1 group"
-                        style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: plan ? subject?.color || '#888888' : 'var(--color-surface-dim)', border: plan ? undefined : '1px solid var(--color-outline-variant)', transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
+                        className="absolute left-0.5 right-0.5 rounded-xl overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2 pt-1 pb-1 pr-1 group"
+                        style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: plan ? fill : 'var(--color-surface-dim)', border: plan ? undefined : '1px solid var(--color-outline-variant)', transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEventClick?.(ev);
@@ -371,7 +373,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                           <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
                         )}
                         {tiny ? (
-                          <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface truncate" style={planFg}>
+                          <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none font-bold text-on-surface truncate" style={planFg}>
                             {displayName}
                           </span>
                         ) : (
@@ -380,7 +382,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                               {!plan && (
                                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
                               )}
-                              <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface truncate" style={planFg}>
+                              <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none font-bold text-on-surface truncate" style={planFg}>
                                 {displayName}
                               </span>
                             </div>

@@ -24,6 +24,11 @@ export interface CalendarEvent {
   /** 'real' (default) | 'plan'. undefined = 'real' for backward compat. */
   kind?: 'real' | 'plan';
   /**
+   * Custom plan-event color (subject-less events only; subject-bound events
+   * always use their subject's color). Absent = default gray.
+   */
+  color?: string;
+  /**
    * Shared id linking occurrences of one repeating series.
    * Absent/null = standalone event. null is sent to the server to clear it.
    */
