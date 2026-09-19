@@ -10,10 +10,8 @@ import { SettingsNav } from '../components/settings/SettingsNav';
 import type { UserSettings, ThemeMode } from '../types';
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
-  { value: 'bw', label: 'B&W', hint: 'Classic grayscale light' },
-  { value: 'bw-dark', label: 'B&W Dark', hint: 'Classic grayscale dark' },
-  { value: 'latte', label: 'Latte', hint: 'Catppuccin light' },
-  { value: 'mocha', label: 'Mocha', hint: 'Catppuccin dark' },
+  { value: 'light', label: 'Light', hint: 'Warm paper' },
+  { value: 'dark', label: 'Dark', hint: 'Focus room' },
 ];
 
 interface SettingsPageProps {
@@ -76,31 +74,29 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
   }, []);
 
   return (
-    <div className="flex flex-col w-full h-full relative">
-      <div className="grid grid-cols-12 gap-6 relative">
-        <div className="col-span-12 lg:col-span-3 mb-8 lg:mb-0">
-          <div className="sticky top-[90px]">
-            <h2 className="font-headline-md text-headline-md text-on-surface mb-6">Settings</h2>
-            <SettingsNav active={activeSection} onChange={setActiveSection} />
-          </div>
+    <div className="flex flex-col w-full h-full relative overflow-anchor-none">
+      <div className="grid grid-cols-12 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10 lg:items-start relative">
+        <div className="col-span-12 lg:col-span-1 lg:sticky lg:top-[96px] lg:self-start mb-10 lg:mb-0 overflow-anchor-none">
+          <h2 className="font-headline-lg text-[30px] leading-[36px] text-on-surface mb-10">Settings</h2>
+          <SettingsNav active={activeSection} onChange={setActiveSection} />
         </div>
-        <div className="col-span-12 lg:col-span-8 lg:col-start-5">
+        <div className="col-span-12 lg:col-span-1 lg:mt-12 overflow-anchor-none">
           {activeSection === 'account' && (
-            <div className="mb-16 flex flex-col gap-5">
-              <h1 className="font-headline-lg text-headline-lg text-on-surface">Account</h1>
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex flex-col gap-5 max-w-xl">
+            <div className="mb-20 flex flex-col gap-6">
+              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface">Account</h1>
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-7 max-w-xl">
                 <div className="flex flex-col gap-1">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+                  <span className="text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                     Username
                   </span>
-                  <span className="font-body-lg text-body-lg text-on-surface">{getUsername() ?? '—'}</span>
+                  <span className="font-body-lg text-[16px] leading-[23px] text-on-surface">{getUsername() ?? '—'}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={handleSync}
                     disabled={syncing}
-                    className="px-5 py-2.5 rounded-xl bg-surface-container-high text-on-surface font-label-md text-label-md uppercase tracking-[0.1em] flex items-center gap-2 hover:bg-surface-container-highest disabled:opacity-50 transition-colors"
+                    className="px-6 py-3 rounded-xl bg-surface-container-high text-on-surface font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] flex items-center gap-2 hover:bg-surface-container-highest disabled:opacity-50 transition-colors"
                   >
                     <span className={`material-symbols-outlined text-[14px] ${syncing ? 'animate-spin' : ''}`}>
                       sync
@@ -110,31 +106,31 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="px-5 py-2.5 rounded-xl bg-error-container text-on-error-container font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
+                    className="px-6 py-3 rounded-xl bg-error-container text-on-error-container font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
                   >
                     Logout
                   </button>
                 </div>
                 {syncMessage && (
-                  <p className="font-body-sm text-body-sm text-success">{syncMessage}</p>
+                  <p className="font-body-sm text-[13px] leading-[19px] text-success">{syncMessage}</p>
                 )}
                 {syncError && (
-                  <p role="alert" className="font-body-sm text-body-sm text-error">{syncError}</p>
+                  <p role="alert" className="font-body-sm text-[13px] leading-[19px] text-error">{syncError}</p>
                 )}
-                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                <p className="font-body-sm text-[13px] leading-[19px] text-on-surface-variant">
                   Your data syncs across devices under this account.
                 </p>
               </div>
             </div>
           )}
           {activeSection === 'general' && (
-            <div className="mb-16 flex flex-col gap-5">
-              <h1 className="font-headline-lg text-headline-lg text-on-surface">General</h1>
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex flex-col gap-2 max-w-xl">
-                <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+            <div className="mb-20 flex flex-col gap-6">
+              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface">General</h1>
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-4 max-w-xl">
+                <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                   Appearance
                 </label>
-                <div className="flex flex-col gap-2.5 mt-1">
+                <div className="flex flex-col gap-3 mt-1">
                   {THEME_OPTIONS.map((option) => {
                     const isSelected = theme === option.value;
                     return (
@@ -143,13 +139,13 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         type="button"
                         onClick={() => setTheme(option.value)}
                         aria-pressed={isSelected}
-                        className={`flex items-center justify-between gap-2 px-5 py-3.5 rounded-xl border text-left transition-colors ${
+                        className={`flex items-center justify-between gap-2 px-6 py-4 rounded-xl border text-left transition-colors ${
                           isSelected
                             ? 'border-outline bg-surface-container'
                             : 'border-outline-variant hover:border-outline bg-transparent'
                         }`}
                       >
-                        <span className="flex items-center gap-3 font-body-md text-body-md text-on-surface">
+                        <span className="flex items-center gap-3 font-body-md text-[15px] leading-[22px] text-on-surface">
                           <span
                             className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-primary' : 'border-outline'}`}
                           >
@@ -158,7 +154,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                           {option.label}
                         </span>
                         {isSelected && (
-                          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.14em]">
+                          <span className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.14em]">
                             Active
                           </span>
                         )}
@@ -168,8 +164,8 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex flex-col gap-3 max-w-xl">
-                <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-4 max-w-xl">
+                <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                   Daily Goal
                 </label>
                 <div className="flex items-center gap-3 flex-wrap">
@@ -181,11 +177,11 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         const h = Math.max(0, Math.floor(settings.dailyGoalMinutes / 60) - 1);
                         handleSave({ dailyGoalMinutes: h * 60 + (settings.dailyGoalMinutes % 60) });
                       }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">remove</span>
                     </button>
-                    <span className="font-body-lg text-body-lg text-on-surface tabular-nums w-8 text-center">
+                    <span className="font-body-lg text-[16px] leading-[23px] text-on-surface tabular-nums w-8 text-center">
                       {Math.floor(settings.dailyGoalMinutes / 60)}
                     </span>
                     <button
@@ -195,12 +191,12 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         const h = Math.min(24, Math.floor(settings.dailyGoalMinutes / 60) + 1);
                         handleSave({ dailyGoalMinutes: h * 60 + (settings.dailyGoalMinutes % 60) });
                       }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">add</span>
                     </button>
                   </div>
-                  <span className="font-body-md text-body-md text-on-surface-variant">hours</span>
+                  <span className="font-body-md text-[15px] leading-[22px] text-on-surface-variant">hours</span>
                   <div className="flex items-center gap-1 border border-outline-variant rounded-xl px-1.5 py-1">
                     <button
                       type="button"
@@ -209,11 +205,11 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         const total = Math.max(0, settings.dailyGoalMinutes - 5);
                         handleSave({ dailyGoalMinutes: total });
                       }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">remove</span>
                     </button>
-                    <span className="font-body-lg text-body-lg text-on-surface tabular-nums w-8 text-center">
+                    <span className="font-body-lg text-[16px] leading-[23px] text-on-surface tabular-nums w-8 text-center">
                       {settings.dailyGoalMinutes % 60}
                     </span>
                     <button
@@ -223,17 +219,17 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         const total = Math.min(24 * 60, settings.dailyGoalMinutes + 5);
                         handleSave({ dailyGoalMinutes: total });
                       }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">add</span>
                     </button>
                   </div>
-                  <span className="font-body-md text-body-md text-on-surface-variant">minutes</span>
+                  <span className="font-body-md text-[15px] leading-[22px] text-on-surface-variant">minutes</span>
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 flex flex-col gap-3 max-w-xl">
-                <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-4 max-w-xl">
+                <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                   Synchronization
                 </label>
                 <div className="flex flex-wrap items-center gap-3">
@@ -241,7 +237,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     type="button"
                     onClick={handleSync}
                     disabled={syncing}
-                    className="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md uppercase tracking-[0.1em] flex items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+                    className="px-6 py-3 rounded-xl bg-primary text-on-primary font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] flex items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
                   >
                     <span className={`material-symbols-outlined text-[14px] ${syncing ? 'animate-spin' : ''}`}>
                       sync
@@ -249,24 +245,24 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     {syncing ? 'Syncing…' : 'Sync'}
                   </button>
                   {syncMessage && (
-                    <span className="font-body-sm text-body-sm text-success">{syncMessage}</span>
+                    <span className="font-body-sm text-[13px] leading-[19px] text-success">{syncMessage}</span>
                   )}
                   {syncError && (
-                    <span role="alert" className="font-body-sm text-body-sm text-error">{syncError}</span>
+                    <span role="alert" className="font-body-sm text-[13px] leading-[19px] text-error">{syncError}</span>
                   )}
                 </div>
-                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                <p className="font-body-sm text-[13px] leading-[19px] text-on-surface-variant">
                   Force push/pull all local changes right now.
                 </p>
               </div>
             </div>
           )}
           {(activeSection === 'study-preferences' || activeSection === 'notifications') && (
-            <div className="mb-16 flex flex-col gap-2">
-              <h1 className="font-headline-lg text-headline-lg text-on-surface capitalize">
+            <div className="mb-20 flex flex-col gap-4">
+              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface capitalize">
                 {activeSection.replace('-', ' ')}
               </h1>
-              <p className="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
+              <p className="font-body-lg text-[16px] leading-[23px] text-on-surface-variant max-w-2xl">
                 Coming soon.
               </p>
             </div>

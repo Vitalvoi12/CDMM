@@ -4,15 +4,13 @@ import type { ThemeMode } from '../types';
 
 const META_ID = 'theme-color-meta';
 const THEME_COLORS: Record<ThemeMode, string> = {
-  bw: '#fdf8f8',
-  'bw-dark': '#131312',
-  latte: '#eff1f5',
-  mocha: '#1e1e2e',
+  light: '#f6f1e6',
+  dark: '#12100e',
 };
 
 function readTheme(): ThemeMode {
   const t = settingsRepo.get().theme;
-  return t === 'bw' || t === 'bw-dark' || t === 'latte' || t === 'mocha' ? t : 'bw-dark';
+  return t === 'light' || t === 'dark' ? t : 'dark';
 }
 
 function applyTheme(theme: ThemeMode) {
@@ -29,7 +27,7 @@ function applyTheme(theme: ThemeMode) {
 }
 
 /**
- * Explicit theme state (bw/latte/mocha) persisted through the settings
+ * Explicit theme state (light/dark) persisted through the settings
  * repository. There is intentionally no system mode: the user always chooses.
  */
 export function useTheme() {

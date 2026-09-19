@@ -17,7 +17,6 @@ export function SubjectGrid({ subjects, onEdit }: SubjectGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-lg:gap-2 max-lg:mt-[8px] relative">
       {subjects.map((subject) => {
-        const progress = subject.progress || 0;
         return (
           <div
             key={subject.id}
@@ -37,29 +36,9 @@ export function SubjectGrid({ subjects, onEdit }: SubjectGridProps) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3 max-lg:gap-2 flex-shrink-0">
-              <div className="relative w-12 h-12 max-lg:w-8 max-lg:h-8">
-                <svg className="w-full h-full transform -rotate-90 text-surface-container-high" viewBox="0 0 36 36">
-                  <path
-                    className="stroke-current"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    strokeWidth="3"
-                  />
-                  <path
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke={subject.color}
-                    strokeDasharray={`${progress}, 100`}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-              <span className="material-symbols-outlined text-[16px] max-lg:text-[13px] text-on-surface-variant group-hover:text-on-surface group-hover:translate-x-0.5 transition-all">
-                chevron_right
-              </span>
-            </div>
+            <span className="material-symbols-outlined text-[16px] max-lg:text-[13px] text-on-surface-variant group-hover:text-on-surface group-hover:translate-x-0.5 transition-all flex-shrink-0">
+              chevron_right
+            </span>
           </div>
         );
       })}

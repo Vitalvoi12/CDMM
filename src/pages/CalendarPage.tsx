@@ -132,6 +132,31 @@ export function CalendarPage() {
       // storage unavailable — ignore
     }
   }, []);
+  const modalOpen = Boolean(editingEvent || creatingEvent || pendingRecurrence || showSubjectPicker);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isEditing = target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      );
+      if (isEditing || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const key = e.key.toLowerCase();
+      if (!isMobile && key === '3') setView('3day');
+      else if (!isMobile && key === 'd') setView('day');
+      else if (!isMobile && key === 'w') setView('week');
+      else if (!isMobile && key === 'm') setView('month');
+      else if (key === 'r') setEventFilter('real');
+      else if (key === 'p') setEventFilter('plan');
+      else if (key === 'a') setEventFilter('all');
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobile, modalOpen, setEventFilter, setView]);
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
 
@@ -493,6 +518,7 @@ export function CalendarPage() {
       {VIEWS.map((v) => (
         <button
           key={v.id}
+          title={`Shortcut: ${v.id === '3day' ? '3' : v.id}`}
           onClick={() => setView(v.id)}
           className={`px-5 py-1.5 rounded-lg font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
             view === v.id
@@ -511,7 +537,7 @@ export function CalendarPage() {
       {FILTERS.map((f) => (
         <button
           key={f.id}
-          title={f.title}
+          title={`${f.title} (Shortcut: ${f.id === 'real' ? 'R' : f.id === 'plan' ? 'P' : 'A'})`}
           onClick={() => setEventFilter(f.id)}
           className={`px-3 py-1.5 rounded-lg font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors ${
             eventFilter === f.id

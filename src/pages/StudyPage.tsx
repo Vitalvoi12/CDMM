@@ -2,11 +2,11 @@ import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTimer } from '../hooks/useTimer';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { eventRepo, subjectRepo } from '../services/repositories';
+import { eventRepo, settingsRepo, subjectRepo } from '../services/repositories';
 import { checkpoint } from '../services/history';
-import { getEventsForDate, calculateDailyStats } from '../utils/stats';
+import { buildYearHeatmap, calculateYearStats, getEventsForDate, calculateDailyStats } from '../utils/stats';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
-import { LiveSession } from '../components/study/LiveSession';
+import { FocusRoom } from '../components/study/FocusRoom';
 import { TodaySessions } from '../components/study/TodaySessions';
 import type { CalendarEvent } from '../types';
 
@@ -25,6 +25,11 @@ export function StudyPage() {
   }, [refreshEvents]);
 
   const subjects = subjectRepo.getAll();
+  const settings = useMemo(() => settingsRepo.get(), [events]);
+  const currentStreakDays = useMemo(() => {
+    const heatmap = buildYearHeatmap(events, new Date().getFullYear());
+    return calculateYearStats(heatmap).longestStreakDays;
+  }, [events]);
 
   const subject = useMemo(
     () => subjects.find((s) => s.id === subjectId),
@@ -90,12 +95,15 @@ export function StudyPage() {
   return (
     <div className="flex flex-1 w-full relative min-h-0 overflow-hidden">
       <div className="flex flex-col xl:flex-row w-full h-full relative min-h-0 overflow-y-auto">
-        <LiveSession
+        <FocusRoom
           isActive={isActive}
           subjectName={subject?.name || ''}
           startTime={startTime || null}
           elapsed={elapsed}
           subjects={subjects}
+          dailyMinutes={todayTotalMinutes}
+          dailyGoalMinutes={settings.dailyGoalMinutes}
+          streakDays={currentStreakDays}
           onStop={isActive ? handleStop : undefined}
           onStart={!isActive ? handleStart : undefined}
           onQuickStart={!isActive ? handleQuickStart : undefined}

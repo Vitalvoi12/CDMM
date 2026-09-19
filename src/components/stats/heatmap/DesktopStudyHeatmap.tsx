@@ -87,11 +87,11 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
   return (
     <div className="relative">
       <div className="overflow-x-auto pb-2">
-        <div className="relative inline-flex flex-col gap-1 min-w-max">
+        <div className="relative inline-flex flex-col gap-[3px] lg:gap-[3px] min-w-max">
           {/* Month labels */}
-          <div className="flex gap-[2px] ml-8">
+          <div className="flex gap-[3px] lg:gap-[3px] ml-5 lg:ml-6">
             {columns.map((_, col) => (
-              <div key={col} className="w-3 relative">
+              <div key={col} className="w-[9px] lg:w-[10px] relative">
                 {monthLabels.find((m) => m.col === col) && (
                   <span className="absolute left-0 font-label-sm text-label-sm text-on-surface-variant whitespace-nowrap">
                     {monthLabels.find((m) => m.col === col)!.label}
@@ -100,11 +100,11 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
               </div>
             ))}
           </div>
-          <div className="flex gap-[2px]">
+          <div className="flex gap-[3px] lg:gap-[3px]">
             {/* Weekday labels */}
-            <div className="flex flex-col gap-[2px] w-8">
+            <div className="flex flex-col gap-[3px] lg:gap-[3px] w-[14px] lg:w-[17px]">
               {WEEKDAY_LABELS.map((label, row) => (
-                <div key={row} className="h-3 flex items-center">
+                <div key={row} className="h-[9px] lg:h-[10px] flex items-center">
                   <span className="font-label-sm text-label-sm text-on-surface-variant leading-none">
                     {label}
                   </span>
@@ -113,10 +113,10 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
             </div>
             {/* Cells */}
             {columns.map((week, col) => (
-              <div key={col} className="flex flex-col gap-[2px]">
+              <div key={col} className="flex flex-col gap-[3px] lg:gap-[3px]">
                 {Array.from({ length: 7 }, (_, row) => {
                   const cell = week[row];
-                  if (!cell) return <div key={row} className="w-3 h-3" />;
+                  if (!cell) return <div key={row} className="w-[9px] h-[9px] lg:w-[10px] lg:h-[10px]" />;
                   const isToday = cell.day.date === todayKey;
                   return (
                     <button
@@ -125,7 +125,7 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
                       tabIndex={cell.inYear ? 0 : -1}
                       aria-label={`${cell.day.date}: ${cell.day.totalMinutes} minutes, ${cell.day.sessionCount} sessions${isToday ? ', today' : ''}`}
                       disabled={!cell.inYear}
-                      className={`w-3 h-3 rounded-[2px] transition-transform ${heatmapCellClass(cell.level)} ${
+                      className={`w-[9px] h-[9px] lg:w-[10px] lg:h-[10px] rounded-[2px] lg:rounded-[2px] transition-transform ${heatmapCellClass(cell.level)} ${
                         !cell.inYear ? 'opacity-0 pointer-events-none' : 'hover:scale-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
                       }${isToday && cell.inYear ? ' ring-2 ring-primary ring-offset-1 ring-offset-background' : ''}`}
                       onMouseEnter={(e) => showTooltip(cell, e)}

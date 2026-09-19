@@ -35,9 +35,6 @@ export function AuthPage({ onDone }: AuthPageProps) {
       <div className="w-full max-w-sm bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-6">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">CDMM</h1>
-          <p className="font-label-sm text-label-sm text-on-surface-variant mt-1 uppercase tracking-[0.16em]">
-            Carpe diem, memento mori
-          </p>
           <p className="font-body-md text-body-md text-on-surface-variant mt-3">
             {mode === 'login' ? 'Sign in to sync your data' : 'Create an account to sync your data'}
           </p>

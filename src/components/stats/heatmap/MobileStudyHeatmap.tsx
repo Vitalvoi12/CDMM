@@ -63,7 +63,7 @@ export function MobileStudyHeatmap({ days, year, onPrevYear, onNextYear }: Mobil
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-x-3 gap-y-4">
+      <div className="grid grid-cols-4 gap-x-2 gap-y-3">
         {months.map(({ month, cells }) => (
           <div key={month} className="min-w-0">
             <p className="font-label-sm text-label-sm text-on-surface-variant mb-1.5 truncate">

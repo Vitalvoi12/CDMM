@@ -331,19 +331,18 @@ export interface StoredSettings {
   updatedAt: number;
 }
 
-/** Legacy 'light'/'dark' values (pre-theme-expansion) map to the new set. */
+/** Legacy theme values map onto the current light/dark pair. */
 function migrateTheme(t: unknown): ThemeMode {
-  if (t === 'dark') return 'mocha';
-  if (t === 'light') return 'bw';
-  if (t === 'bw' || t === 'bw-dark' || t === 'latte' || t === 'mocha') return t;
-  return 'bw-dark';
+  if (t === 'dark' || t === 'mocha' || t === 'bw-dark') return 'dark';
+  if (t === 'light' || t === 'bw' || t === 'latte') return 'light';
+  return 'dark';
 }
 
 class SettingsRepository {
   private settings: UserSettings = (() => {
     const loaded = load<UserSettings>(STORAGE_KEYS.settings, {
       dailyGoalMinutes: 360,
-      theme: 'bw-dark',
+      theme: 'dark',
     });
     const theme = migrateTheme((loaded as { theme?: unknown }).theme);
     if (theme !== loaded.theme) {

@@ -1,4 +1,4 @@
-import { forwardRef, useMemo, useState } from 'react';
+import { forwardRef, useMemo } from 'react';
 import type { TodoTask } from '../../types';
 import { CompactTodoRow } from './TodoRows';
 
@@ -11,21 +11,17 @@ interface QuadrantCardProps {
   onAdd: () => void;
 }
 
-const COLLAPSED_MAX = 'max-lg:max-h-36 lg:max-h-56';
-
 export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(function QuadrantCard(
   { title, tasks, onToggle, onOpenTask, onOpenQuadrant, onAdd },
   ref
 ) {
-  const [editingInside, setEditingInside] = useState(false);
   const active = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
-  const visible = editingInside ? active : active.slice(0, 6);
-  const overflow = active.length - visible.length;
+  const visible = active;
 
   return (
     <section
       aria-label={title}
-      className="relative bg-surface-container-lowest border border-outline-variant rounded-2xl pt-5 px-5 pb-5 flex flex-col min-w-0 overflow-hidden"
+      className="relative bg-surface-container-lowest border border-outline-variant rounded-2xl pt-5 px-5 pb-5 flex flex-col min-w-0 h-full min-h-0 overflow-hidden"
     >
       <div className="flex items-center justify-between gap-2 mb-4">
         <button
@@ -64,11 +60,7 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
           <span className="font-body-sm text-body-sm text-on-surface-variant">Nothing here</span>
         </button>
       ) : (
-        <div
-          className={`relative overflow-hidden flex flex-col gap-2 ${editingInside ? '' : COLLAPSED_MAX}`}
-          onMouseEnter={() => setEditingInside(true)}
-          onMouseLeave={() => setEditingInside(false)}
-        >
+        <div className="relative overflow-y-auto flex flex-col gap-2 min-h-0 flex-1">
           {visible.map((task) => (
             <CompactTodoRow
               key={task.id}
@@ -77,15 +69,6 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
               onOpen={onOpenTask}
             />
           ))}
-          {!editingInside && overflow > 0 && (
-            <button
-              type="button"
-              onClick={onOpenQuadrant}
-              className="relative z-10 text-left font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors pt-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-            >
-              +{overflow} more
-            </button>
-          )}
         </div>
       )}
     </section>

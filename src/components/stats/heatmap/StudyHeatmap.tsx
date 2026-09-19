@@ -14,7 +14,7 @@ interface StudyHeatmapProps {
 /**
  * Presentation dispatcher: desktop and mobile share the same aggregated
  * heatmap data (see useStudyStatistics) but render completely different
- * layouts. Mobile is a 3x4 monthly grid — never a shrunken yearly graph.
+ * layouts. Mobile is a 4x3 monthly grid — never a shrunken yearly graph.
  */
 export function StudyHeatmap({ days, year, onPrevYear, onNextYear }: StudyHeatmapProps) {
   const isMobile = useIsMobile();

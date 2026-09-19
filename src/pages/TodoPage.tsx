@@ -110,7 +110,7 @@ export function TodoPage() {
   const quadrant = openQuadrant ? QUADRANTS.find((q) => q.key === openQuadrant)! : null;
 
   return (
-    <div className="flex flex-col w-full h-full relative">
+    <div className="flex flex-col w-full flex-1 min-h-0 relative">
       <div className="mb-8">
         <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Todo</h1>
         <p className="font-body-lg text-body-lg text-on-surface-variant">
@@ -118,10 +118,11 @@ export function TodoPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-lg:flex-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
         {QUADRANTS.map((q) => (
+          <div key={q.key} className="min-h-0 flex">
+            <div className="flex-1 min-w-0">
           <QuadrantCard
-            key={q.key}
             ref={(el) => {
               quadrantRefs.current[q.key] = el;
             }}
@@ -132,6 +133,8 @@ export function TodoPage() {
             onOpenQuadrant={() => setOpenQuadrant(q.key)}
             onAdd={() => setFormState({ task: null, quadrant: q.key })}
           />
+            </div>
+          </div>
         ))}
       </div>
 

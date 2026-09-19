@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 
 const navItems = [
   { path: '/', label: 'Calendar', icon: 'calendar_today' },
-  { path: '/study', label: 'Study', icon: 'menu_book' },
+  { path: '/study', label: 'Focus Room', icon: 'menu_book' },
   { path: '/todo', label: 'Todo', icon: 'checklist' },
   { path: '/statistics', label: 'Stats', icon: 'bar_chart' },
   { path: '/subjects', label: 'Subjects', icon: 'category' },

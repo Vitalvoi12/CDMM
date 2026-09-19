@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Subject } from '../../types';
 import { SUBJECT_COLORS as COLORS } from '../../utils/color';
 
@@ -19,6 +19,14 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
       onSave({ name: name.trim(), color });
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4" onClick={onCancel}>

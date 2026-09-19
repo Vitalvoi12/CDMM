@@ -65,7 +65,7 @@ export function StatsSidebar({ events, subjects, totalMinutes, dailyGoalMinutes 
             <ul className="flex flex-col gap-4 max-lg:gap-2">
               {subjectStats.map((stat) => {
                 const subject = subjectMap[stat.subjectId];
-                const color = subject?.color || '#888888';
+                const color = subject?.color || '#b3a98f';
                 const barWidth = totalMinutes > 0 ? Math.round((stat.minutes / totalMinutes) * 100) : 0;
                 return (
                   <li key={stat.subjectId}>

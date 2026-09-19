@@ -64,7 +64,7 @@ export interface WeeklyStatistics {
   mostStudiedSubject: { subjectId: string; minutes: number } | null;
 }
 
-export type ThemeMode = 'bw' | 'bw-dark' | 'latte' | 'mocha';
+export type ThemeMode = 'light' | 'dark';
 
 export interface TodoTask {
   id: string;
