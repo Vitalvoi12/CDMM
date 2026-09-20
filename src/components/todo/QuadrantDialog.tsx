@@ -42,7 +42,7 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
         role="dialog"
         aria-modal="true"
         aria-label={`${title} tasks`}
-        className="bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-xl w-[92vw] h-[92vh] max-lg:w-[calc(100vw-1rem)] max-lg:h-[calc(100dvh-1rem-env(safe-area-inset-bottom,0px))] flex flex-col overflow-hidden"
+        className="bg-surface-container-lowest rounded-2xl shadow-elev-3 w-[92vw] h-[92vh] max-lg:w-[calc(100vw-1rem)] max-lg:h-[calc(100dvh-1rem-env(safe-area-inset-bottom,0px))] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-outline-variant flex-shrink-0">
@@ -56,7 +56,7 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
             <button
               type="button"
               onClick={onAdd}
-              className="px-4 py-2 bg-primary text-on-primary rounded-xl font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+              className="px-4 py-2 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
             >
               Add task
             </button>

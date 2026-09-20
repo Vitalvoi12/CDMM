@@ -51,21 +51,21 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject 
 
   return (
     <div
-      className="absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto overflow-hidden pointer-events-none border border-outline-variant"
+      className="absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto overflow-hidden pointer-events-none"
       style={{
         top: `${top}px`,
         height: `${height}px`,
-        borderRadius: '8px 8px 0 0',
-        backgroundColor: 'var(--color-surface-dim)',
+        borderRadius: '7px 7px 0 0',
+        backgroundColor: `color-mix(in srgb, ${colorBar} 42%, var(--color-surface-dim))`,
       }}
     >
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 rounded-tl-lg"
+        className="absolute left-0 top-0 bottom-0 w-[3px] rounded-tl-[7px]"
         style={{ backgroundColor: colorBar }}
       />
       <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">
         <span
-          className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-semibold min-w-0 text-on-surface"
+          className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 text-on-surface"
         >
           {subject?.name || 'Studying'}
         </span>

@@ -20,12 +20,18 @@ export function MobileNav() {
             end={item.path === '/'}
             className={({ isActive }) =>
               `relative flex flex-col items-center justify-center gap-1 px-1.5 py-1 transition-colors ${
-                isActive ? 'text-primary' : 'text-on-surface-variant'
+                isActive ? 'text-on-surface' : 'text-on-surface-variant'
               }`
             }
           >
-            <span className="material-symbols-outlined max-lg:!text-[17px]">{item.icon}</span>
-            <span className="font-label-sm text-label-sm max-[400px]:!text-[8px] uppercase tracking-[0.08em]">{item.label}</span>
+            {({ isActive }) => (
+              <>
+                <span className={`flex items-center justify-center px-4 py-1 rounded-full transition-colors ${isActive ? 'bg-secondary-container' : ''}`}>
+                  <span className="material-symbols-outlined max-lg:!text-[17px]">{item.icon}</span>
+                </span>
+                <span className="font-label-sm text-label-sm max-[400px]:!text-[8px] uppercase tracking-[0.08em]">{item.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </div>

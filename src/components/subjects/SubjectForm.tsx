@@ -31,7 +31,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4" onClick={onCancel}>
       <div
-        className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 max-lg:p-5 shadow-xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
+        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6 max-lg:mb-4">
@@ -84,7 +84,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
           </div>
           <button
             type="submit"
-            className="w-full py-3 max-lg:py-2.5 bg-primary text-on-primary rounded-xl font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+            className="w-full py-3 max-lg:py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
           >
             {subject ? 'Save subject' : 'Add subject'}
           </button>

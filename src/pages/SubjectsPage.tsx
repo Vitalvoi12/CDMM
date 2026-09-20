@@ -62,7 +62,7 @@ export function SubjectsPage() {
         </div>
         <button
           onClick={handleAdd}
-          className="bg-primary hover:opacity-90 transition-opacity text-on-primary px-6 py-2.5 max-lg:px-3 max-lg:py-1.5 rounded-xl font-label-md text-label-md max-lg:!text-[8px] uppercase tracking-[0.1em]"
+          className="bg-primary hover:opacity-90 transition-opacity text-on-primary px-6 py-2.5 max-lg:px-3 max-lg:py-1.5 rounded-full font-label-md text-label-md max-lg:!text-[8px] uppercase tracking-[0.1em]"
         >
           Add Subject
         </button>

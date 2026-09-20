@@ -21,7 +21,7 @@ export function isDarkTheme(): boolean {
 }
 
 let cachedTheme = '';
-let cachedBg = '#f6f1e6';
+let cachedBg = '#f6f3ec';
 
 /**
  * Page background color of the active theme, read from the CSS variable
@@ -29,7 +29,7 @@ let cachedBg = '#f6f1e6';
  * a dataset read is cheap, getComputedStyle runs only on theme switch.
  */
 export function pageBackground(): string {
-  if (typeof document === 'undefined') return '#f6f1e6';
+  if (typeof document === 'undefined') return '#f6f3ec';
   const t = document.documentElement.dataset.theme || '';
   if (t !== cachedTheme) {
     cachedTheme = t;
@@ -42,30 +42,30 @@ export function pageBackground(): string {
 /** Palette swatches shared by subjects and custom event colors. */
 /** Primary brand accents — used for key subjects, custom events, and CTAs. */
 export const SUBJECT_COLORS = [
-  { value: '#bf8f24', label: 'Amber' },
-  { value: '#d9a539', label: 'Honey' },
-  { value: '#4e7d72', label: 'Teal' },
-  { value: '#63948a', label: 'Muted teal' },
-  { value: '#647d5f', label: 'Sage' },
+  { value: '#2f5d3a', label: 'Forest' },
+  { value: '#3e7142', label: 'Leaf' },
+  { value: '#4e8b57', label: 'Meadow' },
+  { value: '#6b9e60', label: 'Sage' },
+  { value: '#8fbc8f', label: 'Light sage' },
+  { value: '#a9d4a5', label: 'Pale sage' },
+  { value: '#5f8f5a', label: 'Olive' },
+  { value: '#7a9170', label: 'Muted sage' },
+  { value: '#3f6f6a', label: 'Teal' },
+  { value: '#5d8a80', label: 'Muted teal' },
+  { value: '#527a75', label: 'Pine' },
+  { value: '#a88452', label: 'Ochre' },
+  { value: '#c09b62', label: 'Honey' },
+  { value: '#b38a5a', label: 'Caramel' },
+  { value: '#a4785f', label: 'Dusty clay' },
   { value: '#bc4f48', label: 'Clay' },
-  { value: '#d86a63', label: 'Muted clay' },
-  { value: '#8a6b22', label: 'Bronze' },
   { value: '#b3a98f', label: 'Sand' },
   { value: '#6d6759', label: 'Stone' },
-  { value: '#9b7b4f', label: 'Ochre' },
-  { value: '#718c70', label: 'Olive' },
-  { value: '#527a75', label: 'Pine' },
-  { value: '#9b8f67', label: 'Moss gold' },
-  { value: '#a4785f', label: 'Dusty clay' },
-  { value: '#7e8b91', label: 'Slate' },
-  { value: '#8e6f78', label: 'Mauve' },
-  { value: '#b38a5a', label: 'Caramel' },
+  { value: '#8a7b68', label: 'Taupe' },
   { value: '#6f7f5f', label: 'Moss' },
-  { value: '#96775f', label: 'Walnut' },
 ];
 
 /** Default fill for custom events when the user picks no color. */
-export const DEFAULT_CUSTOM_COLOR = '#b3a98f';
+export const DEFAULT_CUSTOM_COLOR = '#6b9e60';
 
 interface ColoredEvent {
   subjectId: string;

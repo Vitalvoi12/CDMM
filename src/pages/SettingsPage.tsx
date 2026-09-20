@@ -84,7 +84,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           {activeSection === 'account' && (
             <div className="mb-20 flex flex-col gap-6">
               <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface">Account</h1>
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-7 max-w-xl">
+              <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-8 flex flex-col gap-7 max-w-xl">
                 <div className="flex flex-col gap-1">
                   <span className="text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                     Username
@@ -96,7 +96,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     type="button"
                     onClick={handleSync}
                     disabled={syncing}
-                    className="px-6 py-3 rounded-xl bg-surface-container-high text-on-surface font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] flex items-center gap-2 hover:bg-surface-container-highest disabled:opacity-50 transition-colors"
+                    className="px-6 py-3 rounded-full bg-surface-container-high text-on-surface font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] flex items-center gap-2 hover:bg-surface-container-highest disabled:opacity-50 transition-colors"
                   >
                     <span className={`material-symbols-outlined text-[14px] ${syncing ? 'animate-spin' : ''}`}>
                       sync
@@ -106,7 +106,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="px-6 py-3 rounded-xl bg-error-container text-on-error-container font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
+                    className="px-6 py-3 rounded-full bg-error-container text-on-error-container font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
                   >
                     Logout
                   </button>
@@ -126,7 +126,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           {activeSection === 'general' && (
             <div className="mb-20 flex flex-col gap-6">
               <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface">General</h1>
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-4 max-w-xl">
+              <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
                 <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                   Appearance
                 </label>
@@ -139,7 +139,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         type="button"
                         onClick={() => setTheme(option.value)}
                         aria-pressed={isSelected}
-                        className={`flex items-center justify-between gap-2 px-6 py-4 rounded-xl border text-left transition-colors ${
+                        className={`flex items-center justify-between gap-2 px-6 py-4 rounded-2xl border border-outline-variant text-left transition-colors ${
                           isSelected
                             ? 'border-outline bg-surface-container'
                             : 'border-outline-variant hover:border-outline bg-transparent'
@@ -164,7 +164,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-4 max-w-xl">
+              <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
                 <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                   Daily Goal
                 </label>
@@ -177,7 +177,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         const h = Math.max(0, Math.floor(settings.dailyGoalMinutes / 60) - 1);
                         handleSave({ dailyGoalMinutes: h * 60 + (settings.dailyGoalMinutes % 60) });
                       }}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">remove</span>
                     </button>
@@ -191,7 +191,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         const h = Math.min(24, Math.floor(settings.dailyGoalMinutes / 60) + 1);
                         handleSave({ dailyGoalMinutes: h * 60 + (settings.dailyGoalMinutes % 60) });
                       }}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">add</span>
                     </button>
@@ -205,7 +205,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         const total = Math.max(0, settings.dailyGoalMinutes - 5);
                         handleSave({ dailyGoalMinutes: total });
                       }}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">remove</span>
                     </button>
@@ -219,7 +219,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         const total = Math.min(24 * 60, settings.dailyGoalMinutes + 5);
                         handleSave({ dailyGoalMinutes: total });
                       }}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">add</span>
                     </button>
@@ -228,7 +228,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-4 max-w-xl">
+              <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
                 <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                   Synchronization
                 </label>
@@ -237,7 +237,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     type="button"
                     onClick={handleSync}
                     disabled={syncing}
-                    className="px-6 py-3 rounded-xl bg-primary text-on-primary font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] flex items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+                    className="px-6 py-3 rounded-full bg-primary text-on-primary font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] flex items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
                   >
                     <span className={`material-symbols-outlined text-[14px] ${syncing ? 'animate-spin' : ''}`}>
                       sync

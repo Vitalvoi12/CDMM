@@ -346,8 +346,11 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     const plan = ev.kind === 'plan';
                     // Solid fill for plans (custom color for subject-less
                     // events, else the subject color) — foreground picked
-                    // for contrast; the color bar/dot are redundant on top.
+                    // for contrast; real events use the muted subject color.
                     const fill = eventFillColor(ev, subject);
+                    const subjectColor = subject?.color || 'var(--color-on-surface-variant)';
+                    const mutedFill = `color-mix(in srgb, ${subjectColor} 42%, var(--color-surface-dim))`;
+                    const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : subjectColor;
                     const planFg = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : undefined;
                     let visualTop = top;
                     let visualDx = 0;
@@ -361,28 +364,26 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     return (
                       <div
                         key={ev.id}
-                        className="absolute left-0.5 right-0.5 rounded-xl overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2 pt-1 pb-1 pr-1 group"
-                        style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: plan ? fill : 'var(--color-surface-dim)', border: plan ? undefined : '1px solid var(--color-outline-variant)', transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
+                        className="absolute left-0 right-[6px] rounded-[7px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group"
+                        style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: plan ? fill : mutedFill, transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEventClick?.(ev);
                         }}
                         onMouseDown={(e) => handleDragStart(ev, idx, e)}
                       >
-                        {!plan && (
-                          <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
-                        )}
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[7px]"
+                          style={{ backgroundColor: spineColor }}
+                        />
                         {tiny ? (
-                          <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none font-bold text-on-surface truncate" style={planFg}>
+                          <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[7px] max-lg:leading-none font-semibold tracking-tight text-on-surface truncate" style={planFg}>
                             {displayName}
                           </span>
                         ) : (
                           <>
                             <div className="flex items-center gap-1">
-                              {!plan && (
-                                <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subject?.color || "var(--color-on-surface-variant)" }} />
-                              )}
-                              <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none font-bold text-on-surface truncate" style={planFg}>
+                              <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[7px] max-lg:leading-none font-semibold tracking-tight text-on-surface truncate" style={planFg}>
                                 {displayName}
                               </span>
                             </div>

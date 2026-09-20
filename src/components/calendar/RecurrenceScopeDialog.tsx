@@ -34,7 +34,7 @@ export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick
         role="dialog"
         aria-modal="true"
         aria-label={mode === 'edit' ? 'Edit recurring event' : 'Delete recurring event'}
-        className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 shadow-xl w-full max-w-md focus:outline-none"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
@@ -48,14 +48,14 @@ export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick
           <button
             type="button"
             onClick={() => onPick('single')}
-            className="w-full py-2 border border-outline-variant rounded font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors uppercase tracking-widest"
+            className="w-full py-2 border border-outline-variant rounded-full font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors uppercase tracking-widest"
           >
             Only this event
           </button>
           <button
             type="button"
             onClick={() => onPick('following')}
-            className="w-full py-2 bg-primary text-on-primary rounded font-label-md text-label-md uppercase tracking-widest hover:opacity-90 transition-opacity"
+            className="w-full py-2 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-widest hover:opacity-90 transition-opacity"
           >
             This and following{followingCount > 0 ? ` (${followingCount + 1})` : ''}
           </button>

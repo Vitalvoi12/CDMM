@@ -21,7 +21,7 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
   return (
     <section
       aria-label={title}
-      className="relative bg-surface-container-lowest border border-outline-variant rounded-2xl pt-5 px-5 pb-5 flex flex-col min-w-0 h-full min-h-0 overflow-hidden"
+      className="relative bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 pt-5 px-5 pb-5 flex flex-col min-w-0 h-full min-h-0 overflow-hidden"
     >
       <div className="flex items-center justify-between gap-2 mb-4">
         <button
@@ -44,7 +44,7 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
           type="button"
           onClick={onAdd}
           aria-label={`Add task to ${title}`}
-          className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-surface-container transition-colors text-on-surface-variant hover:text-on-surface flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant hover:text-on-surface flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="material-symbols-outlined text-[14px]">add</span>
         </button>

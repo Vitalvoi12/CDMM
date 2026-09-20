@@ -3,6 +3,7 @@
  * beat our size utilities. In a layer declared before Tailwind's, the
  * utilities layer wins and per-usage text-[Npx] applies. */
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap') layer(symbols);
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -10,81 +11,86 @@
    * spacing-based utility (p-*, m-*, gap-*, w-12, pl-72, …) shrinks 20%. */
   --spacing: 0.2rem;
 
-  --color-background: #f6f1e6;
-  --color-on-background: #211e19;
-  --color-surface: #fdfcf8;
-  --color-surface-dim: #e8e1cf;
+  --color-background: #f6f3ec;
+  --color-on-background: #1c1a16;
+  --color-surface: #fbf9f4;
+  --color-surface-dim: #e7e2d5;
   --color-surface-bright: #ffffff;
-  --color-surface-variant: #e6ddc7;
-  --color-on-surface: #211e19;
-  --color-on-surface-variant: #6d6759;
+  --color-surface-variant: #e9e3d3;
+  --color-on-surface: #1c1a16;
+  --color-on-surface-variant: #6b675c;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #faf5ea;
-  --color-surface-container: #f1ead7;
-  --color-surface-container-high: #e6dcc2;
-  --color-surface-container-highest: #d8cba6;
-  --color-inverse-surface: #24211c;
-  --color-inverse-on-surface: #f7f1e2;
-  --color-inverse-primary: #d9a539;
-  --color-scrim: rgba(33, 28, 20, 0.45);
+  --color-surface-container-low: #faf7ef;
+  --color-surface-container: #f0eada;
+  --color-surface-container-high: #e5dcc6;
+  --color-surface-container-highest: #d6cba9;
+  --color-inverse-surface: #23211c;
+  --color-inverse-on-surface: #f6f3ec;
+  --color-inverse-primary: #a9d4a5;
+  --color-scrim: rgba(28, 26, 22, 0.45);
 
-  --color-primary: #bf8f24;
-  --color-on-primary: #1d1811;
-  --color-primary-container: #e8d39c;
-  --color-on-primary-container: #4f3c10;
-  --color-primary-fixed: #e8d39c;
-  --color-primary-fixed-dim: #d0b26f;
-  --color-on-primary-fixed: #211a0f;
-  --color-on-primary-fixed-variant: #4f3c10;
+  --color-primary: #3e7142;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #c4eebd;
+  --color-on-primary-container: #0e3916;
+  --color-primary-fixed: #c4eebd;
+  --color-primary-fixed-dim: #9fce97;
+  --color-on-primary-fixed: #0e3916;
+  --color-on-primary-fixed-variant: #2c5a30;
 
-  --color-secondary: #4e7d72;
-  --color-on-secondary: #f7f4ea;
-  --color-secondary-container: #cbddd5;
-  --color-on-secondary-container: #23433c;
-  --color-secondary-fixed: #cbddd5;
-  --color-secondary-fixed-dim: #93b3a8;
-  --color-on-secondary-fixed: #1e332e;
-  --color-on-secondary-fixed-variant: #23433c;
+  --color-secondary: #6b7f5e;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #dce4d3;
+  --color-on-secondary-container: #2a3a24;
+  --color-secondary-fixed: #dce4d3;
+  --color-secondary-fixed-dim: #a9bc9c;
+  --color-on-secondary-fixed: #1e2a19;
+  --color-on-secondary-fixed-variant: #2a3a24;
 
-  --color-tertiary: #8a6b22;
-  --color-tertiary-container: #e0c98d;
-  --color-tertiary-fixed: #e0c98d;
-  --color-tertiary-fixed-dim: #c0a257;
+  --color-tertiary: #a86f14;
+  --color-tertiary-container: #efdcb8;
+  --color-tertiary-fixed: #efdcb8;
+  --color-tertiary-fixed-dim: #cfa14e;
 
-  --color-error: #bc4f48;
+  --color-error: #b34038;
   --color-on-error: #ffffff;
-  --color-error-container: #f0d2ce;
-  --color-on-error-container: #65221d;
+  --color-error-container: #f2d4cf;
+  --color-on-error-container: #5f1e19;
 
-  --color-success: #647d5f;
+  --color-success: #6b7f5e;
 
-  --color-outline: #b3a98f;
-  --color-outline-variant: #d7ceB5;
+  --color-outline: #b9b09a;
+  --color-outline-variant: #d8d1be;
 
-  --color-surface-tint: #857c67;
+  --color-surface-tint: #7a7466;
 
-  --color-now: #bf8f24;
+  --color-now: #3e7142;
 
-  --color-heatmap-0: #ece5d1;
-  --color-heatmap-1: #d5c79b;
-  --color-heatmap-2: #b39d5b;
-  --color-heatmap-3: #7e6c2f;
-  --color-heatmap-4: #453b19;
+  --color-heatmap-0: #e9f0e2;
+  --color-heatmap-1: #c9dcbe;
+  --color-heatmap-2: #9fc791;
+  --color-heatmap-3: #6c9e60;
+  --color-heatmap-4: #3e7142;
 
-  --font-body-sm: "Work Sans", "Arial Narrow", sans-serif;
-  --font-body-md: "Work Sans", "Arial Narrow", sans-serif;
-  --font-body-lg: "Work Sans", "Arial Narrow", sans-serif;
-  --font-label-sm: "Work Sans", "Arial Narrow", sans-serif;
-  --font-label-md: "Work Sans", "Arial Narrow", sans-serif;
-  --font-headline-md: "Work Sans", "Arial Narrow", sans-serif;
-  --font-headline-lg: "Work Sans", "Arial Narrow", sans-serif;
-  --font-headline-lg-mobile: "Work Sans", "Arial Narrow", sans-serif;
-  --font-display-lg: "Work Sans", "Arial Narrow", sans-serif;
+  --font-body-sm: "Inter", system-ui, sans-serif;
+  --font-body-md: "Inter", system-ui, sans-serif;
+  --font-body-lg: "Inter", system-ui, sans-serif;
+  --font-label-sm: "Inter", "Space Grotesk", sans-serif;
+  --font-label-md: "Inter", "Space Grotesk", sans-serif;
+  --font-headline-md: "Inter", "Space Grotesk", sans-serif;
+  --font-headline-lg: "Inter", "Space Grotesk", sans-serif;
+  --font-headline-lg-mobile: "Inter", "Space Grotesk", sans-serif;
+  --font-display-lg: "Inter", "Space Grotesk", sans-serif;
 
   --radius-sm: 0.1rem;
   --radius-lg: 0.2rem;
   --radius-xl: 0.4rem;
   --radius-full: 0.6rem;
+
+  /* Material elevation levels. */
+  --shadow-elev-1: 0 1px 2px rgb(0 0 0 / 0.08), 0 1px 3px 1px rgb(0 0 0 / 0.06);
+  --shadow-elev-2: 0 1px 3px rgb(0 0 0 / 0.1), 0 4px 8px 3px rgb(0 0 0 / 0.08);
+  --shadow-elev-3: 0 4px 8px 3px rgb(0 0 0 / 0.12), 0 1px 3px rgb(0 0 0 / 0.1);
 }
 
 @utility font-body-sm {
@@ -142,14 +148,14 @@
   font-family: var(--font-headline-md);
   font-size: 19px;
   line-height: 24px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 @utility font-headline-lg {
   font-family: var(--font-headline-lg);
   font-size: 26px;
   line-height: 30px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.005em;
 }
 
@@ -164,7 +170,7 @@
   font-family: var(--font-display-lg);
   font-size: 38px;
   line-height: 42px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -236,7 +242,6 @@
     font-family: var(--font-body-md);
     font-size: 13px;
     line-height: 19px;
-    font-stretch: condensed;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -251,66 +256,66 @@
 /* Focus Room dark — becomes the implicit default theme (data-theme="dark"). */
 html[data-theme='dark'] {
   color-scheme: dark;
-  --color-background: #12100e;
-  --color-on-background: #ece5d4;
-  --color-surface: #171411;
-  --color-surface-dim: #0e0c0a;
-  --color-surface-bright: #1d1915;
-  --color-surface-variant: #26211b;
-  --color-on-surface: #ece5d4;
-  --color-on-surface-variant: #a79d86;
-  --color-surface-container-lowest: #15120f;
-  --color-surface-container-low: #181410;
-  --color-surface-container: #201a14;
-  --color-surface-container-high: #2a231a;
-  --color-surface-container-highest: #352d20;
-  --color-inverse-surface: #ece5d4;
-  --color-inverse-on-surface: #171410;
-  --color-inverse-primary: #d9a539;
+  --color-background: #131210;
+  --color-on-background: #ece7da;
+  --color-surface: #1d1b17;
+  --color-surface-dim: #100e0c;
+  --color-surface-bright: #232019;
+  --color-surface-variant: #292520;
+  --color-on-surface: #ece7da;
+  --color-on-surface-variant: #a8a094;
+  --color-surface-container-lowest: #141210;
+  --color-surface-container-low: #181511;
+  --color-surface-container: #211c15;
+  --color-surface-container-high: #2b241a;
+  --color-surface-container-highest: #372d1f;
+  --color-inverse-surface: #ece7da;
+  --color-inverse-on-surface: #1d1b17;
+  --color-inverse-primary: #3e7142;
   --color-scrim: rgba(8, 6, 4, 0.7);
 
-  --color-primary: #d9a539;
-  --color-on-primary: #171106;
-  --color-primary-container: #4a3812;
-  --color-on-primary-container: #eec16a;
-  --color-primary-fixed: #eec16a;
-  --color-primary-fixed-dim: #d9a539;
-  --color-on-primary-fixed: #171106;
-  --color-on-primary-fixed-variant: #4a3812;
+  --color-primary: #a9d4a5;
+  --color-on-primary: #133117;
+  --color-primary-container: #26442b;
+  --color-on-primary-container: #c4eebd;
+  --color-primary-fixed: #c4eebd;
+  --color-primary-fixed-dim: #8fbc8f;
+  --color-on-primary-fixed: #133117;
+  --color-on-primary-fixed-variant: #26442b;
 
-  --color-secondary: #63948a;
-  --color-on-secondary: #101614;
-  --color-secondary-container: #253e39;
-  --color-on-secondary-container: #9dc1b6;
-  --color-secondary-fixed: #9dc1b6;
-  --color-secondary-fixed-dim: #63948a;
-  --color-on-secondary-fixed: #101614;
-  --color-on-secondary-fixed-variant: #253e39;
+  --color-secondary: #a9bc9c;
+  --color-on-secondary: #141b12;
+  --color-secondary-container: #2c3a26;
+  --color-on-secondary-container: #cfdbc4;
+  --color-secondary-fixed: #cfdbc4;
+  --color-secondary-fixed-dim: #a9bc9c;
+  --color-on-secondary-fixed: #141b12;
+  --color-on-secondary-fixed-variant: #2c3a26;
 
-  --color-tertiary: #d9a539;
+  --color-tertiary: #c99a3f;
   --color-tertiary-container: #4a3812;
   --color-tertiary-fixed: #eec16a;
   --color-tertiary-fixed-dim: #c08a2a;
 
-  --color-error: #d86a63;
-  --color-on-error: #200b09;
+  --color-error: #de7b73;
+  --color-on-error: #220d0a;
   --color-error-container: #4f211d;
-  --color-on-error-container: #ee9d97;
+  --color-on-error-container: #f0a5a0;
 
-  --color-success: #718a68;
+  --color-success: #8aa07e;
 
-  --color-outline: #4b4434;
-  --color-outline-variant: #2e2820;
+  --color-outline: #4a4436;
+  --color-outline-variant: #2d2820;
 
-  --color-surface-tint: #93865f;
+  --color-surface-tint: #8b8271;
 
-  --color-now: #d9a539;
+  --color-now: #a9d4a5;
 
-  --color-heatmap-0: #1b1712;
-  --color-heatmap-1: #3a301b;
-  --color-heatmap-2: #7d6530;
-  --color-heatmap-3: #b79541;
-  --color-heatmap-4: #d9a539;
+  --color-heatmap-0: #12130f;
+  --color-heatmap-1: #1e2b20;
+  --color-heatmap-2: #2e4731;
+  --color-heatmap-3: #4f7a46;
+  --color-heatmap-4: #a9d4a5;
 }
 
 ::-webkit-scrollbar {

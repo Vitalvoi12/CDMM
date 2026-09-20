@@ -9,8 +9,8 @@ const navItems = [
 ];
 
 function navClass({ isActive }: { isActive: boolean }): string {
-  return `relative flex items-center gap-5 px-5 py-3 rounded-lg transition-colors font-label-md text-[12px] leading-[16px] uppercase ${
-    isActive ? 'bg-surface-container text-on-surface font-semibold' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
+  return `relative flex items-center gap-5 px-5 py-3 rounded-full transition-colors font-label-md text-[12px] leading-[16px] uppercase ${
+    isActive ? 'bg-secondary-container text-on-secondary-container font-semibold' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
   }`;
 }
 
@@ -28,8 +28,7 @@ export function Sidebar() {
           <NavLink key={item.path} to={item.path} end={item.path === '/'} className={navClass}>
             {({ isActive }) => (
               <>
-                {isActive && <span className="absolute left-1 top-3 bottom-3 w-[2px] rounded-full bg-primary" />}
-                <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-primary' : ''}`}>{item.icon}</span>
+                <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-on-secondary-container' : ''}`}>{item.icon}</span>
                 {item.label}
               </>
             )}
@@ -39,8 +38,7 @@ export function Sidebar() {
           <NavLink to="/settings" className={navClass}>
             {({ isActive }) => (
               <>
-                {isActive && <span className="absolute left-1 top-3 bottom-3 w-[2px] rounded-full bg-primary" />}
-                <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-primary' : ''}`}>settings</span>
+                <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-on-secondary-container' : ''}`}>settings</span>
                 SETTINGS
               </>
             )}

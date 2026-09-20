@@ -145,6 +145,17 @@ export function CalendarPage() {
       );
       if (isEditing || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
 
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        goToPrevious();
+        return;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        goToNext();
+        return;
+      }
+
       const key = e.key.toLowerCase();
       if (!isMobile && key === '3') setView('3day');
       else if (!isMobile && key === 'd') setView('day');
@@ -156,7 +167,7 @@ export function CalendarPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMobile, modalOpen, setEventFilter, setView]);
+  }, [isMobile, modalOpen, setEventFilter, setView, goToPrevious, goToNext]);
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
 
@@ -514,15 +525,15 @@ export function CalendarPage() {
   }, [editingEvent, dragUndo, refreshEvents]);
 
   const renderViewSegmented = () => (
-    <div className="flex gap-1 border border-outline-variant rounded-xl p-1 bg-surface-container-low">
+    <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low">
       {VIEWS.map((v) => (
         <button
           key={v.id}
           title={`Shortcut: ${v.id === '3day' ? '3' : v.id}`}
           onClick={() => setView(v.id)}
-          className={`px-5 py-1.5 rounded-lg font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
+          className={`px-5 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
             view === v.id
-              ? 'bg-surface-container-high text-on-surface'
+              ? 'bg-secondary-container text-on-secondary-container'
               : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
@@ -533,15 +544,15 @@ export function CalendarPage() {
   );
 
   const renderEventFilter = () => (
-    <div className="flex gap-1 border border-outline-variant rounded-xl p-1 bg-surface-container-low" role="group" aria-label="Event kind filter">
+    <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low" role="group" aria-label="Event kind filter">
       {FILTERS.map((f) => (
         <button
           key={f.id}
           title={`${f.title} (Shortcut: ${f.id === 'real' ? 'R' : f.id === 'plan' ? 'P' : 'A'})`}
           onClick={() => setEventFilter(f.id)}
-          className={`px-3 py-1.5 rounded-lg font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors ${
+          className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors ${
             eventFilter === f.id
-              ? 'bg-surface-container-high text-on-surface'
+              ? 'bg-secondary-container text-on-secondary-container'
               : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
@@ -560,7 +571,7 @@ export function CalendarPage() {
             <button
               key={p}
               onClick={() => setDayPanel(p)}
-              className={`px-4 py-1 rounded font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
+              className={`px-4 py-1 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
                 dayPanel === p
                   ? 'bg-primary text-on-primary'
                   : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
@@ -672,13 +683,13 @@ export function CalendarPage() {
         <div className="mt-auto pt-8 max-lg:pt-2 flex gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10 max-lg:bg-background/95">
           <button
             onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
-            className="px-6 py-3 bg-surface-container-high text-on-surface font-label-md text-label-md rounded-xl hover:bg-surface-container-highest transition-colors uppercase tracking-[0.12em] flex items-center justify-center gap-2"
+            className="px-6 py-3 bg-surface-container-high text-on-surface font-label-md text-label-md rounded-full hover:bg-surface-container-highest transition-colors uppercase tracking-[0.12em] flex items-center justify-center gap-2"
           >
             New Event
           </button>
           <button
             onClick={handleStartStudying}
-            className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded-xl hover:opacity-90 transition-opacity uppercase tracking-[0.12em] flex items-center justify-center gap-2"
+            className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded-full hover:opacity-90 transition-opacity uppercase tracking-[0.12em] flex items-center justify-center gap-2"
           >
             Start studying
           </button>

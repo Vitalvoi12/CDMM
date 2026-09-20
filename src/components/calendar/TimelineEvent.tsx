@@ -27,6 +27,11 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   // Dark themes: text in the page-background color; light themes: contrast.
   const fgStyle = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : undefined;
 
+  // Apple-Calendar look: solid muted fill with a brighter spine on the
+  // left. Real events mute the subject color; plans keep full fill.
+  const mutedFill = `color-mix(in srgb, ${color} 42%, var(--color-surface-dim))`;
+  const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : color;
+
   const baseStyle: React.CSSProperties = plan
     ? {
         top: `${top}px`,
@@ -36,24 +41,20 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
     : {
         top: `${top}px`,
         height: `${height}px`,
-        backgroundColor: 'var(--color-surface-dim)',
-        border: '1px solid var(--color-outline-variant)',
+        backgroundColor: mutedFill,
       };
 
   const shellClass =
-    'absolute right-[2px] w-[calc(100%-1rem)] lg:w-[calc(100%-2rem)] ml-auto rounded-xl overflow-hidden cursor-pointer group';
+    'absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto rounded-[7px] overflow-hidden cursor-pointer group';
+
+  const spineClass = 'absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[7px]';
 
   if (tiny) {
     return (
       <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
-        {!plan && (
-          <div
-            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
-            style={{ backgroundColor: color }}
-          />
-        )}
+        <div className={spineClass} style={{ backgroundColor: spineColor }} />
         <div className="flex items-center h-full pl-3 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-bold min-w-0 text-on-surface" style={fgStyle}>
+          <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 text-on-surface" style={fgStyle}>
             {displayName}
           </span>
         </div>
@@ -64,17 +65,12 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   if (!roomy) {
     return (
       <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
-        {!plan && (
-          <div
-            className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
-            style={{ backgroundColor: color }}
-          />
-        )}
-        <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none truncate font-bold min-w-0 text-on-surface" style={fgStyle}>
+        <div className={spineClass} style={{ backgroundColor: spineColor }} />
+        <div className="flex flex-col items-start justify-center h-full pl-3 pr-2 min-w-0">
+          <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 max-w-full text-on-surface" style={fgStyle}>
             {displayName}
           </span>
-          <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0" style={fgStyle}>
+          <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums truncate max-w-full" style={fgStyle}>
             {timeFromDate(event.start)} - {timeFromDate(event.end)}
           </span>
         </div>
@@ -84,24 +80,12 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
 
   return (
     <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
-      {!plan && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-          style={{ backgroundColor: color }}
-        />
-      )}
-      <div className="flex justify-between items-start p-3 max-lg:pl-3 max-lg:pr-2 max-lg:pt-1.5 max-lg:pb-1.5 max-lg:gap-2 min-w-0">
-        <div className="flex flex-col items-start gap-1 max-lg:gap-0.5 min-w-0">
-          <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none font-bold truncate text-on-surface" style={fgStyle}>
-            {displayName}
-          </span>
-          {tall && event.description && (
-            <p className="hidden lg:block font-body-sm text-body-sm text-on-surface-variant line-clamp-2" style={fgStyle}>
-              {event.description}
-            </p>
-          )}
-        </div>
-        <span className="font-label-sm text-label-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-4" style={fgStyle}>
+      <div className={spineClass} style={{ backgroundColor: spineColor }} />
+      <div className="flex flex-col items-start p-2.5 pl-3 max-lg:pl-3 max-lg:pr-2 max-lg:pt-1.5 max-lg:pb-1.5 min-w-0">
+        <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none font-semibold tracking-tight truncate max-w-full text-on-surface" style={fgStyle}>
+          {displayName}
+        </span>
+        <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums truncate max-w-full mt-0.5" style={fgStyle}>
           {timeFromDate(event.start)} - {timeFromDate(event.end)}
         </span>
       </div>

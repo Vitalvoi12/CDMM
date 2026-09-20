@@ -126,7 +126,7 @@ export function StatisticsPage() {
           </div>
         </div>
 
-        <div className="bg-surface-container rounded-xl p-6 mb-6">
+        <div className="bg-surface-container rounded-2xl shadow-elev-1 p-6 mb-6">
           <DailyActivityChart dailyMinutes={weekStats.dailyMinutes} />
         </div>
 

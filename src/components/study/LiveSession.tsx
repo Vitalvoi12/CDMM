@@ -29,12 +29,12 @@ export function LiveSession({ isActive, subjectName, startTime, elapsed, subject
           </p>
           <button
             onClick={onStart}
-            className="bg-primary text-on-primary px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-xl font-label-md text-label-md uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
+            className="bg-primary text-on-primary px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-full font-label-md text-label-md uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
           >
             Start Session
           </button>
           {subjects.length > 0 && (
-            <div className="flex flex-wrap items-center justify-center gap-2.5 mt-8 max-lg:mt-5">
+            <div className="hidden lg:flex flex-wrap items-center justify-center gap-2.5 mt-8 max-lg:mt-5">
               {subjects.map((s) => (
                 <button
                   key={s.id}
@@ -77,7 +77,7 @@ export function LiveSession({ isActive, subjectName, startTime, elapsed, subject
         </div>
         <button
           onClick={onStop}
-          className="bg-error-container text-on-error-container px-10 py-3.5 max-lg:px-6 max-lg:py-2.5 rounded-xl font-label-md text-label-md uppercase tracking-[0.12em] hover:opacity-90 transition-opacity flex items-center gap-2"
+          className="bg-error-container text-on-error-container px-10 py-3.5 max-lg:px-6 max-lg:py-2.5 rounded-full font-label-md text-label-md uppercase tracking-[0.12em] hover:opacity-90 transition-opacity flex items-center gap-2"
         >
           <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
             stop

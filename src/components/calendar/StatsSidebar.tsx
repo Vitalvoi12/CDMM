@@ -20,7 +20,7 @@ export function StatsSidebar({ events, subjects, totalMinutes, dailyGoalMinutes 
 
   return (
     <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto max-lg:mt-1">
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 max-lg:p-4 flex flex-col gap-6 max-lg:gap-3">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-6 max-lg:p-4 flex flex-col gap-6 max-lg:gap-3">
         {/* Total Time */}
         <div>
           <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em] mb-1">

@@ -105,7 +105,7 @@ export function FocusRoom({
                   <button
                     type="button"
                     onClick={onStop}
-                    className="px-8 py-3 max-lg:px-6 max-lg:py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
+                    className="px-8 py-3 max-lg:px-6 max-lg:py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
                   >
                     Finish
                   </button>
@@ -126,7 +126,7 @@ export function FocusRoom({
                   <button
                     type="button"
                     onClick={onStart}
-                    className="px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-xl bg-primary text-on-primary font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
+                    className="px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-full bg-primary text-on-primary font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
                   >
                     Start studying
                   </button>
@@ -136,7 +136,7 @@ export function FocusRoom({
           </section>
 
           {/* Quick subject start */}
-          <aside className="col-span-12 lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 max-lg:p-4 flex flex-col min-h-0">
+          <aside className="max-lg:hidden col-span-12 lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 max-lg:p-4 flex flex-col min-h-0">
             <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.18em] mb-4 max-lg:mb-2 flex-shrink-0">
               Quick subject start
             </p>

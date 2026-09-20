@@ -10,7 +10,7 @@ export function SubjectPickerModal({ subjects, onSelect, onClose }: SubjectPicke
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim" onClick={onClose}>
       <div
-        className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 max-lg:p-5 shadow-xl w-full max-w-sm mx-4"
+        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-sm mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-headline-md text-headline-md max-lg:!text-[12px] max-lg:mb-3 text-on-surface mb-5">Select Subject</h2>
@@ -28,7 +28,7 @@ export function SubjectPickerModal({ subjects, onSelect, onClose }: SubjectPicke
         </div>
         <button
           onClick={onClose}
-          className="mt-5 max-lg:mt-4 w-full py-2.5 max-lg:py-2 max-lg:!text-[8px] border border-outline-variant rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
+          className="mt-5 max-lg:mt-4 w-full py-2.5 max-lg:py-2 max-lg:!text-[8px] border border-outline-variant rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
         >
           Cancel
         </button>

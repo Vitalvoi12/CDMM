@@ -96,7 +96,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
         role="dialog"
         aria-modal="true"
         aria-label={task ? 'Edit task' : 'New task'}
-        className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
@@ -168,7 +168,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               <button
                 type="button"
                 onClick={() => onDelete(task.id)}
-                className="px-4 py-2.5 bg-error-container text-on-error-container rounded-xl font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
+                className="px-4 py-2.5 bg-error-container text-on-error-container rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
               >
                 Delete
               </button>
@@ -176,13 +176,13 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 py-2.5 border border-outline-variant rounded-xl font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
+              className="flex-1 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 bg-primary text-on-primary rounded-xl font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+              className="flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
             >
               {task ? 'Save' : 'Add'}
             </button>

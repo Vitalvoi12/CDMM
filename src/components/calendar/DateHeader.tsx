@@ -45,7 +45,8 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
         <button
           onClick={onPrev}
           aria-label="Previous"
-          className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg flex-shrink-0"
+          title="Previous period (←)"
+          className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-full flex-shrink-0"
         >
           <span className="material-symbols-outlined text-[16px] max-lg:text-[14px]">chevron_left</span>
         </button>
@@ -55,7 +56,8 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
         <button
           onClick={onNext}
           aria-label="Next"
-          className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg flex-shrink-0"
+          title="Next period (→)"
+          className="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-full flex-shrink-0"
         >
           <span className="material-symbols-outlined text-[16px] max-lg:text-[14px]">chevron_right</span>
         </button>
@@ -73,7 +75,7 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
       )}
       <button
         onClick={onToday}
-        className="px-5 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[9px] bg-transparent border border-outline-variant text-on-surface-variant font-label-md text-label-md rounded-lg hover:text-on-surface hover:border-outline transition-colors uppercase tracking-[0.12em] flex-shrink-0"
+        className="px-5 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[9px] bg-transparent border border-outline-variant text-on-surface-variant font-label-md text-label-md rounded-full hover:text-on-surface hover:border-outline transition-colors uppercase tracking-[0.12em] flex-shrink-0"
       >
         Today
       </button>

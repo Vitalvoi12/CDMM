@@ -32,14 +32,14 @@ export function AuthPage({ onDone }: AuthPageProps) {
 
   return (
     <div className="min-h-dvh bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col gap-6">
+      <div className="w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-elev-2 p-8 flex flex-col gap-6">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">CDMM</h1>
           <p className="font-body-md text-body-md text-on-surface-variant mt-3">
             {mode === 'login' ? 'Sign in to sync your data' : 'Create an account to sync your data'}
           </p>
         </div>
-        <div className="flex gap-1 border border-outline-variant rounded-xl p-1 bg-surface-container-low">
+        <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low">
           {(['login', 'register'] as const).map((m) => (
             <button
               key={m}
@@ -48,9 +48,9 @@ export function AuthPage({ onDone }: AuthPageProps) {
                 setMode(m);
                 setError(null);
               }}
-              className={`flex-1 px-4 py-2 rounded-lg font-label-md text-label-md uppercase tracking-[0.1em] transition-colors ${
+              className={`flex-1 px-4 py-2 rounded-full font-label-md text-label-md uppercase tracking-[0.1em] transition-colors ${
                 mode === m
-                  ? 'bg-surface-container-high text-on-surface'
+                  ? 'bg-secondary-container text-on-secondary-container'
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
@@ -91,7 +91,7 @@ export function AuthPage({ onDone }: AuthPageProps) {
           <button
             type="submit"
             disabled={busy}
-            className="px-4 py-3 rounded-xl bg-primary text-on-primary font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="px-4 py-3 rounded-full bg-primary text-on-primary font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {busy ? 'Please wait…' : mode === 'login' ? 'Login' : 'Create account'}
           </button>
