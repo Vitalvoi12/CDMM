@@ -16,7 +16,9 @@ interface TimelineProps {
   /** Running study session (start ISO + subject id) — rendered transiently in the Real column. */
   activeSession?: { subjectId: string; start: string } | null;
   onEventClick?: (event: CalendarEvent) => void;
-  onEventMove?: (eventId: string, newStart: Date, newEnd: Date) => void;
+  /** `source: 'touch'` lets the parent skip editor-open / undo snapshots
+      (a touch drag must not pop the editor and be rolled back by Cancel). */
+  onEventMove?: (eventId: string, newStart: Date, newEnd: Date, source?: 'mouse' | 'touch') => void;
   onEventResize?: (eventId: string, newEnd: Date) => void;
   onBackgroundClick?: (start: Date, kind: 'real' | 'plan') => void;
   /** Which kinds to show: 'all' (default) renders Real|Plan side by side,
@@ -300,7 +302,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
             START_HOUR,
             END_HOUR
           );
-          onEventMove(current.eventId, start, end);
+          onEventMove(current.eventId, start, end, 'touch');
         }
       }
       if (current.active) lastDragEndRef.current = Date.now();

@@ -469,10 +469,15 @@ export function CalendarPage() {
   );
 
   const handleEventMove = useCallback(
-    (eventId: string, newStart: Date, newEnd: Date) => {
+    (eventId: string, newStart: Date, newEnd: Date, source?: 'mouse' | 'touch') => {
       const before = eventRepo.getById(eventId);
       if (!before) return;
-      setDragUndo({ id: eventId, start: before.start, end: before.end, recurrenceId: before.recurrenceId });
+      // Touch drags skip the undo snapshot and never auto-open the editor:
+      // the modal would cover the moved block and its Cancel rolls the drag
+      // back (that read as "long-press drag does not work" on mobile).
+      if (source !== 'touch') {
+        setDragUndo({ id: eventId, start: before.start, end: before.end, recurrenceId: before.recurrenceId });
+      }
       // Drag/resize moves only this occurrence but keeps its series link, so
       // later series-wide edits still include it (a "following" edit shifts
       // every occurrence by the same delta, preserving individual offsets).
@@ -486,8 +491,10 @@ export function CalendarPage() {
       // Open the editor explicitly with fresh data: relying on the mouse-up
       // click is fragile (e.g. after shrinking, the cursor often ends up off
       // the now-short block and the click lands on empty space instead).
-      const fresh = eventRepo.getById(eventId);
-      if (fresh) setEditingEvent(fresh);
+      if (source !== 'touch') {
+        const fresh = eventRepo.getById(eventId);
+        if (fresh) setEditingEvent(fresh);
+      }
     },
     [refreshEvents]
   );

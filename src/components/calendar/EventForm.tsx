@@ -173,7 +173,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
   };
 
   const inputClass =
-    'w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60';
+    'w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60';
   const labelClass =
     'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]';
 

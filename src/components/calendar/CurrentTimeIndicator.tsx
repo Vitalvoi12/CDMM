@@ -35,8 +35,8 @@ export function CurrentTimeIndicator({ startHour = 8, endHour = 24, hourHeight =
   return (
     <div ref={lineRef} className="absolute left-0 right-0 flex items-center -ml-[5px] pointer-events-none z-[5] max-lg:z-0"
       style={{ top: `${top}px` }}>
-      <div className="w-[9px] h-[9px] rounded-full bg-now flex-shrink-0" />
-      <div className="h-[2px] bg-now w-full opacity-80" />
+      <div className="w-[7px] h-[7px] rounded-full bg-now flex-shrink-0" />
+      <div className="h-px bg-now w-full opacity-80" />
     </div>
   );
 }

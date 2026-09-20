@@ -19,7 +19,9 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   const plan = event.kind === 'plan';
   const tiny = height < hourHeight * 0.25;
   const roomy = height >= hourHeight * 0.42;
-  const tall = height >= hourHeight * 0.67;
+  // 30-minute events (height ≈ hourHeight/2) must stay resizable, so the
+  // handle appears well below the old 2/3-hour cutoff.
+  const resizable = height >= hourHeight * 0.3;
 
   const color = subject?.color || 'var(--color-on-surface-variant)';
   const displayName = subject?.name || event.title || 'Untitled';
@@ -38,6 +40,9 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   // while taller boxes can keep the reference radius. Mobile caps lower.
   const shellRadius = Math.max(2, Math.min(isMobile ? 4 : 7, height / 6));
   const shellRadiusPx = `${shellRadius}px`;
+  // Leave a couple of pixels before the event's nominal end so back-to-back
+  // events do not visually merge.
+  const visualHeight = Math.max(height - 2, 2);
   const spineStyle: React.CSSProperties = {
     backgroundColor: spineColor,
     borderTopLeftRadius: shellRadiusPx,
@@ -47,13 +52,13 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   const baseStyle: React.CSSProperties = plan
     ? {
         top: `${top}px`,
-        height: `${height}px`,
+        height: `${visualHeight}px`,
         backgroundColor: fill,
         borderRadius: shellRadiusPx,
       }
     : {
         top: `${top}px`,
-        height: `${height}px`,
+        height: `${visualHeight}px`,
         backgroundColor: mutedFill,
         borderRadius: shellRadiusPx,
       };
@@ -103,7 +108,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
           {timeFromDate(event.start)} - {timeFromDate(event.end)}
         </span>
       </div>
-      {tall && (
+      {resizable && (
         <div
           className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
           onMouseDown={onResizeStart}

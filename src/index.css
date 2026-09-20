@@ -66,7 +66,7 @@
 
   --color-now: #3e7142;
 
-  --color-heatmap-0: #e9f0e2;
+  --color-heatmap-0: #dde5cf;
   --color-heatmap-1: #c9dcbe;
   --color-heatmap-2: #9fc791;
   --color-heatmap-3: #6c9e60;
@@ -317,7 +317,7 @@ html[data-theme='dark'] {
 
   --color-now: #a9d4a5;
 
-  --color-heatmap-0: #12130f;
+  --color-heatmap-0: #181b15;
   --color-heatmap-1: #1e2b20;
   --color-heatmap-2: #2e4731;
   --color-heatmap-3: #4f7a46;
@@ -350,5 +350,23 @@ html[data-theme='dark'] {
 @media (max-width: 1023px) {
   .study-timer {
     font-size: clamp(1.5rem, min(calc((100vw - 8rem) / 9.5), 7vh), 5.5rem);
+  }
+}
+
+/* Mobile: suppress text selection / long-press copy callout so holds are
+ * free for gestures (event drag), editable fields keep selection. */
+@media (max-width: 1023px) {
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input,
+  textarea,
+  select,
+  [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }

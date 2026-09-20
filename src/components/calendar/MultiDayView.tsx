@@ -3,6 +3,7 @@ import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { getEventsForDate } from '../../utils/stats';
 import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
+import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
@@ -361,11 +362,14 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       dragging = true;
                     }
                     if (resizePos?.eventId === ev.id) height = Math.max(height + resizePos.deltaY, 13);
+                    // Leave a couple of pixels before the event's nominal end
+                    // so back-to-back events do not visually merge.
+                    const visualHeight = Math.max(height - 2, 2);
                     return (
                       <div
                         key={ev.id}
                         className="absolute left-0 right-[6px] rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group"
-                        style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: plan ? fill : mutedFill, transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
+                        style={{ top: `${visualTop}px`, height: `${visualHeight}px`, backgroundColor: plan ? fill : mutedFill, transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEventClick?.(ev);
@@ -394,7 +398,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                             )}
                           </>
                         )}
-                        {height >= HOUR_HEIGHT * 0.67 && (
+                        {height >= HOUR_HEIGHT * 0.3 && (
                           <div
                             className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
                             onMouseDown={(e) => handleResizeStart(ev, e)}
@@ -441,6 +445,15 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                           {renderColumn(visiblePlan)}
                         </div>
                       </>
+                    )}
+                    {/* Current-time line — last in DOM so it paints above the
+                        event blocks for today's column. */}
+                    {isSameDay(day, new Date()) && (
+                      <CurrentTimeIndicator
+                        startHour={START_HOUR}
+                        endHour={END_HOUR}
+                        hourHeight={HOUR_HEIGHT}
+                      />
                     )}
                   </div>
                 );
