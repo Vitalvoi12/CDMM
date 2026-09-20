@@ -125,7 +125,7 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
                       tabIndex={cell.inYear ? 0 : -1}
                       aria-label={`${cell.day.date}: ${cell.day.totalMinutes} minutes, ${cell.day.sessionCount} sessions${isToday ? ', today' : ''}`}
                       disabled={!cell.inYear}
-                      className={`w-[9px] h-[9px] lg:w-[10px] lg:h-[10px] rounded-[2px] lg:rounded-[2px] transition-transform ${heatmapCellClass(cell.level)} ${
+                      className={`w-[9px] h-[9px] lg:w-[10px] lg:h-[10px] rounded-[2px] lg:rounded-[2px] ring-1 ring-inset ring-outline-variant/80 transition-transform ${heatmapCellClass(cell.level)} ${
                         !cell.inYear ? 'opacity-0 pointer-events-none' : 'hover:scale-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
                       }${isToday && cell.inYear ? ' ring-2 ring-primary ring-offset-1 ring-offset-background' : ''}`}
                       onMouseEnter={(e) => showTooltip(cell, e)}

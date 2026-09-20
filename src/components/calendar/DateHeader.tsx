@@ -75,7 +75,7 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
       )}
       <button
         onClick={onToday}
-        className="px-5 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[9px] bg-transparent border border-outline-variant text-on-surface-variant font-label-md text-label-md rounded-full hover:text-on-surface hover:border-outline transition-colors uppercase tracking-[0.12em] flex-shrink-0"
+        className="px-5 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[9px] bg-transparent border border-outline-variant text-on-surface-variant font-label-md text-label-md rounded-full max-lg:rounded-[8px] hover:text-on-surface hover:border-outline transition-colors uppercase tracking-[0.12em] flex-shrink-0"
       >
         Today
       </button>

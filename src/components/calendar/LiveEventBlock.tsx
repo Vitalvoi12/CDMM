@@ -51,16 +51,15 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject 
 
   return (
     <div
-      className="absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto overflow-hidden pointer-events-none"
+      className="absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto overflow-hidden pointer-events-none rounded-t-[7px] max-lg:rounded-t-[5px]"
       style={{
         top: `${top}px`,
         height: `${height}px`,
-        borderRadius: '7px 7px 0 0',
         backgroundColor: `color-mix(in srgb, ${colorBar} 42%, var(--color-surface-dim))`,
       }}
     >
       <div
-        className="absolute left-0 top-0 bottom-0 w-[3px] rounded-tl-[7px]"
+        className="absolute left-0 top-0 bottom-0 w-[3px] rounded-tl-[7px] max-lg:rounded-tl-[5px]"
         style={{ backgroundColor: colorBar }}
       />
       <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">

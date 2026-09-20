@@ -29,7 +29,7 @@ export function MobileNav() {
                 <span className={`flex items-center justify-center px-4 py-1 rounded-full transition-colors ${isActive ? 'bg-secondary-container' : ''}`}>
                   <span className="material-symbols-outlined max-lg:!text-[17px]">{item.icon}</span>
                 </span>
-                <span className="font-label-sm text-label-sm max-[400px]:!text-[8px] uppercase tracking-[0.08em]">{item.label}</span>
+                <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none max-[400px]:!text-[8px] uppercase tracking-[0.08em]">{item.label}</span>
               </>
             )}
           </NavLink>

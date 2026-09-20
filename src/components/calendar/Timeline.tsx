@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
@@ -33,6 +33,36 @@ const HOUR_HEIGHT_DESKTOP = 96;
 const MIN_HOUR_HEIGHT = 24;
 const MOBILE_SCALE = 2.5;
 const SNAP = 15;
+const LONG_PRESS_MS = 400;
+const TOUCH_MOVE_THRESHOLD = 8;
+
+interface TouchDragState {
+  eventId: string;
+  startY: number;
+  startX: number;
+  deltaY: number;
+  moved: boolean;
+  active: boolean;
+  eventStart: string;
+  eventEnd: string;
+  minDelta: number;
+  maxDelta: number;
+  timer: number | null;
+}
+
+const emptyTouchDrag: TouchDragState = {
+  eventId: '',
+  startY: 0,
+  startX: 0,
+  deltaY: 0,
+  moved: false,
+  active: false,
+  eventStart: '',
+  eventEnd: '',
+  minDelta: 0,
+  maxDelta: 0,
+  timer: null,
+};
 
 function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
@@ -62,11 +92,22 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const [resizeInfo, setResizeInfo] = useState<{ eventId: string; deltaY: number } | null>(null);
   const dragRef = useRef({ eventId: '', startY: 0, deltaY: 0, moved: false, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
   const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, moved: false, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
+  const touchDragRef = useRef<TouchDragState>({ ...emptyTouchDrag });
+  // Cleanup for an in-flight touch drag (listener removal + body style reset),
+  // executed on unmount so a mid-drag unmount doesn't leak document listeners.
+  const touchCleanupRef = useRef<(() => void) | null>(null);
   // Timestamp of the last drag/resize that actually moved the pointer: the
   // browser still fires a click on mouse-up, and without this guard it would
   // land on the background column and open the create form ("Add") right
   // after the user just moved an event.
   const lastDragEndRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      touchCleanupRef.current?.();
+      touchCleanupRef.current = null;
+    };
+  }, []);
 
   const subjectMap = useMemo(() => {
     const map: Record<string, Subject> = {};
@@ -183,6 +224,112 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     document.addEventListener('mouseup', onUp);
   }, [onEventMove, HOUR_HEIGHT, isMobile]);
 
+  const handleTouchDragStart = useCallback((event: CalendarEvent, e: React.TouchEvent<HTMLElement>) => {
+    if (!isMobile || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const state: TouchDragState = {
+      eventId: event.id,
+      startY: touch.clientY,
+      startX: touch.clientX,
+      deltaY: 0,
+      moved: false,
+      active: false,
+      eventStart: event.start,
+      eventEnd: event.end,
+      minDelta: -startPx,
+      maxDelta: TOTAL_HOURS * HOUR_HEIGHT - endPx,
+      timer: null,
+    };
+    touchDragRef.current = state;
+    const clearTimer = () => {
+      if (touchDragRef.current.timer !== null) {
+        window.clearTimeout(touchDragRef.current.timer);
+        touchDragRef.current.timer = null;
+      }
+    };
+    const onMove = (ev: TouchEvent) => {
+      const current = touchDragRef.current;
+      if (current.eventId !== event.id) return;
+      const activeTouch = ev.touches[0] ?? ev.changedTouches[0];
+      if (!activeTouch) return;
+      if (!current.active) {
+        if (
+          Math.abs(activeTouch.clientY - current.startY) > TOUCH_MOVE_THRESHOLD ||
+          Math.abs(activeTouch.clientX - current.startX) > TOUCH_MOVE_THRESHOLD
+        ) {
+          clearTimer();
+        }
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      const delta = (activeTouch.clientY - current.startY) / bodyZoom();
+      if (Math.abs(delta) > 4) current.moved = true;
+      const clamped = Math.max(current.minDelta, Math.min(current.maxDelta, delta));
+      const minsDelta = snapToGrid(Math.round(clamped * MINUTES_PER_PIXEL));
+      const { start } = shiftEventByMinutes(
+        current.eventStart,
+        current.eventEnd,
+        minsDelta,
+        START_HOUR,
+        END_HOUR
+      );
+      current.deltaY =
+        ((start.getTime() - new Date(current.eventStart).getTime()) / 60000) /
+        MINUTES_PER_PIXEL;
+      setDragOffset({ eventId: current.eventId, deltaY: current.deltaY });
+    };
+    const finish = (_ev: TouchEvent, cancelled: boolean) => {
+      const current = touchDragRef.current;
+      if (current.eventId !== event.id) return;
+      clearTimer();
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      document.removeEventListener('touchcancel', onCancel);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      if (!cancelled && current.active && current.moved && onEventMove) {
+        const minsDelta = snapToGrid(Math.round(current.deltaY * MINUTES_PER_PIXEL));
+        if (minsDelta !== 0) {
+          const { start, end } = shiftEventByMinutes(
+            current.eventStart,
+            current.eventEnd,
+            minsDelta,
+            START_HOUR,
+            END_HOUR
+          );
+          onEventMove(current.eventId, start, end);
+        }
+      }
+      if (current.active) lastDragEndRef.current = Date.now();
+      setDragOffset(null);
+      touchDragRef.current = { ...emptyTouchDrag };
+      touchCleanupRef.current = null;
+    };
+    const onEnd = (ev: TouchEvent) => finish(ev, false);
+    const onCancel = (ev: TouchEvent) => finish(ev, true);
+    state.timer = window.setTimeout(() => {
+      const current = touchDragRef.current;
+      if (current.eventId !== event.id || current.active) return;
+      current.active = true;
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+    }, LONG_PRESS_MS);
+    touchCleanupRef.current = () => {
+      clearTimer();
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      document.removeEventListener('touchcancel', onCancel);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+    document.addEventListener('touchcancel', onCancel);
+  }, [onEventMove, HOUR_HEIGHT, MINUTES_PER_PIXEL, TOTAL_HOURS, isMobile]);
+
   const handleResizeStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     if (isMobile) return;
     e.preventDefault();
@@ -289,11 +436,14 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           top={visualTop}
           height={visualHeight}
           hourHeight={HOUR_HEIGHT}
+          isMobile={isMobile}
           subject={subjectMap[event.subjectId]}
           onClick={(e) => {
+            if (Date.now() - lastDragEndRef.current < 500) return;
             e?.stopPropagation();
             onEventClick?.(event);
           }}
+          onTouchStart={(e) => handleTouchDragStart(event, e)}
           onDragStart={(e) => handleDragStart(event, e)}
           onResizeStart={(e) => handleResizeStart(event, e)}
         />

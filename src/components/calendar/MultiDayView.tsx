@@ -364,7 +364,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     return (
                       <div
                         key={ev.id}
-                        className="absolute left-0 right-[6px] rounded-[7px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group"
+                        className="absolute left-0 right-[6px] rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group"
                         style={{ top: `${visualTop}px`, height: `${height}px`, backgroundColor: plan ? fill : mutedFill, transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -373,7 +373,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                         onMouseDown={(e) => handleDragStart(ev, idx, e)}
                       >
                         <div
-                          className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[7px]"
+                          className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[7px] max-lg:rounded-l-[5px]"
                           style={{ backgroundColor: spineColor }}
                         />
                         {tiny ? (

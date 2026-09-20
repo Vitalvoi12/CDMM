@@ -93,6 +93,12 @@
   --shadow-elev-3: 0 4px 8px 3px rgb(0 0 0 / 0.12), 0 1px 3px rgb(0 0 0 / 0.1);
 }
 
+@media (max-width: calc(1024px - 1px)) {
+  :root {
+    --radius-2xl: 0.75rem;
+  }
+}
+
 @utility font-body-sm {
   font-family: var(--font-body-sm);
   font-size: 11px;

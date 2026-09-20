@@ -571,7 +571,7 @@ export function CalendarPage() {
             <button
               key={p}
               onClick={() => setDayPanel(p)}
-              className={`px-4 py-1 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
+              className={`px-4 py-1 rounded-full max-lg:rounded-[8px] font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
                 dayPanel === p
                   ? 'bg-primary text-on-primary'
                   : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'

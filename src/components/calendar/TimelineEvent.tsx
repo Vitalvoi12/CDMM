@@ -9,11 +9,13 @@ interface TimelineEventProps {
   hourHeight?: number;
   subject?: Subject;
   onClick?: (e?: React.MouseEvent) => void;
+  onTouchStart?: (e: React.TouchEvent<HTMLElement>) => void;
   onDragStart?: (e: React.MouseEvent) => void;
   onResizeStart?: (e: React.MouseEvent) => void;
+  isMobile?: boolean;
 }
 
-export function TimelineEvent({ event, top, height, hourHeight = 96, subject, onClick, onDragStart, onResizeStart }: TimelineEventProps) {
+export function TimelineEvent({ event, top, height, hourHeight = 96, subject, onClick, onTouchStart, onDragStart, onResizeStart, isMobile = false }: TimelineEventProps) {
   const plan = event.kind === 'plan';
   const tiny = height < hourHeight * 0.25;
   const roomy = height >= hourHeight * 0.42;
@@ -32,27 +34,39 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   const mutedFill = `color-mix(in srgb, ${color} 42%, var(--color-surface-dim))`;
   const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : color;
 
+  // Height-adaptive corners: short/compressed boxes get visibly smaller radii,
+  // while taller boxes can keep the reference radius. Mobile caps lower.
+  const shellRadius = Math.max(2, Math.min(isMobile ? 4 : 7, height / 6));
+  const shellRadiusPx = `${shellRadius}px`;
+  const spineStyle: React.CSSProperties = {
+    backgroundColor: spineColor,
+    borderTopLeftRadius: shellRadiusPx,
+    borderBottomLeftRadius: shellRadiusPx,
+  };
+
   const baseStyle: React.CSSProperties = plan
     ? {
         top: `${top}px`,
         height: `${height}px`,
         backgroundColor: fill,
+        borderRadius: shellRadiusPx,
       }
     : {
         top: `${top}px`,
         height: `${height}px`,
         backgroundColor: mutedFill,
+        borderRadius: shellRadiusPx,
       };
 
   const shellClass =
-    'absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto rounded-[7px] overflow-hidden cursor-pointer group';
+    'absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto overflow-hidden cursor-pointer max-lg:[touch-action:none] max-lg:select-none group';
 
-  const spineClass = 'absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[7px]';
+  const spineClass = 'absolute left-0 top-0 bottom-0 w-[3px]';
 
   if (tiny) {
     return (
-      <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
-        <div className={spineClass} style={{ backgroundColor: spineColor }} />
+      <div className={shellClass} style={baseStyle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
+        <div className={spineClass} style={spineStyle} />
         <div className="flex items-center h-full pl-3 min-w-0">
           <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 text-on-surface" style={fgStyle}>
             {displayName}
@@ -64,8 +78,8 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
 
   if (!roomy) {
     return (
-      <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
-        <div className={spineClass} style={{ backgroundColor: spineColor }} />
+      <div className={shellClass} style={baseStyle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
+        <div className={spineClass} style={spineStyle} />
         <div className="flex flex-col items-start justify-center h-full pl-3 pr-2 min-w-0">
           <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 max-w-full text-on-surface" style={fgStyle}>
             {displayName}
@@ -79,8 +93,8 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   }
 
   return (
-    <div className={shellClass} style={baseStyle} onClick={onClick} onMouseDown={onDragStart}>
-      <div className={spineClass} style={{ backgroundColor: spineColor }} />
+    <div className={shellClass} style={baseStyle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
+      <div className={spineClass} style={spineStyle} />
       <div className="flex flex-col items-start p-2.5 pl-3 max-lg:pl-3 max-lg:pr-2 max-lg:pt-1.5 max-lg:pb-1.5 min-w-0">
         <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none font-semibold tracking-tight truncate max-w-full text-on-surface" style={fgStyle}>
           {displayName}
