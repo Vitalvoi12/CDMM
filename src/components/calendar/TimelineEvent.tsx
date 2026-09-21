@@ -70,7 +70,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
 
   if (tiny) {
     return (
-      <div className={shellClass} style={baseStyle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
+      <div className={shellClass} style={baseStyle} data-event-id={event.id} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
         <div className={spineClass} style={spineStyle} />
         <div className="flex items-center h-full pl-3 min-w-0">
           <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 text-on-surface" style={fgStyle}>
@@ -83,7 +83,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
 
   if (!roomy) {
     return (
-      <div className={shellClass} style={baseStyle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
+      <div className={shellClass} style={baseStyle} data-event-id={event.id} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
         <div className={spineClass} style={spineStyle} />
         <div className="flex flex-col items-start justify-center h-full pl-3 pr-2 min-w-0">
           <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 max-w-full text-on-surface" style={fgStyle}>

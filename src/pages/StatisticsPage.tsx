@@ -21,6 +21,9 @@ export function StatisticsPage() {
     goToPrevWeek,
     goToNextWeek,
     weekStats,
+    subjPeriod,
+    setSubjPeriod,
+    periodLabel,
     subjectStats,
     subjectMap,
   } = useStudyStatistics();
@@ -36,7 +39,7 @@ export function StatisticsPage() {
     : null;
 
   return (
-    <div className="flex flex-col w-full h-full relative">
+    <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
       {/* Year navigation */}
       <div className="flex items-end justify-between mb-8">
         <div>
@@ -156,12 +159,33 @@ export function StatisticsPage() {
         </div>
       </section>
 
-      {/* Subjects */}
+      {/* Subjects by period (default: last 7 days) */}
       <section className="mb-4">
-        <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest mb-6">
-          Subjects · {year}
-        </h2>
-        <SubjectTable subjectStats={subjectStats} subjectMap={subjectMap} />
+        <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
+          <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
+            Subjects · {periodLabel}
+          </h2>
+          <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low" role="group" aria-label="Subject statistics period">
+            {(['week', 'month', 'year'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setSubjPeriod(p)}
+                className={`px-4 py-1 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors ${
+                  subjPeriod === p
+                    ? 'bg-secondary-container text-on-secondary-container'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                {p === 'week' ? 'Week' : p === 'month' ? 'Month' : 'Year'}
+              </button>
+            ))}
+          </div>
+        </div>
+        {subjectStats.length > 0 ? (
+          <SubjectTable subjectStats={subjectStats} subjectMap={subjectMap} />
+        ) : (
+          <p className="font-body-sm text-body-sm text-on-surface-variant">No sessions in this period yet.</p>
+        )}
       </section>
     </div>
   );

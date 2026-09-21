@@ -110,8 +110,8 @@ export function TodoPage() {
   const quadrant = openQuadrant ? QUADRANTS.find((q) => q.key === openQuadrant)! : null;
 
   return (
-    <div className="flex flex-col w-full flex-1 min-h-0 relative">
-      <div className="mb-8">
+    <div className="flex flex-col w-full flex-1 min-h-0 relative max-lg:overflow-y-auto">
+      <div className="mb-8 flex-shrink-0">
         <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Todo</h1>
         <p className="font-body-lg text-body-lg text-on-surface-variant">
           {todos.filter((t) => !t.completed).length} open tasks

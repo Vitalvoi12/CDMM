@@ -74,7 +74,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
   }, []);
 
   return (
-    <div className="flex flex-col w-full h-full relative overflow-anchor-none">
+    <div className="flex flex-col w-full h-full relative overflow-anchor-none max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
       <div className="grid grid-cols-12 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10 lg:items-start relative">
         <div className="col-span-12 lg:col-span-1 lg:sticky lg:top-[96px] lg:self-start mb-10 lg:mb-0 overflow-anchor-none">
           <h2 className="font-headline-lg text-[30px] leading-[36px] text-on-surface mb-10">Settings</h2>

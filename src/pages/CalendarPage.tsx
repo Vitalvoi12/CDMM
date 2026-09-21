@@ -194,7 +194,7 @@ export function CalendarPage() {
   }, [refreshEvents]);
 
   useEffect(() => {
-    if (isMobile && view !== 'day') setView('day');
+    if (isMobile && view !== 'day' && view !== '3day') setView('day');
   }, [isMobile, view, setView]);
 
   const handleStartStudying = useCallback(() => {
@@ -571,24 +571,41 @@ export function CalendarPage() {
 
   const renderToolbar = () => {
     if (isMobile) {
+      const viewBtn = (active: boolean) =>
+        `px-4 py-1 rounded-full max-lg:rounded-[8px] font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
+          active
+            ? 'bg-primary text-on-primary'
+            : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
+        }`;
       return (
-        <div className="mb-3 flex gap-2 flex-wrap items-center justify-between">
-          <div className="flex gap-1 flex-wrap">
-          {(['timeline', 'stats'] as const).map((p) => (
-            <button
-              key={p}
-              onClick={() => setDayPanel(p)}
-              className={`px-4 py-1 rounded-full max-lg:rounded-[8px] font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
-                dayPanel === p
-                  ? 'bg-primary text-on-primary'
-                  : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
-              }`}
-            >
-              {p === 'timeline' ? 'Day' : 'Stats'}
-            </button>
-          ))}
+        <div className="mb-3 flex flex-col gap-2">
+          <div className="flex gap-2 flex-wrap items-center justify-between">
+            <div className="flex gap-1 flex-wrap">
+              {(['day', '3day'] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={viewBtn(view === v)}
+                >
+                  {v === 'day' ? 'Day' : '3D'}
+                </button>
+              ))}
+            </div>
+            {renderEventFilter()}
           </div>
-          {renderEventFilter()}
+          {view === 'day' && (
+            <div className="flex gap-1 flex-wrap">
+              {(['timeline', 'stats'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setDayPanel(p)}
+                  className={viewBtn(dayPanel === p)}
+                >
+                  {p === 'timeline' ? 'Day' : 'Stats'}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
@@ -603,6 +620,11 @@ export function CalendarPage() {
         onClose={() => setShowSubjectPicker(false)}
       />
     );
+
+  // Mobile swipe mapping (per request): swipe right → next period,
+  // swipe left → previous period. Wired only on mobile timelines.
+  const swipePrev = isMobile ? goToPrevious : undefined;
+  const swipeNext = isMobile ? goToNext : undefined;
 
   return (
     <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
@@ -640,6 +662,8 @@ export function CalendarPage() {
                 onEventResize={handleEventResize}
                 onBackgroundClick={handleTimelineBackgroundClick}
                 mode={eventFilter}
+                onSwipeLeft={swipePrev}
+                onSwipeRight={swipeNext}
               />
             </div>
           )
@@ -666,11 +690,11 @@ export function CalendarPage() {
         ))}
 
       {view === '3day' && (
-        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} />
+        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} onSwipeLeft={swipePrev} onSwipeRight={swipeNext} />
       )}
 
       {view === 'week' && (
-        <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} />
+        <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} onSwipeLeft={swipePrev} onSwipeRight={swipeNext} />
       )}
 
       {view === 'month' && (

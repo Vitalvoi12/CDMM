@@ -8,6 +8,7 @@ import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { isToday } from '../../utils/time';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
+import { useSwipeNav } from '../../hooks/useSwipeNav';
 
 interface TimelineProps {
   events: CalendarEvent[];
@@ -24,6 +25,9 @@ interface TimelineProps {
   /** Which kinds to show: 'all' (default) renders Real|Plan side by side,
       'real'/'plan' renders a single full-width column. */
   mode?: EventFilter;
+  /** Mobile swipe navigation (wired by the parent only on mobile). */
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }
 
 const START_HOUR = 6;
@@ -70,7 +74,7 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all' }: TimelineProps) {
+export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight }: TimelineProps) {
   const isMobile = useIsMobile();
   const TOTAL_HOURS = END_HOUR - START_HOUR;
   // Single-column mode ('real' or 'plan'): the day is not split — one
@@ -101,8 +105,18 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   // Timestamp of the last drag/resize that actually moved the pointer: the
   // browser still fires a click on mouse-up, and without this guard it would
   // land on the background column and open the create form ("Add") right
-  // after the user just moved an event.
+  // after the user just moved an event. View swipes stamp it too, so the
+  // tap synthesized after a swipe never opens the form.
   const lastDragEndRef = useRef(0);
+  // Mobile swipe navigation (enabled by the parent on mobile only).
+  const swipe = useSwipeNav({
+    enabled: isMobile,
+    onSwipeLeft,
+    onSwipeRight,
+    markGesture: () => {
+      lastDragEndRef.current = Date.now();
+    },
+  });
 
   useEffect(() => {
     return () => {
@@ -456,7 +470,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const planBlocks = eventBlocks.filter((b) => b.event.kind === 'plan');
 
   return (
-    <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto">
+    <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto" onTouchStart={swipe.onTouchStart} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
       <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: `${BOTTOM_PAD}px` }}>
         <div className={`flex items-center mb-2 pl-4 ${single ? 'justify-center' : 'justify-between'}`}>
           {single ? (

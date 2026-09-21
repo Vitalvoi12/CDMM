@@ -7,6 +7,7 @@ import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
+import { useSwipeNav } from '../../hooks/useSwipeNav';
 
 interface MultiDayViewProps {
   date: Date;
@@ -21,6 +22,9 @@ interface MultiDayViewProps {
   /** Which kinds to show: 'all' (default) splits each day into Real|Plan
       halves, 'real'/'plan' renders each day as a single full-width column. */
   mode?: EventFilter;
+  /** Mobile swipe navigation (wired by the parent only on mobile). */
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
 }
 
 const START_HOUR = 5;
@@ -38,7 +42,7 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function MultiDayView({ date, days, events, subjects, onEventClick, onEventMove, onEventResize, onDateSelect, onBackgroundClick, mode = 'all' }: MultiDayViewProps) {
+export function MultiDayView({ date, days, events, subjects, onEventClick, onEventMove, onEventResize, onDateSelect, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight }: MultiDayViewProps) {
   const isMobile = useIsMobile();
   const baseHourHeight = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
   // Single-column mode ('real' or 'plan'): day cells are not split.
@@ -68,7 +72,18 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   // Timestamp of the last drag/resize that actually moved the pointer: the
   // browser still fires a click on mouse-up, and without this guard it would
   // land on the background cell and open the create form right after a move.
+  // View swipes stamp it too, so the tap synthesized after a swipe never
+  // opens the form.
   const lastDragEndRef = useRef(0);
+  // Mobile swipe navigation (enabled by the parent on mobile only).
+  const swipe = useSwipeNav({
+    enabled: isMobile,
+    onSwipeLeft,
+    onSwipeRight,
+    markGesture: () => {
+      lastDragEndRef.current = Date.now();
+    },
+  });
 
   const dayList = useMemo(() => {
     // Week view is always a full Monday–Sunday week; shorter ranges stay
@@ -275,11 +290,11 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   const gridPx = TOTAL_HOURS * HOUR_HEIGHT;
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden" onTouchStart={swipe.onTouchStart} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
       {/* Page chrome stays fixed; only this area scrolls (short screens,
           horizontal overflow). Sticky day headers keep working inside it. */}
       <div className="flex-1 min-h-0 overflow-auto">
-      <div className="min-w-[448px] flex flex-col">
+      <div className="min-w-[448px] max-lg:min-w-0 flex flex-col">
         {/* Header row: corner cell + clickable day headers. Single compact
             line ("MON 14") — the old stacked layout with the static
             Real/Plan filler cost ~70px of vertical space. */}
@@ -294,7 +309,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     type="button"
                     onClick={() => onDateSelect?.(day)}
                     title="Open day view"
-                    className={`flex-1 min-w-[112px] max-w-full px-2 py-1.5 flex items-baseline justify-center gap-1.5 border-b border-outline-variant transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${today ? 'bg-surface-container-low' : ''}`}
+                    className={`flex-1 min-w-[112px] max-lg:min-w-0 max-w-full px-2 py-1.5 flex items-baseline justify-center gap-1.5 border-b border-outline-variant transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${today ? 'bg-surface-container-low' : ''}`}
                   >
                     <span className={`font-label-sm text-label-sm uppercase tracking-[0.14em] ${today ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
                       {formatWeekdayShort(day)}
@@ -368,6 +383,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     return (
                       <div
                         key={ev.id}
+                        data-event-id={ev.id}
                         className="absolute left-0 right-[6px] rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group"
                         style={{ top: `${visualTop}px`, height: `${visualHeight}px`, backgroundColor: plan ? fill : mutedFill, transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
                         onClick={(e) => {
@@ -414,7 +430,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     ref={(el) => {
                       dayGridRefs.current[idx] = el;
                     }}
-                    className={`flex-1 min-w-[112px] max-w-full relative border-l border-outline-variant ${isDropTarget ? 'bg-primary/10' : ''}`}
+                    className={`flex-1 min-w-[112px] max-lg:min-w-0 max-w-full relative border-l border-outline-variant ${isDropTarget ? 'bg-primary/10' : ''}`}
                     style={{ height: `${gridPx}px`, minHeight: '100%' }}
                   >
                     {hourTicks.map((hour) => (

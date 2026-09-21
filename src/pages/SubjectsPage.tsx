@@ -52,8 +52,8 @@ export function SubjectsPage() {
   }, []);
 
   return (
-    <div className="flex flex-col w-full h-full relative">
-      <div className="flex items-end justify-between mb-8 max-lg:mb-3">
+    <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
+      <div className="flex items-end justify-between mb-8 max-lg:mb-3 flex-shrink-0">
         <div>
           <p className="font-label-md text-label-md max-lg:!text-[8px] max-lg:mb-1 text-on-surface-variant tracking-[0.16em] uppercase mb-2">
             Curriculum
