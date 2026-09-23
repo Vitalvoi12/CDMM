@@ -71,26 +71,65 @@ export function StudyPage() {
     [startSession]
   );
 
-  // Today list: real sessions only — no planned events, no future events.
-  // Shows finished sessions, the ongoing stored session (if any), plus the
-  // running live session (if any). Total = past minutes + live elapsed.
-  const nowMs = Date.now();
-  const pastEvents = todayEvents
-    .filter((e) => e.kind !== 'plan' && new Date(e.start).getTime() <= nowMs)
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  // Today list: ALL real sessions of today — including future ones.
+  // No planned events. Plus the running live session (if any).
+  // Total = full durations of all real events today + live elapsed.
+  const todayRealEvents = useMemo(
+    () =>
+      todayEvents
+        .filter((e) => e.kind !== 'plan')
+        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
+    [todayEvents]
+  );
 
   const liveMinutes = isActive && startTime ? Math.floor(elapsed / 60000) : 0;
 
   const todayTotalMinutes = useMemo(() => {
-    const now = Date.now();
     let sum = liveMinutes;
-    for (const e of pastEvents) {
+    for (const e of todayRealEvents) {
       const start = new Date(e.start).getTime();
       const end = new Date(e.end).getTime();
-      sum += end <= now ? Math.round((end - start) / 60000) : Math.max(0, Math.round((now - start) / 60000));
+      sum += Math.max(0, Math.round((end - start) / 60000));
     }
     return sum;
-  }, [pastEvents, liveMinutes]);
+  }, [todayRealEvents, liveMinutes]);
+
+  // Today's plan vs real per subject:
+  // percent = real minutes (subject) / plan minutes (subject) * 100.
+  // Live elapsed counts toward real of its subject.
+  const todayPlanStats = useMemo(() => {
+    const planBySubject: Record<string, number> = {};
+    const realBySubject: Record<string, number> = {};
+    let totalPlan = 0;
+    for (const e of todayEvents) {
+      if (e.kind !== 'plan') continue;
+      const mins = Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000));
+      planBySubject[e.subjectId] = (planBySubject[e.subjectId] || 0) + mins;
+      totalPlan += mins;
+    }
+    for (const e of todayRealEvents) {
+      const mins = Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000));
+      realBySubject[e.subjectId] = (realBySubject[e.subjectId] || 0) + mins;
+    }
+    if (isActive && subjectId) {
+      realBySubject[subjectId] = (realBySubject[subjectId] || 0) + liveMinutes;
+    }
+    const ids = new Set([...Object.keys(planBySubject), ...Object.keys(realBySubject)]);
+    const stats = [...ids]
+      .map((subjectId) => {
+        const plan = planBySubject[subjectId] || 0;
+        const real = realBySubject[subjectId] || 0;
+        return {
+          subjectId,
+          planMinutes: plan,
+          realMinutes: real,
+          percentage: plan > 0 ? Math.round((real / plan) * 100) : 0,
+          hasPlan: plan > 0,
+        };
+      })
+      .sort((a, b) => b.planMinutes + b.realMinutes - (a.planMinutes + a.realMinutes));
+    return { stats, total: totalPlan };
+  }, [todayEvents, todayRealEvents, isActive, subjectId, liveMinutes]);
 
   return (
     <div className="flex flex-1 w-full relative min-h-0 overflow-hidden">
@@ -110,10 +149,12 @@ export function StudyPage() {
         />
 
         <TodaySessions
-          events={pastEvents}
+          events={todayRealEvents}
           subjects={subjects}
           totalMinutes={todayTotalMinutes}
           currentEventId={todayStats.currentEvent?.id}
+          planStats={todayPlanStats.stats}
+          totalPlanMinutes={todayPlanStats.total}
           liveSession={
             isActive && subjectId && startTime
               ? { subjectId, start: startTime, elapsedMs: elapsed }

@@ -572,40 +572,39 @@ export function CalendarPage() {
   const renderToolbar = () => {
     if (isMobile) {
       const viewBtn = (active: boolean) =>
-        `px-4 py-1 rounded-full max-lg:rounded-[8px] font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-widest max-lg:tracking-normal transition-colors ${
+        `px-3 py-1 rounded-[8px] font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-normal transition-colors whitespace-nowrap flex-shrink-0 ${
           active
             ? 'bg-primary text-on-primary'
             : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
         }`;
       return (
-        <div className="mb-3 flex flex-col gap-2">
-          <div className="flex gap-2 flex-wrap items-center justify-between">
-            <div className="flex gap-1 flex-wrap">
-              {(['day', '3day'] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setView(v)}
-                  className={viewBtn(view === v)}
-                >
-                  {v === 'day' ? 'Day' : '3D'}
-                </button>
-              ))}
-            </div>
-            {renderEventFilter()}
+        <div className="mb-3 flex gap-2 items-center justify-between overflow-x-auto">
+          <div className="flex gap-1 items-center flex-shrink-0">
+            {(['day', '3day'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={viewBtn(view === v)}
+              >
+                {v === 'day' ? 'Day' : '3D'}
+              </button>
+            ))}
+            {view === 'day' && (
+              <>
+                <span className="w-px h-5 bg-outline-variant mx-1 flex-shrink-0" aria-hidden />
+                {(['timeline', 'stats'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setDayPanel(p)}
+                    className={viewBtn(dayPanel === p)}
+                  >
+                    {p === 'timeline' ? 'Day' : 'Stats'}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
-          {view === 'day' && (
-            <div className="flex gap-1 flex-wrap">
-              {(['timeline', 'stats'] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setDayPanel(p)}
-                  className={viewBtn(dayPanel === p)}
-                >
-                  {p === 'timeline' ? 'Day' : 'Stats'}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex-shrink-0">{renderEventFilter()}</div>
         </div>
       );
     }
@@ -690,7 +689,7 @@ export function CalendarPage() {
         ))}
 
       {view === '3day' && (
-        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} onSwipeLeft={swipePrev} onSwipeRight={swipeNext} />
+        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} activeSession={activeSession} onSwipeLeft={swipePrev} onSwipeRight={swipeNext} />
       )}
 
       {view === 'week' && (
@@ -703,6 +702,7 @@ export function CalendarPage() {
           events={events}
           subjects={subjects}
           onDateSelect={handleDaySelect}
+          liveSession={activeSession}
         />
       )}
 

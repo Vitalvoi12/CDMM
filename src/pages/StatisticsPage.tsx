@@ -21,8 +21,10 @@ export function StatisticsPage() {
     goToPrevWeek,
     goToNextWeek,
     weekStats,
-    subjPeriod,
-    setSubjPeriod,
+    subjFrom,
+    subjTo,
+    setSubjFrom,
+    setSubjTo,
     periodLabel,
     subjectStats,
     subjectMap,
@@ -159,26 +161,33 @@ export function StatisticsPage() {
         </div>
       </section>
 
-      {/* Subjects by period (default: last 7 days) */}
+      {/* Subjects by custom period (calendar range) */}
       <section className="mb-4">
         <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
           <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
             Subjects · {periodLabel}
           </h2>
-          <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low" role="group" aria-label="Subject statistics period">
-            {(['week', 'month', 'year'] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setSubjPeriod(p)}
-                className={`px-4 py-1 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors ${
-                  subjPeriod === p
-                    ? 'bg-secondary-container text-on-secondary-container'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                {p === 'week' ? 'Week' : p === 'month' ? 'Month' : 'Year'}
-              </button>
-            ))}
+          <div className="flex gap-2 items-center flex-wrap" aria-label="Subject statistics period">
+            <label className="flex items-center gap-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.12em]">
+              From
+              <input
+                type="date"
+                value={subjFrom}
+                max={subjTo}
+                onChange={(e) => setSubjFrom(e.target.value)}
+                className="px-3 py-1.5 rounded-xl border border-outline-variant bg-surface-container-low text-on-surface font-body-sm text-body-sm normal-case tracking-normal [color-scheme:light] dark:[color-scheme:dark]"
+              />
+            </label>
+            <label className="flex items-center gap-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.12em]">
+              To
+              <input
+                type="date"
+                value={subjTo}
+                min={subjFrom}
+                onChange={(e) => setSubjTo(e.target.value)}
+                className="px-3 py-1.5 rounded-xl border border-outline-variant bg-surface-container-low text-on-surface font-body-sm text-body-sm normal-case tracking-normal [color-scheme:light] dark:[color-scheme:dark]"
+              />
+            </label>
           </div>
         </div>
         {subjectStats.length > 0 ? (

@@ -4,6 +4,7 @@ import { getEventsForDate } from '../../utils/stats';
 import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
+import { LiveEventBlock } from './LiveEventBlock';
 import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
@@ -22,6 +23,8 @@ interface MultiDayViewProps {
   /** Which kinds to show: 'all' (default) splits each day into Real|Plan
       halves, 'real'/'plan' renders each day as a single full-width column. */
   mode?: EventFilter;
+  /** Running study session — rendered transiently in the Real column of today's date. */
+  activeSession?: { subjectId: string; start: string } | null;
   /** Mobile swipe navigation (wired by the parent only on mobile). */
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
@@ -42,7 +45,7 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function MultiDayView({ date, days, events, subjects, onEventClick, onEventMove, onEventResize, onDateSelect, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight }: MultiDayViewProps) {
+export function MultiDayView({ date, days, events, subjects, onEventClick, onEventMove, onEventResize, onDateSelect, onBackgroundClick, mode = 'all', activeSession = null, onSwipeLeft, onSwipeRight }: MultiDayViewProps) {
   const isMobile = useIsMobile();
   const baseHourHeight = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
   // Single-column mode ('real' or 'plan'): day cells are not split.
@@ -440,16 +443,35 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                         style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
                       />
                     ))}
-                    {/* Single-kind mode: one full-width column, no split. */}
+                    {/* Single-kind mode: one full-width column, no split. The live
+                        session block is real — hidden in plan-only mode. */}
                     {single ? (
                       <div className="absolute left-0 right-0 top-0 bottom-0" onClick={makeCellTapHandler(day, singleKind)}>
                         {renderColumn(singleKind === 'real' ? visibleReal : visiblePlan)}
+                        {isSameDay(day, new Date()) && activeSession && singleKind === 'real' && (
+                          <LiveEventBlock
+                            start={activeSession.start}
+                            startHour={START_HOUR}
+                            endHour={END_HOUR}
+                            hourHeight={HOUR_HEIGHT}
+                            subject={subjectMap[activeSession.subjectId]}
+                          />
+                        )}
                       </div>
                     ) : (
                       <>
                         {/* Left column: real events */}
                         <div className="absolute left-0 top-0 bottom-0 w-1/2" onClick={makeCellTapHandler(day, 'real')}>
                           {renderColumn(visibleReal)}
+                          {isSameDay(day, new Date()) && activeSession && (
+                            <LiveEventBlock
+                              start={activeSession.start}
+                              startHour={START_HOUR}
+                              endHour={END_HOUR}
+                              hourHeight={HOUR_HEIGHT}
+                              subject={subjectMap[activeSession.subjectId]}
+                            />
+                          )}
                         </div>
                         {/* 2px hairline centered on the middle: a 1px line at
                             left-1/2 lands on a fractional pixel whenever the
