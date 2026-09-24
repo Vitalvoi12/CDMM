@@ -293,7 +293,9 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               </button>
             ))}
           </div>
-          {/* count in stats — checkbox, on by default */}
+          {/* count in stats — checkbox, on by default. Plans are never part of
+              focus time; the flag only removes them from the plan sum that the
+              real/plan percentage is computed against. */}
           <button
             type="button"
             role="checkbox"

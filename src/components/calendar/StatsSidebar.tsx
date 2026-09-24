@@ -17,16 +17,19 @@ export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarPro
 
   // Plan vs real per subject for the displayed day:
   // percent = real minutes (subject) / plan minutes (subject) * 100.
-  // Stats-excluded real events don't count toward real.
+  // The stats flag drops the event from whichever side it belongs to: a real
+  // event leaves the numerator, a planned one leaves the plan sum (plans
+  // never touch Total Focus Time).
   const planBySubject: Record<string, number> = {};
   const realBySubject: Record<string, number> = {};
   let totalPlan = 0;
   for (const e of events) {
+    if (e.countInStats === false) continue;
     const mins = Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000));
     if (e.kind === 'plan') {
       planBySubject[e.subjectId] = (planBySubject[e.subjectId] || 0) + mins;
       totalPlan += mins;
-    } else if (e.countInStats !== false) {
+    } else {
       realBySubject[e.subjectId] = (realBySubject[e.subjectId] || 0) + mins;
     }
   }
