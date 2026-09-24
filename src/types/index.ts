@@ -81,7 +81,6 @@ export interface TodoTask {
 }
 
 export interface UserSettings {
-  dailyGoalMinutes: number;
   theme: ThemeMode;
 }
 

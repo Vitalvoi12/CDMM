@@ -12,7 +12,7 @@ import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { eventRepo, subjectRepo, tombstoneRepo, settingsRepo, genId } from '../services/repositories';
+import { eventRepo, subjectRepo, tombstoneRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
 import { expandRecurrence } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
@@ -106,7 +106,6 @@ export function CalendarPage() {
   }, [location.state]);
 
   const subjects = subjectRepo.getAll();
-  const [settings, setSettings] = useState(settingsRepo.get());
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [creatingEvent, setCreatingEvent] = useState<{ start: Date; kind: 'real' | 'plan' } | null>(null);
@@ -185,7 +184,6 @@ export function CalendarPage() {
   useSyncRefresh(
     useCallback(() => {
       refreshEvents();
-      setSettings(settingsRepo.get());
     }, [refreshEvents])
   );
 
@@ -646,7 +644,6 @@ export function CalendarPage() {
                 events={dayEvents}
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
-                dailyGoalMinutes={settings.dailyGoalMinutes}
               />
             </div>
           ) : (
@@ -683,7 +680,6 @@ export function CalendarPage() {
               events={dayEvents}
               subjects={subjects}
               totalMinutes={stats.totalMinutes}
-              dailyGoalMinutes={settings.dailyGoalMinutes}
             />
           </div>
         ))}

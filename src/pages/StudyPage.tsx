@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTimer } from '../hooks/useTimer';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { eventRepo, settingsRepo, subjectRepo } from '../services/repositories';
+import { eventRepo, subjectRepo } from '../services/repositories';
 import { checkpoint } from '../services/history';
 import { buildYearHeatmap, calculateYearStats, getEventsForDate, calculateDailyStats } from '../utils/stats';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
@@ -25,7 +25,6 @@ export function StudyPage() {
   }, [refreshEvents]);
 
   const subjects = subjectRepo.getAll();
-  const settings = useMemo(() => settingsRepo.get(), [events]);
   const currentStreakDays = useMemo(() => {
     const heatmap = buildYearHeatmap(events, new Date().getFullYear());
     return calculateYearStats(heatmap).longestStreakDays;
@@ -94,43 +93,6 @@ export function StudyPage() {
     return sum;
   }, [todayRealEvents, liveMinutes]);
 
-  // Today's plan vs real per subject:
-  // percent = real minutes (subject) / plan minutes (subject) * 100.
-  // Live elapsed counts toward real of its subject.
-  const todayPlanStats = useMemo(() => {
-    const planBySubject: Record<string, number> = {};
-    const realBySubject: Record<string, number> = {};
-    let totalPlan = 0;
-    for (const e of todayEvents) {
-      if (e.kind !== 'plan') continue;
-      const mins = Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000));
-      planBySubject[e.subjectId] = (planBySubject[e.subjectId] || 0) + mins;
-      totalPlan += mins;
-    }
-    for (const e of todayRealEvents) {
-      const mins = Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000));
-      realBySubject[e.subjectId] = (realBySubject[e.subjectId] || 0) + mins;
-    }
-    if (isActive && subjectId) {
-      realBySubject[subjectId] = (realBySubject[subjectId] || 0) + liveMinutes;
-    }
-    const ids = new Set([...Object.keys(planBySubject), ...Object.keys(realBySubject)]);
-    const stats = [...ids]
-      .map((subjectId) => {
-        const plan = planBySubject[subjectId] || 0;
-        const real = realBySubject[subjectId] || 0;
-        return {
-          subjectId,
-          planMinutes: plan,
-          realMinutes: real,
-          percentage: plan > 0 ? Math.round((real / plan) * 100) : 0,
-          hasPlan: plan > 0,
-        };
-      })
-      .sort((a, b) => b.planMinutes + b.realMinutes - (a.planMinutes + a.realMinutes));
-    return { stats, total: totalPlan };
-  }, [todayEvents, todayRealEvents, isActive, subjectId, liveMinutes]);
-
   return (
     <div className="flex flex-1 w-full relative min-h-0 overflow-hidden">
       <div className="flex flex-col xl:flex-row w-full h-full relative min-h-0 overflow-y-auto">
@@ -141,7 +103,6 @@ export function StudyPage() {
           elapsed={elapsed}
           subjects={subjects}
           dailyMinutes={todayTotalMinutes}
-          dailyGoalMinutes={settings.dailyGoalMinutes}
           streakDays={currentStreakDays}
           onStop={isActive ? handleStop : undefined}
           onStart={!isActive ? handleStart : undefined}
@@ -153,8 +114,6 @@ export function StudyPage() {
           subjects={subjects}
           totalMinutes={todayTotalMinutes}
           currentEventId={todayStats.currentEvent?.id}
-          planStats={todayPlanStats.stats}
-          totalPlanMinutes={todayPlanStats.total}
           liveSession={
             isActive && subjectId && startTime
               ? { subjectId, start: startTime, elapsedMs: elapsed }

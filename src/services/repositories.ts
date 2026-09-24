@@ -341,12 +341,12 @@ function migrateTheme(t: unknown): ThemeMode {
 class SettingsRepository {
   private settings: UserSettings = (() => {
     const loaded = load<UserSettings>(STORAGE_KEYS.settings, {
-      dailyGoalMinutes: 360,
       theme: 'dark',
     });
     const theme = migrateTheme((loaded as { theme?: unknown }).theme);
-    if (theme !== loaded.theme) {
-      const next = { ...loaded, theme };
+    // Drop legacy fields (e.g. dailyGoalMinutes) — never persist them again.
+    const next: UserSettings = { theme };
+    if (theme !== loaded.theme || (loaded as unknown as Record<string, unknown>).dailyGoalMinutes !== undefined) {
       save(STORAGE_KEYS.settings, next);
       return next;
     }
@@ -363,9 +363,6 @@ class SettingsRepository {
   }
 
   update(data: Partial<UserSettings>): UserSettings {
-    if (data.dailyGoalMinutes !== undefined) {
-      this.settings.dailyGoalMinutes = data.dailyGoalMinutes;
-    }
     if (data.theme) {
       this.settings.theme = data.theme;
     }
@@ -379,7 +376,7 @@ class SettingsRepository {
   /** Apply remote settings (LWW). Never marks dirty. */
   applyRemote(data: UserSettings, updatedAt: number): boolean {
     if (updatedAt > this.updatedAt) {
-      this.settings = { ...data, theme: migrateTheme((data as { theme?: unknown }).theme) };
+      this.settings = { theme: migrateTheme((data as { theme?: unknown }).theme) };
       this.updatedAt = updatedAt;
       save(STORAGE_KEYS.settings, this.settings);
       save('cdmm.settingsUpdatedAt', this.updatedAt);
@@ -389,7 +386,7 @@ class SettingsRepository {
   }
 
   replaceAll(data: UserSettings, updatedAt: number): void {
-    this.settings = { ...data, theme: migrateTheme((data as { theme?: unknown }).theme) };
+    this.settings = { theme: migrateTheme((data as { theme?: unknown }).theme) };
     this.updatedAt = updatedAt;
     save(STORAGE_KEYS.settings, this.settings);
     save('cdmm.settingsUpdatedAt', this.updatedAt);

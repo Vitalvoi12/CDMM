@@ -1,13 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { settingsRepo } from '../services/repositories';
 import { getUsername, getToken, logoutRemote, clearSession } from '../services/auth';
 import { clearAllLocalData } from '../services/repositories';
 import { syncOnce } from '../services/serverSync';
 import { useTheme } from '../hooks/useTheme';
-import { useSyncRefresh } from '../hooks/useServerSync';
 import { SettingsNav } from '../components/settings/SettingsNav';
-import type { UserSettings, ThemeMode } from '../types';
+import type { ThemeMode } from '../types';
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
   { value: 'light', label: 'Light', hint: 'Warm paper' },
@@ -19,7 +17,6 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onLogout }: SettingsPageProps) {
-  const [settings, setSettings] = useState<UserSettings>(settingsRepo.get());
   const [searchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState(
     searchParams.get('section') ?? 'general'
@@ -33,17 +30,6 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
     const section = searchParams.get('section');
     if (section) setActiveSection(section);
   }, [searchParams]);
-
-  const refreshSettings = useCallback(() => setSettings(settingsRepo.get()), []);
-  useSyncRefresh(refreshSettings);
-
-  const handleSave = useCallback(
-    (data: Partial<UserSettings>) => {
-      const updated = settingsRepo.update(data);
-      setSettings(updated);
-    },
-    []
-  );
 
   const handleLogout = useCallback(() => {
     void logoutRemote();
@@ -63,7 +49,6 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
     void (async () => {
       try {
         await syncOnce();
-        setSettings(settingsRepo.get());
         setSyncMessage(`Synced ${new Date().toLocaleTimeString()}`);
       } catch (err) {
         setSyncError(err instanceof Error ? err.message : 'Sync failed');
@@ -161,70 +146,6 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                       </button>
                     );
                   })}
-                </div>
-              </div>
-
-              <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
-                <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
-                  Daily Goal
-                </label>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-1 border border-outline-variant rounded-xl px-1.5 py-1">
-                    <button
-                      type="button"
-                      aria-label="Decrease hours"
-                      onClick={() => {
-                        const h = Math.max(0, Math.floor(settings.dailyGoalMinutes / 60) - 1);
-                        handleSave({ dailyGoalMinutes: h * 60 + (settings.dailyGoalMinutes % 60) });
-                      }}
-                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">remove</span>
-                    </button>
-                    <span className="font-body-lg text-[16px] leading-[23px] text-on-surface tabular-nums w-8 text-center">
-                      {Math.floor(settings.dailyGoalMinutes / 60)}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Increase hours"
-                      onClick={() => {
-                        const h = Math.min(24, Math.floor(settings.dailyGoalMinutes / 60) + 1);
-                        handleSave({ dailyGoalMinutes: h * 60 + (settings.dailyGoalMinutes % 60) });
-                      }}
-                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">add</span>
-                    </button>
-                  </div>
-                  <span className="font-body-md text-[15px] leading-[22px] text-on-surface-variant">hours</span>
-                  <div className="flex items-center gap-1 border border-outline-variant rounded-xl px-1.5 py-1">
-                    <button
-                      type="button"
-                      aria-label="Decrease minutes"
-                      onClick={() => {
-                        const total = Math.max(0, settings.dailyGoalMinutes - 5);
-                        handleSave({ dailyGoalMinutes: total });
-                      }}
-                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">remove</span>
-                    </button>
-                    <span className="font-body-lg text-[16px] leading-[23px] text-on-surface tabular-nums w-8 text-center">
-                      {settings.dailyGoalMinutes % 60}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Increase minutes"
-                      onClick={() => {
-                        const total = Math.min(24 * 60, settings.dailyGoalMinutes + 5);
-                        handleSave({ dailyGoalMinutes: total });
-                      }}
-                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-surface-container text-on-surface transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">add</span>
-                    </button>
-                  </div>
-                  <span className="font-body-md text-[15px] leading-[22px] text-on-surface-variant">minutes</span>
                 </div>
               </div>
 

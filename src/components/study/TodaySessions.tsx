@@ -7,14 +7,11 @@ interface TodaySessionsProps {
   subjects: Subject[];
   totalMinutes: number;
   currentEventId?: string;
-  /** Today's plan vs real per subject: percent = real / plan * 100. */
-  planStats?: { subjectId: string; planMinutes: number; realMinutes: number; percentage: number; hasPlan: boolean }[];
-  totalPlanMinutes?: number;
   /** Running live session (not yet a stored event) — shown as the last row. */
   liveSession?: { subjectId: string; start: string; elapsedMs: number } | null;
 }
 
-export function TodaySessions({ events, subjects, totalMinutes, currentEventId, planStats = [], totalPlanMinutes = 0, liveSession }: TodaySessionsProps) {
+export function TodaySessions({ events, subjects, totalMinutes, currentEventId, liveSession }: TodaySessionsProps) {
   const subjectMap: Record<string, Subject> = {};
   subjects.forEach((s) => (subjectMap[s.id] = s));
 
@@ -98,52 +95,6 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId, 
             </div>
           )}
         </div>
-      </div>
-
-      {/* Today's plan by subject: percent = real / plan * 100, same bars as statistics */}
-      <div className="w-full max-w-xl mx-auto bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 max-lg:p-4 flex flex-col flex-shrink-0">
-        <div className="flex items-center justify-between mb-5 max-lg:mb-3 flex-shrink-0">
-          <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-[0.18em]">
-            Today's plan
-          </h3>
-          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.14em] tabular-nums">
-            {formatDuration(totalPlanMinutes)} planned
-          </span>
-        </div>
-        {planStats.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {planStats.map((stat) => {
-              const subject = subjectMap[stat.subjectId];
-              const color = subject?.color || 'var(--color-on-surface-variant)';
-              return (
-                <div key={stat.subjectId} className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-3">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                    <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface truncate min-w-0 flex-1">
-                      {subject?.name || stat.subjectId}
-                    </span>
-                    <span className="font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums text-on-surface-variant flex-shrink-0">
-                      {formatDuration(stat.realMinutes)} / {formatDuration(stat.planMinutes)}
-                    </span>
-                    <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tabular-nums w-12 text-right flex-shrink-0">
-                      {stat.hasPlan ? `${stat.percentage}%` : '—'}
-                    </span>
-                  </div>
-                  <div className="flex-1 h-1.5 bg-surface-variant rounded-full overflow-hidden ml-5">
-                    <div
-                      className="h-full rounded-full transition-transform"
-                      style={{ width: `${Math.min(100, stat.percentage)}%`, backgroundColor: color }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="border border-dashed border-outline-variant rounded-xl py-8 px-4 flex items-center justify-center">
-            <p className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface-variant">No plan for today</p>
-          </div>
-        )}
       </div>
     </div>
   );

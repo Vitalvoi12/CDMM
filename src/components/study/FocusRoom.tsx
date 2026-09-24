@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { formatTimerDuration, timeFromDate } from '../../utils/time';
 import type { Subject } from '../../types';
 
@@ -9,7 +8,6 @@ interface FocusRoomProps {
   elapsed: number;
   subjects?: Subject[];
   dailyMinutes: number;
-  dailyGoalMinutes: number;
   streakDays: number;
   onStop?: () => void;
   onStart?: () => void;
@@ -23,20 +21,13 @@ export function FocusRoom({
   elapsed,
   subjects = [],
   dailyMinutes,
-  dailyGoalMinutes,
   streakDays,
   onStop,
   onStart,
   onQuickStart,
 }: FocusRoomProps) {
-  const goalPercent = useMemo(() => {
-    if (dailyGoalMinutes <= 0) return 0;
-    return Math.min(100, Math.round((dailyMinutes / dailyGoalMinutes) * 100));
-  }, [dailyMinutes, dailyGoalMinutes]);
-
   const stats = [
     { label: 'Today', value: formatDurationLongCompact(dailyMinutes) },
-    { label: 'Daily goal', value: `${goalPercent}%` },
     { label: 'Current streak', value: `${streakDays} day${streakDays === 1 ? '' : 's'}`.toUpperCase() },
   ];
 
@@ -52,7 +43,7 @@ export function FocusRoom({
           </span>
         </div>
 
-        <div className="grid grid-cols-3 max-lg:grid-cols-3 gap-4 max-lg:gap-2 flex-shrink-0">
+        <div className="grid grid-cols-2 max-lg:grid-cols-2 gap-4 max-lg:gap-2 flex-shrink-0">
           {stats.map((s) => (
             <div
               key={s.label}

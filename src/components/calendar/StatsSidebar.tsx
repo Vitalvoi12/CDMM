@@ -7,16 +7,41 @@ interface StatsSidebarProps {
   events: CalendarEvent[];
   subjects: Subject[];
   totalMinutes: number;
-  dailyGoalMinutes: number;
 }
 
-export function StatsSidebar({ events, subjects, totalMinutes, dailyGoalMinutes }: StatsSidebarProps) {
+export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarProps) {
   const subjectMap: Record<string, Subject> = {};
   subjects.forEach((s) => (subjectMap[s.id] = s));
 
   const subjectStats = calculateSubjectStats(events, totalMinutes);
-  const goalPercent = dailyGoalMinutes > 0 ? Math.min(Math.round((totalMinutes / dailyGoalMinutes) * 100), 100) : 0;
-  const toGo = Math.max(dailyGoalMinutes - totalMinutes, 0);
+
+  // Plan vs real per subject for the displayed day:
+  // percent = real minutes (subject) / plan minutes (subject) * 100.
+  const planBySubject: Record<string, number> = {};
+  const realBySubject: Record<string, number> = {};
+  let totalPlan = 0;
+  for (const e of events) {
+    const mins = Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000));
+    if (e.kind === 'plan') {
+      planBySubject[e.subjectId] = (planBySubject[e.subjectId] || 0) + mins;
+      totalPlan += mins;
+    } else {
+      realBySubject[e.subjectId] = (realBySubject[e.subjectId] || 0) + mins;
+    }
+  }
+  const planStats = [...new Set([...Object.keys(planBySubject), ...Object.keys(realBySubject)])]
+    .map((subjectId) => {
+      const plan = planBySubject[subjectId] || 0;
+      const real = realBySubject[subjectId] || 0;
+      return {
+        subjectId,
+        planMinutes: plan,
+        realMinutes: real,
+        percentage: plan > 0 ? Math.round((real / plan) * 100) : 0,
+        hasPlan: plan > 0,
+      };
+    })
+    .sort((a, b) => b.planMinutes + b.realMinutes - (a.planMinutes + a.realMinutes));
 
   return (
     <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto max-lg:mt-1">
@@ -31,28 +56,55 @@ export function StatsSidebar({ events, subjects, totalMinutes, dailyGoalMinutes 
           </div>
         </div>
 
-        {/* Goal Progress */}
-        <div>
-          <div className="flex justify-between items-baseline mb-2 max-lg:mb-1">
-            <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
-              Daily Goal {formatDuration(dailyGoalMinutes)}
-            </h2>
-            <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tabular-nums">
-              {goalPercent}%
-            </span>
-          </div>
-          <div className="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${goalPercent}%` }}
-            />
-          </div>
-          <p className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em] mt-2">
-            {toGo > 0 ? `${formatDuration(toGo)} to go` : 'Goal reached'}
-          </p>
-        </div>
-
         <hr className="border-t border-outline-variant" />
+
+        {/* Plan vs real for the displayed day */}
+        {planStats.length > 0 && (
+          <>
+            <div>
+              <div className="flex justify-between items-baseline mb-4 max-lg:mb-2">
+                <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
+                  Plan
+                </h2>
+                <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
+                  {formatDuration(totalPlan)} planned
+                </span>
+              </div>
+              <ul className="flex flex-col gap-4 max-lg:gap-2">
+                {planStats.map((stat) => {
+                  const subject = subjectMap[stat.subjectId];
+                  const color = subject?.color || '#6e7e85';
+                  return (
+                    <li key={stat.subjectId}>
+                      <div className="flex justify-between items-baseline mb-1.5 max-lg:mb-1">
+                        <span className="font-body-md text-body-md max-lg:!text-[10px] max-lg:leading-none text-on-surface flex items-center gap-2 min-w-0">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                          <span className="truncate">{subject?.name || stat.subjectId}</span>
+                        </span>
+                        <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
+                          {formatDuration(stat.realMinutes)} / {formatDuration(stat.planMinutes)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1 bg-surface-container-high rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${Math.min(100, stat.percentage)}%`, backgroundColor: color }}
+                          />
+                        </div>
+                        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tabular-nums w-10 text-right flex-shrink-0">
+                          {stat.hasPlan ? `${stat.percentage}%` : '—'}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <hr className="border-t border-outline-variant" />
+          </>
+        )}
 
         {/* Subject Distribution */}
         <div>
