@@ -206,6 +206,73 @@ export function shiftEventByMinutes(
   return { start: new Date(newStartMs), end: new Date(newStartMs + durationMs) };
 }
 
+export interface OverlapLane {
+  /** Horizontal offset from the column's left edge, in percent. */
+  left: number;
+  /** Card width in percent (may exceed 100 — the column clips the overflow). */
+  width: number;
+  /** Stacking order inside the column. */
+  z: number;
+}
+
+/**
+ * Assigns each event of a single column a horizontal lane so overlapping
+ * blocks stay individually readable. Events are grouped into clusters of
+ * transitively-overlapping time ranges; inside a cluster every event takes
+ * the first lane that is free at its start time, and the cluster's lane count
+ * drives the geometry: lane i starts at i * (100 / lanes) and runs to the
+ * column edge, so fanned cards shorten instead of being clipped by it.
+ */
+export function layoutOverlapLanes(
+  events: { id: string; start: string; end: string }[]
+): Record<string, OverlapLane> {
+  const out: Record<string, OverlapLane> = {};
+  const sorted = [...events].sort((a, b) => {
+    const byStart = new Date(a.start).getTime() - new Date(b.start).getTime();
+    if (byStart !== 0) return byStart;
+    // Longer blocks first so a short event can reuse the lane underneath it.
+    return new Date(b.end).getTime() - new Date(a.end).getTime();
+  });
+
+  let cluster: typeof sorted = [];
+  let clusterEnd = -Infinity;
+  const flush = () => {
+    if (cluster.length === 0) return;
+    const laneEnds: number[] = [];
+    const assigned: { ev: (typeof sorted)[number]; lane: number }[] = [];
+    for (const ev of cluster) {
+      const startMs = new Date(ev.start).getTime();
+      let lane = laneEnds.findIndex((endMs) => endMs <= startMs);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(0);
+      }
+      laneEnds[lane] = new Date(ev.end).getTime();
+      assigned.push({ ev, lane });
+    }
+    const lanes = Math.max(laneEnds.length, 1);
+    const step = 100 / lanes;
+    for (const { ev, lane } of assigned) {
+      const left = lane * step;
+      out[ev.id] = { left, width: 100 - left, z: lane + 1 };
+    }
+  };
+
+  for (const ev of sorted) {
+    const startMs = new Date(ev.start).getTime();
+    const endMs = new Date(ev.end).getTime();
+    if (cluster.length > 0 && startMs >= clusterEnd) {
+      flush();
+      cluster = [];
+      clusterEnd = -Infinity;
+    }
+    cluster.push(ev);
+    clusterEnd = Math.max(clusterEnd, endMs);
+  }
+  flush();
+  return out;
+}
+
 export function shiftEventEndByMinutes(
   endIso: string,
   startIso: string,

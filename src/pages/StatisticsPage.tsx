@@ -3,6 +3,7 @@ import { useSyncRefresh } from '../hooks/useServerSync';
 import { useStudyStatistics } from '../hooks/useStudyStatistics';
 import { formatDurationLong, formatDuration } from '../utils/time';
 import { StudyHeatmap } from '../components/stats/heatmap/StudyHeatmap';
+import { HeatmapRangeSelect } from '../components/stats/heatmap/HeatmapRangeSelect';
 import { DailyActivityChart } from '../components/stats/DailyActivityChart';
 import { SubjectTable } from '../components/stats/SubjectTable';
 
@@ -12,9 +13,11 @@ export function StatisticsPage() {
   const [, forceRefresh] = useReducer((x: number) => x + 1, 0);
   useSyncRefresh(forceRefresh);
   const {
-    year,
-    goToPrevYear,
-    goToNextYear,
+    rangeMode,
+    heatmapRange,
+    availableYears,
+    pickYear,
+    pickRolling,
     heatmapDays,
     yearStats,
     weekDate,
@@ -42,31 +45,21 @@ export function StatisticsPage() {
 
   return (
     <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
-      {/* Year navigation */}
+      {/* Heatmap range picker */}
       <div className="flex items-end justify-between mb-8">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Statistics</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant">Study activity for {year}</p>
+          <p className="font-body-lg text-body-lg text-on-surface-variant">
+            Study activity · {heatmapRange.label}
+          </p>
         </div>
-        <div className="flex gap-2 items-center">
-          <button
-            onClick={goToPrevYear}
-            aria-label="Previous year"
-            className="w-10 h-10 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
-          >
-            <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-          </button>
-          <span className="font-headline-md text-headline-md text-on-surface tabular-nums w-16 text-center">
-            {year}
-          </span>
-          <button
-            onClick={goToNextYear}
-            aria-label="Next year"
-            className="w-10 h-10 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
-          >
-            <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-          </button>
-        </div>
+        <HeatmapRangeSelect
+          mode={rangeMode}
+          year={heatmapRange.mode === 'year' ? heatmapRange.from.getFullYear() : new Date().getFullYear()}
+          availableYears={availableYears}
+          onPickRolling={pickRolling}
+          onPickYear={pickYear}
+        />
       </div>
 
       {/* Study activity */}
@@ -76,7 +69,7 @@ export function StatisticsPage() {
             Study activity
           </h2>
         </div>
-        <StudyHeatmap days={heatmapDays} year={year} onPrevYear={goToPrevYear} onNextYear={goToNextYear} />
+        <StudyHeatmap days={heatmapDays} range={heatmapRange} />
       </section>
 
       {/* Summary */}
@@ -99,7 +92,7 @@ export function StatisticsPage() {
         <p className="font-body-sm text-body-sm text-on-surface-variant mt-6">
           {mostStudied
             ? `Best day ${mostStudied.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} · ${formatDurationLong(yearStats.bestDay!.minutes)} · Longest streak ${yearStats.longestStreakDays} day${yearStats.longestStreakDays === 1 ? '' : 's'}`
-            : 'No study recorded this year yet.'}
+            : 'No study recorded in this period yet.'}
         </p>
       </section>
 

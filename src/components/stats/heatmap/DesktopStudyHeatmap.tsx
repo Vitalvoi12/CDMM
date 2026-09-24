@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
-import type { StudyHeatmapDay } from '../../../utils/stats';
+import type { StudyHeatmapDay, HeatmapRange } from '../../../utils/stats';
 import { heatmapLevel } from '../../../utils/stats';
+import { dateKey } from '../../../utils/time';
 import { HeatmapDayTooltip, HEATMAP_MONTHS, heatmapCellClass } from './heatmapShared';
 import { HeatmapLegend } from './HeatmapLegend';
 import type { ThemeMode } from '../../../types';
 
 interface DesktopStudyHeatmapProps {
   days: StudyHeatmapDay[];
-  year: number;
+  range: HeatmapRange;
   theme: ThemeMode;
 }
 
@@ -18,52 +19,50 @@ interface Cell {
   level: 0 | 1 | 2 | 3 | 4;
   row: number; // 0 = Monday .. 6 = Sunday
   col: number;
-  inYear: boolean;
+  inRange: boolean;
 }
 
-export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapProps) {
+export function DesktopStudyHeatmap({ days, range, theme }: DesktopStudyHeatmapProps) {
   const [hovered, setHovered] = useState<{ cell: Cell; x: number; y: number; flipBelow: boolean } | null>(null);
 
   const columns = useMemo(() => {
     const byDate = new Map(days.map((d) => [d.date, d]));
-    const jan1 = new Date(year, 0, 1);
-    const firstMondayOffset = (jan1.getDay() + 6) % 7; // days since Monday
-    const gridStart = new Date(year, 0, 1 - firstMondayOffset);
+    const from = range.from;
+    const to = range.to;
+    const fromDate = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    const toDate = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+    const firstMondayOffset = (from.getDay() + 6) % 7; // days since Monday
+    const gridStart = new Date(from.getFullYear(), from.getMonth(), from.getDate() - firstMondayOffset);
     const totalDays = Math.round(
-      (new Date(year + 1, 0, 1).getTime() - gridStart.getTime()) / 86400000
-    );
+      (toDate.getTime() - gridStart.getTime()) / 86400000
+    ) + 1;
     const cells: Cell[][] = [];
     for (let i = 0; i < totalDays; i++) {
       const d = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
       const col = Math.floor(i / 7);
       const row = i % 7;
       if (!cells[col]) cells[col] = [];
-      const inYear = d.getFullYear() === year;
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const inRange = d.getTime() >= fromDate.getTime() && d.getTime() <= toDate.getTime();
+      const key = dateKey(d);
       const day = byDate.get(key);
       cells[col][row] = {
         day: day || { date: key, totalMinutes: 0, sessionCount: 0 },
         level: day ? heatmapLevel(day.totalMinutes) : 0,
         row,
         col,
-        inYear,
+        inRange,
       };
     }
     return cells;
-  }, [days, year]);
-
-  const todayKey = useMemo(() => {
-    const n = new Date();
-    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
-  }, []);
+  }, [days, range]);
 
   const monthLabels = useMemo(() => {
     const labels: { col: number; label: string }[] = [];
     let lastMonth = -1;
     columns.forEach((week, col) => {
-      const firstInYear = week.find((c) => c.inYear);
-      if (!firstInYear) return;
-      const [m] = firstInYear.day.date.split('-').map(Number);
+      const firstInRange = week.find((c) => c.inRange);
+      if (!firstInRange) return;
+      const [m] = firstInRange.day.date.split('-').map(Number);
       if (m !== lastMonth) {
         labels.push({ col, label: HEATMAP_MONTHS[m - 1] });
         lastMonth = m;
@@ -88,8 +87,8 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
     <div className="relative">
       <div className="overflow-x-auto pb-2">
         <div className="relative inline-flex flex-col gap-[3px] lg:gap-[3px] min-w-max">
-          {/* Month labels */}
-          <div className="flex gap-[3px] lg:gap-[3px] ml-5 lg:ml-6">
+          {/* Month labels — aligned with the first cell column (gutter, no gap) */}
+          <div className="flex gap-[3px] lg:gap-[3px] ml-[23px] lg:ml-[25px]">
             {columns.map((_, col) => (
               <div key={col} className="w-[9px] lg:w-[10px] relative">
                 {monthLabels.find((m) => m.col === col) && (
@@ -100,43 +99,45 @@ export function DesktopStudyHeatmap({ days, year, theme }: DesktopStudyHeatmapPr
               </div>
             ))}
           </div>
-          <div className="flex gap-[3px] lg:gap-[3px]">
-            {/* Weekday labels */}
-            <div className="flex flex-col gap-[3px] lg:gap-[3px] w-[14px] lg:w-[17px]">
+          <div className="flex">
+            {/* Weekday labels — dedicated gutter wide enough for Mon/Wed/Fri,
+                cells start right after it and never paint over the text */}
+            <div className="flex flex-col gap-[3px] lg:gap-[3px] w-[23px] lg:w-[25px]">
               {WEEKDAY_LABELS.map((label, row) => (
                 <div key={row} className="h-[9px] lg:h-[10px] flex items-center">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant leading-none">
+                  <span className="font-label-sm text-[8px] leading-none tracking-[0.02em] text-on-surface-variant whitespace-nowrap">
                     {label}
                   </span>
                 </div>
               ))}
             </div>
             {/* Cells */}
-            {columns.map((week, col) => (
-              <div key={col} className="flex flex-col gap-[3px] lg:gap-[3px]">
-                {Array.from({ length: 7 }, (_, row) => {
-                  const cell = week[row];
-                  if (!cell) return <div key={row} className="w-[9px] h-[9px] lg:w-[10px] lg:h-[10px]" />;
-                  const isToday = cell.day.date === todayKey;
-                  return (
-                    <button
-                      key={row}
-                      type="button"
-                      tabIndex={cell.inYear ? 0 : -1}
-                      aria-label={`${cell.day.date}: ${cell.day.totalMinutes} minutes, ${cell.day.sessionCount} sessions${isToday ? ', today' : ''}`}
-                      disabled={!cell.inYear}
-                      className={`w-[9px] h-[9px] lg:w-[10px] lg:h-[10px] rounded-[2px] lg:rounded-[2px] border border-outline/80 transition-transform ${heatmapCellClass(cell.level)} ${
-                        !cell.inYear ? 'opacity-0 pointer-events-none' : 'hover:scale-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-                      }${isToday && cell.inYear ? ' relative after:absolute after:-inset-[3px] after:rounded-full after:border-2 after:border-primary after:pointer-events-none after:content-[""]' : ''}`}
-                      onMouseEnter={(e) => showTooltip(cell, e)}
-                      onMouseLeave={() => setHovered(null)}
-                      onFocus={(e) => showTooltip(cell, e)}
-                      onBlur={() => setHovered(null)}
-                    />
-                  );
-                })}
-              </div>
-            ))}
+            <div className="flex gap-[3px] lg:gap-[3px]">
+              {columns.map((week, col) => (
+                <div key={col} className="flex flex-col gap-[3px] lg:gap-[3px]">
+                  {Array.from({ length: 7 }, (_, row) => {
+                    const cell = week[row];
+                    if (!cell) return <div key={row} className="w-[9px] h-[9px] lg:w-[10px] lg:h-[10px]" />;
+                    if (!cell.inRange) return <div key={row} className="w-[9px] h-[9px] lg:w-[10px] lg:h-[10px]" />;
+                    return (
+                      <button
+                        key={row}
+                        type="button"
+                        tabIndex={0}
+                        aria-label={`${cell.day.date}: ${cell.day.totalMinutes} minutes, ${cell.day.sessionCount} sessions`}
+                        className={`w-[9px] h-[9px] lg:w-[10px] lg:h-[10px] rounded-[3px] lg:rounded-[4px] border border-outline/80 transition-transform ${heatmapCellClass(
+                          cell.level
+                        )} hover:scale-125 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
+                        onMouseEnter={(e) => showTooltip(cell, e)}
+                        onMouseLeave={() => setHovered(null)}
+                        onFocus={(e) => showTooltip(cell, e)}
+                        onBlur={() => setHovered(null)}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

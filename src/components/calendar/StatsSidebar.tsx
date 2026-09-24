@@ -17,6 +17,7 @@ export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarPro
 
   // Plan vs real per subject for the displayed day:
   // percent = real minutes (subject) / plan minutes (subject) * 100.
+  // Stats-excluded real events don't count toward real.
   const planBySubject: Record<string, number> = {};
   const realBySubject: Record<string, number> = {};
   let totalPlan = 0;
@@ -25,7 +26,7 @@ export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarPro
     if (e.kind === 'plan') {
       planBySubject[e.subjectId] = (planBySubject[e.subjectId] || 0) + mins;
       totalPlan += mins;
-    } else {
+    } else if (e.countInStats !== false) {
       realBySubject[e.subjectId] = (realBySubject[e.subjectId] || 0) + mins;
     }
   }

@@ -40,28 +40,29 @@ export function pageBackground(): string {
 }
 
 /** Palette swatches shared by subjects and custom event colors. */
-/** Muted pastels that sit well on the grey theme. */
+/** Muted, deepened pastels that sit well on the dark theme. */
 const PASTEL_COLORS = [
-  { value: '#e5b8c2', label: 'Rosewater' },
-  { value: '#dfaeb9', label: 'Dusty rose' },
-  { value: '#e8c4b8', label: 'Nude peach' },
-  { value: '#f0d3ac', label: 'Pastel apricot' },
-  { value: '#ead9a8', label: 'Vanilla' },
-  { value: '#d5d8a8', label: 'Pale lime' },
-  { value: '#c2d1ac', label: 'Pastel sage' },
-  { value: '#aec7b2', label: 'Soft sage' },
-  { value: '#aed4c2', label: 'Pastel mint' },
-  { value: '#a9cfc6', label: 'Seafoam' },
-  { value: '#a9ccd4', label: 'Powder teal' },
-  { value: '#a9c3d4', label: 'Dusty sky' },
-  { value: '#b6cbe4', label: 'Pastel sky' },
-  { value: '#bcc8e6', label: 'Periwinkle mist' },
-  { value: '#c6c3e3', label: 'Pastel periwinkle' },
-  { value: '#d0c6e6', label: 'Pastel lavender' },
-  { value: '#d9c2dd', label: 'Pastel lilac' },
-  { value: '#d9bccd', label: 'Pastel mauve' },
-  { value: '#e0c9b4', label: 'Pastel sand' },
-  { value: '#cfc6bd', label: 'Greige mist' },
+  { value: '#b3778a', label: 'Rosewater' },
+  { value: '#a86a7e', label: 'Dusty rose' },
+  { value: '#ae7f6b', label: 'Nude peach' },
+  { value: '#bd8f5a', label: 'Pastel apricot' },
+  { value: '#b69a5f', label: 'Vanilla' },
+  { value: '#949a55', label: 'Pale lime' },
+  { value: '#7f9464', label: 'Pastel sage' },
+  { value: '#6f8a74', label: 'Soft sage' },
+  { value: '#6a9e86', label: 'Pastel mint' },
+  { value: '#5f938a', label: 'Seafoam' },
+  { value: '#5c8f9a', label: 'Powder teal' },
+  { value: '#5d81a0', label: 'Dusty sky' },
+  { value: '#6e90ad', label: 'Pastel sky' },
+  { value: '#7887ab', label: 'Periwinkle mist' },
+  { value: '#837eb2', label: 'Pastel periwinkle' },
+  { value: '#8e7fb0', label: 'Pastel lavender' },
+  { value: '#a0799f', label: 'Pastel lilac' },
+  { value: '#9c7590', label: 'Pastel mauve' },
+  { value: '#b08d6e', label: 'Pastel sand' },
+  { value: '#948b80', label: 'Greige mist' },
+  { value: '#7c8288', label: 'Slate gray' },
 ];
 
 /** Grouped swatches for the color pickers. */

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
-import { Toggle } from '../common/Toggle';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
 
@@ -22,6 +21,7 @@ interface EventFormProps {
     start: Date;
     end: Date;
     kind: 'real' | 'plan';
+    countInStats: boolean;
     recurrence?: EventRecurrence;
     /** Custom (subject-less) event color. Ignored for subject-bound events. */
     color?: string;
@@ -62,6 +62,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
     return subjects[0]?.id || '';
   });
   const [kind, setKind] = useState<'real' | 'plan'>(initialKind);
+  const [countInStats, setCountInStats] = useState(event?.countInStats ?? true);
   const [title, setTitle] = useState(event?.title || '');
   const [color, setColor] = useState(event?.color || DEFAULT_CUSTOM_COLOR);
   const [description, setDescription] = useState(event?.description || '');
@@ -143,6 +144,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
       start,
       end,
       kind,
+      countInStats,
       recurrence,
       color: isCustom ? color : undefined,
     });
@@ -242,9 +244,6 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               <div className="flex flex-col gap-3">
                 {SUBJECT_COLOR_GROUPS.map((group) => (
                   <div key={group.label} className="flex flex-col gap-1.5">
-                    <span className="font-label-sm text-label-sm text-on-surface-variant/70 uppercase tracking-[0.16em]">
-                      {group.label}
-                    </span>
                     <div className="flex flex-wrap gap-2">
                       {group.colors.map((c) => (
                         <button
@@ -266,18 +265,59 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               </div>
             </div>
           )}
-          <Toggle
-            label={kind === 'plan' ? 'Planned' : 'Real'}
-            checked={kind === 'plan'}
-            onChange={(isPlan) => {
-              const next = isPlan ? 'plan' : 'real';
-              setKind(next);
-              // Real events must be tied to a subject — leave custom mode.
-              if (next === 'real' && subjectSel === CUSTOM_SUBJECT) {
-                setSubjectSel(subjects[0]?.id || '');
-              }
-            }}
-          />
+          {/* real/plan — segmented slider, same visual as the Day/3D/Week row */}
+          <div
+            className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low"
+            role="group"
+            aria-label="Event kind"
+          >
+            {(['real', 'plan'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={kind === k}
+                onClick={() => {
+                  setKind(k);
+                  // Real events must be tied to a subject — leave custom mode.
+                  if (k === 'real' && subjectSel === CUSTOM_SUBJECT) {
+                    setSubjectSel(subjects[0]?.id || '');
+                  }
+                }}
+                className={`flex-1 py-2 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
+                  kind === k
+                    ? 'bg-secondary-container text-on-secondary-container'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                {k === 'real' ? 'Real' : 'Planned'}
+              </button>
+            ))}
+          </div>
+          {/* count in stats — checkbox, on by default */}
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={countInStats}
+            onClick={() => setCountInStats((v) => !v)}
+            className="flex items-center gap-3 self-start px-1 py-1 group"
+          >
+            <span
+              className={`w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center transition-colors ${
+                countInStats
+                  ? 'bg-primary border-primary'
+                  : 'border-outline bg-surface-container-low group-hover:border-outline'
+              }`}
+            >
+              {countInStats && (
+                <span className="material-symbols-outlined text-[13px] text-on-primary leading-none">
+                  check
+                </span>
+              )}
+            </span>
+            <span className="font-label-sm text-label-sm text-on-surface uppercase tracking-[0.16em]">
+              Count in stats?
+            </span>
+          </button>
           <div className="flex flex-col gap-2">
             <label className={labelClass}>
               Description

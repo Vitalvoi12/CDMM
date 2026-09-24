@@ -26,8 +26,8 @@ export function YearView({ date, events }: YearViewProps) {
       let totalMinutes = 0;
       for (let d = 1; d <= daysInM; d++) {
         const dayDate = new Date(year, month, d);
-        // Real study time only — plan events never count toward totals.
-        const dayEvents = getEventsForDate(events, dayDate).filter((e) => e.kind !== 'plan');
+        // Real study time only — plan events and stats-excluded events never count.
+        const dayEvents = getEventsForDate(events, dayDate).filter((e) => e.kind !== 'plan' && e.countInStats !== false);
         dayEvents.forEach((e) => {
           totalMinutes += minutesBetween(e.start, e.end);
         });

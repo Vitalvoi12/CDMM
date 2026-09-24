@@ -21,7 +21,7 @@ export function SubjectGrid({ subjects, onEdit }: SubjectGridProps) {
           <div
             key={subject.id}
             onClick={() => onEdit(subject)}
-            className="relative bg-surface-container-lowest rounded-2xl shadow-elev-1 hover:shadow-elev-2 p-5 max-lg:p-3 transition-shadow flex items-center justify-between gap-4 cursor-pointer group"
+            className="relative bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-elev-1 hover:shadow-elev-2 hover:border-outline p-5 max-lg:p-3 transition-all flex items-center justify-between gap-4 cursor-pointer group"
           >
             <div className="flex items-center gap-4 max-lg:gap-3 min-w-0">
               <div

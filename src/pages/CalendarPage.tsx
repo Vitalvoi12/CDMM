@@ -64,6 +64,7 @@ interface PendingRecurrence {
     start: Date;
     end: Date;
     kind: 'real' | 'plan';
+    countInStats: boolean;
     color?: string;
   } | null;
 }
@@ -228,7 +229,7 @@ export function CalendarPage() {
   );
 
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; recurrence?: EventRecurrence; color?: string }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string }) => {
       if (editingEvent) {
         const stored = eventRepo.getById(editingEvent.id);
         const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
@@ -273,6 +274,7 @@ export function CalendarPage() {
           start: data.start.toISOString(),
           end: data.end.toISOString(),
           kind: data.kind,
+          countInStats: data.countInStats,
           color: data.color,
         });
       } else if (data.recurrence && data.recurrence.freq !== 'none') {
@@ -293,6 +295,7 @@ export function CalendarPage() {
             start: occ.start.toISOString(),
             end: occ.end.toISOString(),
             kind: data.kind,
+            countInStats: data.countInStats,
             color: data.color,
             recurrenceId,
           });
@@ -306,6 +309,7 @@ export function CalendarPage() {
           start: data.start.toISOString(),
           end: data.end.toISOString(),
           kind: data.kind,
+          countInStats: data.countInStats,
           color: data.color,
         });
       }
@@ -395,6 +399,7 @@ export function CalendarPage() {
               start: data.start.toISOString(),
               end: data.end.toISOString(),
               kind: data.kind,
+              countInStats: data.countInStats,
               color: data.color,
               recurrenceId: null,
             });
@@ -415,6 +420,7 @@ export function CalendarPage() {
               start: data.start.toISOString(),
               end: data.end.toISOString(),
               kind: data.kind,
+              countInStats: data.countInStats,
               color: data.color,
             });
           }
@@ -430,6 +436,7 @@ export function CalendarPage() {
               start: new Date(shiftedStart).toISOString(),
               end: new Date(shiftedEnd).toISOString(),
               kind: data.kind,
+              countInStats: data.countInStats,
               color: data.color,
             });
           }
@@ -455,6 +462,7 @@ export function CalendarPage() {
         start: source.start,
         end: source.end,
         kind: source.kind || 'plan',
+        countInStats: source.countInStats,
         // A copy starts its own life — never join the source's series.
         recurrenceId: null,
       });
@@ -569,37 +577,31 @@ export function CalendarPage() {
 
   const renderToolbar = () => {
     if (isMobile) {
-      const viewBtn = (active: boolean) =>
-        `px-3 py-1 rounded-[8px] font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-normal transition-colors whitespace-nowrap flex-shrink-0 ${
+      const pillGroup = 'flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low flex-shrink-0';
+      const pillBtn = (active: boolean) =>
+        `px-3 py-1.5 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
           active
-            ? 'bg-primary text-on-primary'
-            : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant'
+            ? 'bg-secondary-container text-on-secondary-container'
+            : 'text-on-surface-variant hover:text-on-surface'
         }`;
       return (
         <div className="mb-3 flex gap-2 items-center justify-between overflow-x-auto">
-          <div className="flex gap-1 items-center flex-shrink-0">
-            {(['day', '3day'] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={viewBtn(view === v)}
-              >
-                {v === 'day' ? 'Day' : '3D'}
-              </button>
-            ))}
+          <div className="flex gap-2 items-center flex-shrink-0">
+            <div className={pillGroup} role="group" aria-label="Calendar view">
+              {(['day', '3day'] as const).map((v) => (
+                <button key={v} onClick={() => setView(v)} className={pillBtn(view === v)}>
+                  {v === 'day' ? 'Day' : '3D'}
+                </button>
+              ))}
+            </div>
             {view === 'day' && (
-              <>
-                <span className="w-px h-5 bg-outline-variant mx-1 flex-shrink-0" aria-hidden />
+              <div className={pillGroup} role="group" aria-label="Day panel">
                 {(['timeline', 'stats'] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setDayPanel(p)}
-                    className={viewBtn(dayPanel === p)}
-                  >
+                  <button key={p} onClick={() => setDayPanel(p)} className={pillBtn(dayPanel === p)}>
                     {p === 'timeline' ? 'Day' : 'Stats'}
                   </button>
                 ))}
-              </>
+              </div>
             )}
           </div>
           <div className="flex-shrink-0">{renderEventFilter()}</div>

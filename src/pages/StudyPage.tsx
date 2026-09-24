@@ -70,13 +70,14 @@ export function StudyPage() {
     [startSession]
   );
 
-  // Today list: ALL real sessions of today — including future ones.
-  // No planned events. Plus the running live session (if any).
+  // Today list: ALL real sessions of today that count toward statistics —
+  // including future ones. No planned events, no stats-excluded events.
+  // Plus the running live session (if any).
   // Total = full durations of all real events today + live elapsed.
   const todayRealEvents = useMemo(
     () =>
       todayEvents
-        .filter((e) => e.kind !== 'plan')
+        .filter((e) => e.kind !== 'plan' && e.countInStats !== false)
         .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
     [todayEvents]
   );

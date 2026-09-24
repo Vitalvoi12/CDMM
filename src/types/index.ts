@@ -24,6 +24,12 @@ export interface CalendarEvent {
   /** 'real' (default) | 'plan'. undefined = 'real' for backward compat. */
   kind?: 'real' | 'plan';
   /**
+   * Whether the event counts toward statistics (focus time totals, focus
+   * room, plan progress, heatmaps). Absent/undefined = true for backward
+   * compat. Plan events never count regardless of this flag.
+   */
+  countInStats?: boolean;
+  /**
    * Custom plan-event color (subject-less events only; subject-bound events
    * always use their subject's color). Absent = default gray.
    */

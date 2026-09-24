@@ -68,9 +68,6 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
             <div className="flex flex-col gap-3">
               {COLOR_GROUPS.map((group) => (
                 <div key={group.label} className="flex flex-col gap-1.5">
-                  <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 uppercase tracking-[0.16em]">
-                    {group.label}
-                  </span>
                   <div className="flex flex-wrap gap-2.5">
                     {group.colors.map((c) => (
                       <button

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { StudyHeatmapDay } from '../../../utils/stats';
+import type { StudyHeatmapDay, HeatmapRange } from '../../../utils/stats';
 import { heatmapLevel } from '../../../utils/stats';
 import { formatDurationLong } from '../../../utils/time';
 import { heatmapCellClass } from './heatmapShared';
@@ -8,66 +8,55 @@ import { HeatmapLegend } from './HeatmapLegend';
 
 interface MobileStudyHeatmapProps {
   days: StudyHeatmapDay[];
-  year: number;
-  onPrevYear: () => void;
-  onNextYear: () => void;
+  range: HeatmapRange;
 }
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-export function MobileStudyHeatmap({ days, year, onPrevYear, onNextYear }: MobileStudyHeatmapProps) {
+export function MobileStudyHeatmap({ days, range }: MobileStudyHeatmapProps) {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<StudyHeatmapDay | null>(null);
 
   const byDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
 
   const months = useMemo(() => {
-    return Array.from({ length: 12 }, (_, month) => {
+    const from = range.from;
+    const to = range.to;
+    const list: { year: number; month: number; cells: (StudyHeatmapDay | null)[] }[] = [];
+    const cursor = new Date(from.getFullYear(), from.getMonth(), 1);
+    while (cursor.getTime() <= to.getTime()) {
+      const year = cursor.getFullYear();
+      const month = cursor.getMonth();
       const first = new Date(year, month, 1);
       const lead = (first.getDay() + 6) % 7; // Monday-start
       const dayCount = new Date(year, month + 1, 0).getDate();
       const cells: (StudyHeatmapDay | null)[] = Array.from({ length: lead }, () => null);
       for (let d = 1; d <= dayCount; d++) {
+        const date = new Date(year, month, d);
+        if (date.getTime() < from.getTime() || date.getTime() > to.getTime()) {
+          cells.push(null);
+          continue;
+        }
         const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
         cells.push(byDate.get(key) || { date: key, totalMinutes: 0, sessionCount: 0 });
       }
-      return { month, cells };
-    });
-  }, [days, year, byDate]);
-
-  const todayKey = useMemo(() => {
-    const n = new Date();
-    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
-  }, []);
+      list.push({ year, month, cells });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return list;
+  }, [days, range, byDate]);
 
   return (
     <div className="flex flex-col gap-4 w-full min-w-0">
-      <div className="flex items-center justify-center gap-2">
-        <button
-          onClick={onPrevYear}
-          aria-label="Previous year"
-          className="w-9 h-9 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
-        >
-          <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-        </button>
-        <span className="font-headline-md text-headline-md text-on-surface tabular-nums w-16 text-center">
-          {year}
-        </span>
-        <button
-          onClick={onNextYear}
-          aria-label="Next year"
-          className="w-9 h-9 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
-        >
-          <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-        </button>
-      </div>
-
       <div className="grid grid-cols-4 gap-x-2 gap-y-3">
-        {months.map(({ month, cells }) => (
-          <div key={month} className="min-w-0">
+        {months.map(({ year, month, cells }) => (
+          <div key={`${year}-${month}`} className="min-w-0">
             <p className="font-label-sm text-label-sm text-on-surface-variant mb-1.5 truncate">
               {MONTH_NAMES[month]}
+              {range.mode === 'rolling' && month === 0 && (
+                <span className="opacity-60"> '{String(year).slice(2)}</span>
+              )}
             </p>
             <div className="grid grid-cols-7 gap-[2px] mb-1">
               {WEEKDAY_HEADERS.map((w, i) => (
@@ -80,16 +69,15 @@ export function MobileStudyHeatmap({ days, year, onPrevYear, onNextYear }: Mobil
               {cells.map((cell, i) => {
                 if (!cell) return <span key={`e-${i}`} className="aspect-square" />;
                 const level = heatmapLevel(cell.totalMinutes);
-                const isToday = cell.date === todayKey;
                 const isSelected = selected?.date === cell.date;
                 return (
                   <button
                     key={cell.date}
                     type="button"
                     aria-label={`${cell.date}: ${cell.totalMinutes} minutes`}
-                    className={`aspect-square w-full rounded-[2px] border border-outline/80 ${heatmapCellClass(level)} transition-transform ${
+                    className={`aspect-square w-full rounded-[4px] border border-outline/80 ${heatmapCellClass(level)} transition-transform ${
                       isSelected ? 'ring-2 ring-primary scale-110' : ''
-                    } ${isToday && !isSelected ? 'relative after:absolute after:-inset-[2px] after:rounded-full after:border after:border-primary after:pointer-events-none after:content-[""]' : ''} active:scale-95`}
+                    } active:scale-95`}
                     onClick={() => setSelected(isSelected ? null : cell)}
                   />
                 );

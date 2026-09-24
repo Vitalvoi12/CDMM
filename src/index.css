@@ -262,19 +262,19 @@
 /* Focus Room dark — becomes the implicit default theme (data-theme="dark"). */
 html[data-theme='dark'] {
   color-scheme: dark;
-  --color-background: #1c0f13;
+  --color-background: #120a0d;
   --color-on-background: #e2e2e2;
-  --color-surface: #25161b;
-  --color-surface-dim: #120a0d;
-  --color-surface-bright: #2f1c22;
-  --color-surface-variant: #36222a;
+  --color-surface: #1c1115;
+  --color-surface-dim: #0b0608;
+  --color-surface-bright: #2b1a20;
+  --color-surface-variant: #302025;
   --color-on-surface: #e2e2e2;
   --color-on-surface-variant: #bbbac6;
-  --color-surface-container-lowest: #140b0e;
-  --color-surface-container-low: #1c0f13;
-  --color-surface-container: #2b1a20;
-  --color-surface-container-high: #37232b;
-  --color-surface-container-highest: #473039;
+  --color-surface-container-lowest: #0e0709;
+  --color-surface-container-low: #150b0e;
+  --color-surface-container: #25161b;
+  --color-surface-container-high: #311e25;
+  --color-surface-container-highest: #3f2930;
   --color-inverse-surface: #e2e2e2;
   --color-inverse-on-surface: #1c0f13;
   --color-inverse-primary: #6e7e85;
@@ -310,16 +310,16 @@ html[data-theme='dark'] {
 
   --color-success: #8fa1a6;
 
-  --color-outline: #54434b;
-  --color-outline-variant: #2e2226;
+  --color-outline: #4a3a42;
+  --color-outline-variant: #2a1f23;
 
   --color-surface-tint: #96909e;
 
   --color-now: #b7cece;
 
-  --color-heatmap-0: #221b1f;
-  --color-heatmap-1: #2f3b3f;
-  --color-heatmap-2: #4a5c61;
+  --color-heatmap-0: #1c161a;
+  --color-heatmap-1: #293438;
+  --color-heatmap-2: #45565b;
   --color-heatmap-3: #6e7e85;
   --color-heatmap-4: #b7cece;
 }

@@ -13,10 +13,14 @@ interface TimelineEventProps {
   onDragStart?: (e: React.MouseEvent) => void;
   onResizeStart?: (e: React.MouseEvent) => void;
   isMobile?: boolean;
+  /** Horizontal lane for overlapping blocks (see layoutOverlapLanes). */
+  lane?: { left: number; width: number; z: number };
 }
 
-export function TimelineEvent({ event, top, height, hourHeight = 96, subject, onClick, onTouchStart, onDragStart, onResizeStart, isMobile = false }: TimelineEventProps) {
+export function TimelineEvent({ event, top, height, hourHeight = 96, subject, onClick, onTouchStart, onDragStart, onResizeStart, isMobile = false, lane }: TimelineEventProps) {
   const plan = event.kind === 'plan';
+  const excludedFromStats = event.countInStats === false;
+  const statsTitle = excludedFromStats ? 'Excluded from statistics' : undefined;
   const tiny = height < hourHeight * 0.25;
   const roomy = height >= hourHeight * 0.42;
   // 30-minute events (height ≈ hourHeight/2) must stay resizable, so the
@@ -63,14 +67,22 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
         borderRadius: shellRadiusPx,
       };
 
-  const shellClass =
-    'absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto overflow-hidden cursor-pointer max-lg:[touch-action:none] max-lg:select-none group';
+  const laneStyle: React.CSSProperties | undefined = lane
+    ? { left: `${lane.left}%`, width: `calc(${lane.width}% - 6px)`, zIndex: lane.z }
+    : undefined;
+  const shellStyle: React.CSSProperties = { ...baseStyle, ...laneStyle };
+
+  const shellBase =
+    'absolute overflow-hidden cursor-pointer max-lg:[touch-action:none] max-lg:select-none group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20';
+  const shellClass = lane
+    ? `${shellBase} w-auto`
+    : `${shellBase} right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto`;
 
   const spineClass = 'absolute left-0 top-0 bottom-0 w-[3px]';
 
   if (tiny) {
     return (
-      <div className={shellClass} style={baseStyle} data-event-id={event.id} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
+      <div className={shellClass} style={shellStyle} data-event-id={event.id} title={statsTitle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
         <div className={spineClass} style={spineStyle} />
         <div className="flex items-center h-full pl-3 min-w-0">
           <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 text-on-surface" style={fgStyle}>
@@ -83,7 +95,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
 
   if (!roomy) {
     return (
-      <div className={shellClass} style={baseStyle} data-event-id={event.id} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
+      <div className={shellClass} style={shellStyle} data-event-id={event.id} title={statsTitle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
         <div className={spineClass} style={spineStyle} />
         <div className="flex flex-col items-start justify-center h-full pl-3 pr-2 min-w-0">
           <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 max-w-full text-on-surface" style={fgStyle}>
@@ -98,7 +110,7 @@ export function TimelineEvent({ event, top, height, hourHeight = 96, subject, on
   }
 
   return (
-    <div className={shellClass} style={baseStyle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
+    <div className={shellClass} style={shellStyle} title={statsTitle} onClick={onClick} onTouchStart={onTouchStart} onContextMenu={(e) => e.preventDefault()} onMouseDown={onDragStart}>
       <div className={spineClass} style={spineStyle} />
       <div className="flex flex-col items-start p-2.5 pl-3 max-lg:pl-3 max-lg:pr-2 max-lg:pt-1.5 max-lg:pb-1.5 min-w-0">
         <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none font-semibold tracking-tight truncate max-w-full text-on-surface" style={fgStyle}>

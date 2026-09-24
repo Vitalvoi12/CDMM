@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
-import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
+import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
 import { TimelineEvent } from './TimelineEvent';
 import { LiveEventBlock } from './LiveEventBlock';
@@ -435,8 +435,9 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     [date, MINUTES_PER_PIXEL, onBackgroundClick]
   );
 
-  const renderEventBlocks = (list: typeof eventBlocks) =>
-    list.map(({ event, top, height }) => {
+  const renderEventBlocks = (list: typeof eventBlocks) => {
+    const lanes = layoutOverlapLanes(list.map((b) => b.event));
+    return list.map(({ event, top, height }) => {
       let visualTop = top;
       let visualHeight = height;
       if (dragOffset?.eventId === event.id) {
@@ -453,6 +454,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           height={visualHeight}
           hourHeight={HOUR_HEIGHT}
           isMobile={isMobile}
+          lane={lanes[event.id]}
           subject={subjectMap[event.subjectId]}
           onClick={(e) => {
             if (Date.now() - lastDragEndRef.current < 500) return;
@@ -465,6 +467,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
         />
       );
     });
+  };
 
   const realBlocks = eventBlocks.filter((b) => b.event.kind !== 'plan');
   const planBlocks = eventBlocks.filter((b) => b.event.kind === 'plan');
@@ -516,7 +519,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           {/* Single-kind mode: one full-width column, no split. The live
               session block is real — hidden in plan-only mode. */}
           {single ? (
-            <div className="absolute left-0 right-0 top-0 bottom-0" onClick={makeColumnTapHandler(singleKind)}>
+            <div className="absolute left-0 right-0 top-0 bottom-0 overflow-hidden" onClick={makeColumnTapHandler(singleKind)}>
               {renderEventBlocks(singleKind === 'real' ? realBlocks : planBlocks)}
               {isToday(date) && activeSession && singleKind === 'real' && (
                 <LiveEventBlock
@@ -531,7 +534,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           ) : (
             <>
               {/* Left column: real events */}
-              <div className="absolute left-0 top-0 bottom-0 w-1/2" onClick={makeColumnTapHandler('real')}>
+              <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('real')}>
                 {renderEventBlocks(realBlocks)}
                 {isToday(date) && activeSession && (
                   <LiveEventBlock
@@ -548,7 +551,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
               <div className="absolute left-1/2 top-0 bottom-0 w-px bg-outline-variant" />
 
               {/* Right column: plan events */}
-              <div className="absolute right-0 top-0 bottom-0 w-1/2" onClick={makeColumnTapHandler('plan')}>
+              <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('plan')}>
                 {renderEventBlocks(planBlocks)}
               </div>
             </>

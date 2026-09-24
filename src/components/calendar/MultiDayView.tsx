@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useRef, useState } from 'react';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { getEventsForDate } from '../../utils/stats';
-import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes } from '../../utils/time';
+import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { LiveEventBlock } from './LiveEventBlock';
@@ -354,8 +354,9 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                 const visiblePlan = single ? (singleKind === 'plan' ? planEvents : []) : planEvents;
                 const isDropTarget = dragPos != null && dragPos.targetDayIdx === idx;
 
-                const renderColumn = (list: typeof realEvents) =>
-                  list.map((ev) => {
+                const renderColumn = (list: typeof realEvents) => {
+                  const lanes = layoutOverlapLanes(list);
+                  return list.map((ev) => {
                     const top = timeToPixels(ev.start, START_HOUR, HOUR_HEIGHT);
                     const endPx = timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT);
                     let height = Math.max(endPx - top, 13);
@@ -383,12 +384,21 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     // Leave a couple of pixels before the event's nominal end
                     // so back-to-back events do not visually merge.
                     const visualHeight = Math.max(height - 2, 2);
+                    const lane = lanes[ev.id];
                     return (
                       <div
                         key={ev.id}
                         data-event-id={ev.id}
-                        className="absolute left-0 right-[6px] rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group"
-                        style={{ top: `${visualTop}px`, height: `${visualHeight}px`, backgroundColor: plan ? fill : mutedFill, transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined, zIndex: dragging ? 20 : undefined }}
+                        className={`absolute rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
+                        style={{
+                          top: `${visualTop}px`,
+                          height: `${visualHeight}px`,
+                          backgroundColor: plan ? fill : mutedFill,
+                          transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined,
+                          left: lane ? `${lane.left}%` : undefined,
+                          width: lane ? `calc(${lane.width}% - 6px)` : undefined,
+                          zIndex: dragging ? 20 : lane?.z,
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEventClick?.(ev);
@@ -426,6 +436,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       </div>
                     );
                   });
+                };
 
                 return (
                   <div
@@ -446,7 +457,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     {/* Single-kind mode: one full-width column, no split. The live
                         session block is real — hidden in plan-only mode. */}
                     {single ? (
-                      <div className="absolute left-0 right-0 top-0 bottom-0" onClick={makeCellTapHandler(day, singleKind)}>
+                      <div className="absolute left-0 right-0 top-0 bottom-0 overflow-hidden" onClick={makeCellTapHandler(day, singleKind)}>
                         {renderColumn(singleKind === 'real' ? visibleReal : visiblePlan)}
                         {isSameDay(day, new Date()) && activeSession && singleKind === 'real' && (
                           <LiveEventBlock
@@ -461,7 +472,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     ) : (
                       <>
                         {/* Left column: real events */}
-                        <div className="absolute left-0 top-0 bottom-0 w-1/2" onClick={makeCellTapHandler(day, 'real')}>
+                        <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeCellTapHandler(day, 'real')}>
                           {renderColumn(visibleReal)}
                           {isSameDay(day, new Date()) && activeSession && (
                             <LiveEventBlock
@@ -479,7 +490,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                             2px always covers at least one full pixel. */}
                         <div className="absolute left-1/2 top-0 bottom-0 w-[2px] -translate-x-1/2 bg-outline-variant/60" />
                         {/* Right column: plan events */}
-                        <div className="absolute right-0 top-0 bottom-0 w-1/2" onClick={makeCellTapHandler(day, 'plan')}>
+                        <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeCellTapHandler(day, 'plan')}>
                           {renderColumn(visiblePlan)}
                         </div>
                       </>

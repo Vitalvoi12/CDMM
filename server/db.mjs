@@ -46,6 +46,7 @@ export function openDb(dir) {
       end TEXT NOT NULL DEFAULT '',
       kind TEXT NOT NULL DEFAULT 'real',
       recurrence_id TEXT,
+      count_in_stats INTEGER NOT NULL DEFAULT 1,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
@@ -94,6 +95,12 @@ export function openDb(dir) {
   // Migration for custom event colors.
   try {
     db.exec('ALTER TABLE events ADD COLUMN color TEXT');
+  } catch {
+    // column already exists — ignore
+  }
+  // Migration for the "count in stats" event flag (default: counted).
+  try {
+    db.exec('ALTER TABLE events ADD COLUMN count_in_stats INTEGER NOT NULL DEFAULT 1');
   } catch {
     // column already exists — ignore
   }
@@ -158,7 +165,7 @@ function rowToPayload(entity, row) {
     return { id: row.id, name: row.name, color: row.color, icon: row.icon, progress: row.progress, updatedAt: row.updated_at };
   }
   if (entity === 'events') {
-    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, updatedAt: row.updated_at };
+    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, updatedAt: row.updated_at };
   }
   return {
     id: row.id, title: row.title, description: row.description,
@@ -170,7 +177,7 @@ function rowToPayload(entity, row) {
 
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
-  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color'],
+  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'completed', 'created_at'],
 };
 
@@ -178,6 +185,7 @@ const FROM_CLIENT = {
   name: 'name', color: 'color', icon: 'icon', progress: 'progress',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
   start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id', color: 'color',
+  countInStats: 'count_in_stats',
   important: 'important', urgent: 'urgent', dueDate: 'due_date', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
 };
@@ -223,6 +231,9 @@ export function applyChanges(db, userId, dirty) {
         v = v ? 1 : 0;
       } else if (col === 'kind') {
         v = v === 'plan' ? 'plan' : 'real';
+      } else if (col === 'count_in_stats') {
+        if (v === undefined) v = prev[col] === undefined ? 1 : prev[col];
+        else v = v ? 1 : 0;
       } else if (v === undefined) {
         v = col === 'description' || col === 'icon' || col === 'due_date' ? null : '';
       }

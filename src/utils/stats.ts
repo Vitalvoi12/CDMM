@@ -9,9 +9,13 @@ import {
   addDays,
 } from './time';
 
-/** True for real study events; plan events are excluded from statistics. */
-function isReal(e: CalendarEvent): boolean {
-  return e.kind !== 'plan';
+/**
+ * Real events that count toward statistics. Events explicitly excluded via
+ * the "Count in stats" flag never contribute — to totals, distributions,
+ * heatmaps or plan progress. Absent flag = counts (backward compat).
+ */
+export function countsTowardStats(e: CalendarEvent): boolean {
+  return e.kind !== 'plan' && e.countInStats !== false;
 }
 
 export interface StudyHeatmapDay {
@@ -56,7 +60,7 @@ export function calculateDailyStats(
   date: Date,
   subjectMinutes?: Record<string, number>
 ): DailyStatistics {
-  const dayEvents = getEventsForDate(events, date).filter(isReal);
+  const dayEvents = getEventsForDate(events, date).filter(countsTowardStats);
   let totalMinutes = 0;
   const subjMinutes: Record<string, number> = subjectMinutes || {};
 
@@ -121,7 +125,7 @@ export function calculateWeeklyStats(
 
   for (let i = 0; i < 7; i++) {
     const day = addDays(weekStart, i);
-    const dayEvents = getEventsForDate(events, day).filter(isReal);
+    const dayEvents = getEventsForDate(events, day).filter(countsTowardStats);
     let dayMins = 0;
     dayEvents.forEach((e) => {
       const mins = minutesBetween(e.start, e.end);
@@ -157,7 +161,7 @@ export function calculateSubjectStats(
   totalMinutes: number
 ): { subjectId: string; minutes: number; percentage: number }[] {
   const subjectMinutes: Record<string, number> = {};
-  events.filter(isReal).forEach((e) => {
+  events.filter(countsTowardStats).forEach((e) => {
     subjectMinutes[e.subjectId] =
       (subjectMinutes[e.subjectId] || 0) + minutesBetween(e.start, e.end);
   });
@@ -172,11 +176,16 @@ export function calculateSubjectStats(
 }
 
 /**
- * Per-day study totals for a whole year (local-timezone days). Events crossing
- * midnight contribute to each day proportionally, so a session never lands on
- * the wrong day. Returns exactly 365/366 entries in chronological order.
+ * Per-day study totals for an arbitrary local-timezone range (inclusive).
+ * Events crossing midnight contribute to each day proportionally, so a
+ * session never lands on the wrong day. Returns entries in chronological
+ * order, one per calendar day from `from` to `to`.
  */
-export function buildYearHeatmap(events: CalendarEvent[], year: number): StudyHeatmapDay[] {
+export function buildHeatmapRange(
+  events: CalendarEvent[],
+  from: Date,
+  to: Date
+): StudyHeatmapDay[] {
   const days: StudyHeatmapDay[] = [];
   const totals = new Map<string, { minutes: number; count: number }>();
 
@@ -187,7 +196,7 @@ export function buildYearHeatmap(events: CalendarEvent[], year: number): StudyHe
     totals.set(key, entry);
   };
 
-  for (const e of events.filter(isReal)) {
+  for (const e of events.filter(countsTowardStats)) {
     const startMs = new Date(e.start).getTime();
     const endMs = new Date(e.end).getTime();
     if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) continue;
@@ -205,9 +214,9 @@ export function buildYearHeatmap(events: CalendarEvent[], year: number): StudyHe
     }
   }
 
-  const cursor = new Date(year, 0, 1);
-  const end = new Date(year + 1, 0, 1);
-  while (cursor < end) {
+  const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  while (cursor.getTime() <= end.getTime()) {
     const key = dateKey(cursor);
     const entry = totals.get(key);
     days.push({
@@ -218,6 +227,51 @@ export function buildYearHeatmap(events: CalendarEvent[], year: number): StudyHe
     cursor.setDate(cursor.getDate() + 1);
   }
   return days;
+}
+
+export type HeatmapRangeMode = 'rolling' | 'year';
+
+export interface HeatmapRange {
+  mode: HeatmapRangeMode;
+  from: Date;
+  to: Date;
+  label: string;
+}
+
+/** Rolling 12-month window ending today (one year back → today, inclusive). */
+export function rollingHeatmapRange(today = new Date()): HeatmapRange {
+  const to = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const from = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+  return { mode: 'rolling', from, to, label: 'Last 12 months' };
+}
+
+/** Full calendar year, Jan 1 – Dec 31. */
+export function yearHeatmapRange(year: number): HeatmapRange {
+  return {
+    mode: 'year',
+    from: new Date(year, 0, 1),
+    to: new Date(year, 11, 31),
+    label: String(year),
+  };
+}
+
+/** Years having at least one event counted by statistics, newest first. */
+export function yearsWithStatsEvents(events: CalendarEvent[]): number[] {
+  const years = new Set<number>();
+  for (const e of events) {
+    if (!countsTowardStats(e)) continue;
+    const ms = new Date(e.start).getTime();
+    if (!Number.isFinite(ms)) continue;
+    years.add(new Date(ms).getFullYear());
+  }
+  return [...years].sort((a, b) => b - a);
+}
+
+/**
+ * Calendar-year heatmap days (Jan 1 – Dec 31).
+ */
+export function buildYearHeatmap(events: CalendarEvent[], year: number): StudyHeatmapDay[] {
+  return buildHeatmapRange(events, new Date(year, 0, 1), new Date(year, 11, 31));
 }
 
 /**
