@@ -21,7 +21,7 @@ export function isDarkTheme(): boolean {
 }
 
 let cachedTheme = '';
-let cachedBg = '#f6f3ec';
+let cachedBg = '#e2e2e2';
 
 /**
  * Page background color of the active theme, read from the CSS variable
@@ -29,7 +29,7 @@ let cachedBg = '#f6f3ec';
  * a dataset read is cheap, getComputedStyle runs only on theme switch.
  */
 export function pageBackground(): string {
-  if (typeof document === 'undefined') return '#f6f3ec';
+  if (typeof document === 'undefined') return '#e2e2e2';
   const t = document.documentElement.dataset.theme || '';
   if (t !== cachedTheme) {
     cachedTheme = t;
@@ -40,32 +40,41 @@ export function pageBackground(): string {
 }
 
 /** Palette swatches shared by subjects and custom event colors. */
-/** Primary brand accents — used for key subjects, custom events, and CTAs. */
-export const SUBJECT_COLORS = [
-  { value: '#2f5d3a', label: 'Forest' },
-  { value: '#3e7142', label: 'Leaf' },
-  { value: '#4e8b57', label: 'Meadow' },
-  { value: '#6b9e60', label: 'Sage' },
-  { value: '#8fbc8f', label: 'Light sage' },
-  { value: '#a9d4a5', label: 'Pale sage' },
-  { value: '#5f8f5a', label: 'Olive' },
-  { value: '#7a9170', label: 'Muted sage' },
-  { value: '#3f6f6a', label: 'Teal' },
-  { value: '#5d8a80', label: 'Muted teal' },
-  { value: '#527a75', label: 'Pine' },
-  { value: '#a88452', label: 'Ochre' },
-  { value: '#c09b62', label: 'Honey' },
-  { value: '#b38a5a', label: 'Caramel' },
-  { value: '#a4785f', label: 'Dusty clay' },
-  { value: '#bc4f48', label: 'Clay' },
-  { value: '#b3a98f', label: 'Sand' },
-  { value: '#6d6759', label: 'Stone' },
-  { value: '#8a7b68', label: 'Taupe' },
-  { value: '#6f7f5f', label: 'Moss' },
+/** Muted pastels that sit well on the grey theme. */
+const PASTEL_COLORS = [
+  { value: '#e5b8c2', label: 'Rosewater' },
+  { value: '#dfaeb9', label: 'Dusty rose' },
+  { value: '#e8c4b8', label: 'Nude peach' },
+  { value: '#f0d3ac', label: 'Pastel apricot' },
+  { value: '#ead9a8', label: 'Vanilla' },
+  { value: '#d5d8a8', label: 'Pale lime' },
+  { value: '#c2d1ac', label: 'Pastel sage' },
+  { value: '#aec7b2', label: 'Soft sage' },
+  { value: '#aed4c2', label: 'Pastel mint' },
+  { value: '#a9cfc6', label: 'Seafoam' },
+  { value: '#a9ccd4', label: 'Powder teal' },
+  { value: '#a9c3d4', label: 'Dusty sky' },
+  { value: '#b6cbe4', label: 'Pastel sky' },
+  { value: '#bcc8e6', label: 'Periwinkle mist' },
+  { value: '#c6c3e3', label: 'Pastel periwinkle' },
+  { value: '#d0c6e6', label: 'Pastel lavender' },
+  { value: '#d9c2dd', label: 'Pastel lilac' },
+  { value: '#d9bccd', label: 'Pastel mauve' },
+  { value: '#e0c9b4', label: 'Pastel sand' },
+  { value: '#cfc6bd', label: 'Greige mist' },
 ];
 
+/** Grouped swatches for the color pickers. */
+export const SUBJECT_COLOR_GROUPS = [
+  { label: 'Pastel', colors: PASTEL_COLORS },
+];
+
+/** Flat list (back-compat). */
+export const SUBJECT_COLORS: { value: string; label: string }[] =
+  SUBJECT_COLOR_GROUPS.flatMap((g) => g.colors);
+
 /** Default fill for custom events when the user picks no color. */
-export const DEFAULT_CUSTOM_COLOR = '#6b9e60';
+export const DEFAULT_CUSTOM_COLOR = '#6e7e85';
 
 interface ColoredEvent {
   subjectId: string;
@@ -83,7 +92,7 @@ interface ColoredSubject {
 export function eventFillColor(
   event: ColoredEvent,
   subject?: ColoredSubject | null,
-  fallback = '#b3a98f'
+  fallback = '#6e7e85'
 ): string {
   if (!event.subjectId && event.color) return event.color;
   return subject?.color || fallback;

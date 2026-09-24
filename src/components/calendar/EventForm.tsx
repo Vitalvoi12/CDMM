@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { Toggle } from '../common/Toggle';
-import { SUBJECT_COLORS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
+import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
 
 export interface EventRecurrence {
@@ -239,20 +239,29 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               <label className={labelClass}>
                 Color
               </label>
-              <div className="flex flex-wrap gap-2">
-                {SUBJECT_COLORS.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => setColor(c.value)}
-                    aria-label={c.label}
-                    aria-pressed={color === c.value}
-                    className={`w-7 h-7 rounded-full transition-transform ${
-                      color === c.value ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest scale-110' : 'hover:scale-110'
-                    }`}
-                    style={{ backgroundColor: c.value }}
-                    title={c.label}
-                  />
+              <div className="flex flex-col gap-3">
+                {SUBJECT_COLOR_GROUPS.map((group) => (
+                  <div key={group.label} className="flex flex-col gap-1.5">
+                    <span className="font-label-sm text-label-sm text-on-surface-variant/70 uppercase tracking-[0.16em]">
+                      {group.label}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {group.colors.map((c) => (
+                        <button
+                          key={c.value}
+                          type="button"
+                          onClick={() => setColor(c.value)}
+                          aria-label={c.label}
+                          aria-pressed={color === c.value}
+                          className={`w-7 h-7 rounded-full transition-transform ${
+                            color === c.value ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest scale-110' : 'hover:scale-110'
+                          }`}
+                          style={{ backgroundColor: c.value }}
+                          title={c.label}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
