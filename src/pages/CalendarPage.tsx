@@ -156,7 +156,12 @@ export function CalendarPage() {
         return;
       }
 
-      const key = e.key.toLowerCase();
+      // Layout-independent letters/digits: e.code is the physical key, so the
+      // shortcuts keep working on the Russian layout (r → к, p → з, a → ф).
+      // e.key stays as the fallback for layouts without a usable code.
+      const letter = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : '';
+      const digit = /^Digit[0-9]$/.test(e.code) ? e.code.slice(5) : '';
+      const key = letter || digit || e.key.toLowerCase();
       if (!isMobile && key === '3') setView('3day');
       else if (!isMobile && key === 'd') setView('day');
       else if (!isMobile && key === 'w') setView('week');
