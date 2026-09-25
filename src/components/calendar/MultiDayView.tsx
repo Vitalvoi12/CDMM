@@ -302,12 +302,15 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
       current.deltaY = snappedDelta;
       let targetIdx = current.dayIdx;
       let dxPx = 0;
+      const horizontalIntent =
+        Math.abs(activeTouch.clientX - current.startX) > 12 &&
+        Math.abs(activeTouch.clientX - current.startX) > Math.abs(activeTouch.clientY - current.startY) * 0.6;
       const cells = dayGridRefs.current;
       const colCount = dayList.length;
       const originRect = cells[current.dayIdx]?.getBoundingClientRect();
       const firstRect = cells[0]?.getBoundingClientRect();
       const lastRect = cells[colCount - 1]?.getBoundingClientRect();
-      if (originRect && firstRect && lastRect) {
+      if (horizontalIntent && originRect && firstRect && lastRect) {
         if (activeTouch.clientX <= firstRect.left) {
           targetIdx = 0;
         } else if (activeTouch.clientX >= lastRect.right) {
@@ -565,7 +568,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       <div
                         key={ev.id}
                         data-event-id={ev.id}
-                        className={`absolute rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:none] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
+                        className={`absolute rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] pl-2.5 pt-1 pb-1 pr-1 group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:none] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
                         style={{
                           top: `${visualTop}px`,
                           height: `${visualHeight}px`,
