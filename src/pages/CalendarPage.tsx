@@ -625,8 +625,8 @@ export function CalendarPage() {
       />
     );
 
-  // Mobile swipe mapping (per request): swipe right → next period,
-  // swipe left → previous period. Wired only on mobile timelines.
+  // Mobile swipe mapping (per request): swipe left → next period,
+  // swipe right → previous period. Wired only on mobile timelines.
   const swipePrev = isMobile ? goToPrevious : undefined;
   const swipeNext = isMobile ? goToNext : undefined;
 
@@ -665,8 +665,8 @@ export function CalendarPage() {
                 onEventResize={handleEventResize}
                 onBackgroundClick={handleTimelineBackgroundClick}
                 mode={eventFilter}
-                onSwipeLeft={swipePrev}
-                onSwipeRight={swipeNext}
+                onSwipeLeft={swipeNext}
+                onSwipeRight={swipePrev}
               />
             </div>
           )
@@ -692,11 +692,11 @@ export function CalendarPage() {
         ))}
 
       {view === '3day' && (
-        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} activeSession={activeSession} onSwipeLeft={swipePrev} onSwipeRight={swipeNext} />
+        <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} activeSession={activeSession} onSwipeLeft={swipeNext} onSwipeRight={swipePrev} />
       )}
 
       {view === 'week' && (
-        <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} onSwipeLeft={swipePrev} onSwipeRight={swipeNext} />
+        <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} onSwipeLeft={swipeNext} onSwipeRight={swipePrev} />
       )}
 
       {view === 'month' && (

@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef, useState } from 'react';
+import { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { getEventsForDate } from '../../utils/stats';
 import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
@@ -40,6 +40,25 @@ const MIN_HOUR_HEIGHT = 24;
 const MOBILE_SCALE = 2.5;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SNAP = 15;
+const LONG_PRESS_MS = 400;
+const TOUCH_MOVE_THRESHOLD = 8;
+
+interface TouchDragState {
+  eventId: string;
+  dayIdx: number;
+  targetDayIdx: number;
+  startX: number;
+  startY: number;
+  deltaY: number;
+  deltaX: number;
+  moved: boolean;
+  active: boolean;
+  eventStart: string;
+  eventEnd: string;
+  minDelta: number;
+  maxDelta: number;
+  timer: number | null;
+}
 
 function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
@@ -70,6 +89,14 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   const resizeRef = useRef({ eventId: '', startY: 0, deltaY: 0, moved: false, eventStart: '', eventEnd: '', minDelta: 0, maxDelta: 0 });
   const [dragPos, setDragPos] = useState<{ eventId: string; deltaY: number; deltaX: number; targetDayIdx: number } | null>(null);
   const [resizePos, setResizePos] = useState<{ eventId: string; deltaY: number } | null>(null);
+  const touchDragRef = useRef<TouchDragState | null>(null);
+  const touchCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    return () => {
+      touchCleanupRef.current?.();
+      touchCleanupRef.current = null;
+    };
+  }, []);
   // Day grid cells for mapping the pointer X to a target day during cross-day drags.
   const dayGridRefs = useRef<(HTMLDivElement | null)[]>([]);
   // Timestamp of the last drag/resize that actually moved the pointer: the
@@ -213,6 +240,155 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   }, [onEventMove, HOUR_HEIGHT, isMobile, dayList]);
+
+  const handleTouchDragStart = useCallback((event: CalendarEvent, dayIdx: number, e: React.TouchEvent<HTMLElement>) => {
+    if (!isMobile || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const topPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const state: TouchDragState = {
+      eventId: event.id,
+      dayIdx,
+      targetDayIdx: dayIdx,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      deltaY: 0,
+      deltaX: 0,
+      moved: false,
+      active: false,
+      eventStart: event.start,
+      eventEnd: event.end,
+      minDelta: -topPx,
+      maxDelta: TOTAL_HOURS * HOUR_HEIGHT - endPx,
+      timer: null,
+    };
+    touchDragRef.current = state;
+    const clearTimer = () => {
+      if (state.timer !== null) {
+        window.clearTimeout(state.timer);
+        state.timer = null;
+      }
+    };
+    const onMove = (ev: TouchEvent) => {
+      const current = touchDragRef.current;
+      if (!current || current.eventId !== event.id) return;
+      const activeTouch = ev.touches[0] ?? ev.changedTouches[0];
+      if (!activeTouch) return;
+      if (!current.active) {
+        if (
+          Math.abs(activeTouch.clientY - current.startY) > TOUCH_MOVE_THRESHOLD ||
+          Math.abs(activeTouch.clientX - current.startX) > TOUCH_MOVE_THRESHOLD
+        ) {
+          clearTimer();
+        }
+        return;
+      }
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (Math.abs(activeTouch.clientY - current.startY) > 4) current.moved = true;
+      const delta = (activeTouch.clientY - current.startY) / bodyZoom();
+      const clamped = Math.max(current.minDelta, Math.min(current.maxDelta, delta));
+      const minsDelta = snapToGrid(Math.round(clamped / (HOUR_HEIGHT / 60)));
+      const { start } = shiftEventByMinutes(
+        current.eventStart,
+        current.eventEnd,
+        minsDelta,
+        START_HOUR,
+        END_HOUR
+      );
+      const snappedDelta =
+        ((new Date(start).getTime() - new Date(current.eventStart).getTime()) / 60000) /
+        (HOUR_HEIGHT / 60);
+      current.deltaY = snappedDelta;
+      let targetIdx = current.dayIdx;
+      let dxPx = 0;
+      const cells = dayGridRefs.current;
+      const colCount = dayList.length;
+      const originRect = cells[current.dayIdx]?.getBoundingClientRect();
+      const firstRect = cells[0]?.getBoundingClientRect();
+      const lastRect = cells[colCount - 1]?.getBoundingClientRect();
+      if (originRect && firstRect && lastRect) {
+        if (activeTouch.clientX <= firstRect.left) {
+          targetIdx = 0;
+        } else if (activeTouch.clientX >= lastRect.right) {
+          targetIdx = colCount - 1;
+        } else {
+          for (let i = 0; i < colCount; i++) {
+            const r = cells[i]?.getBoundingClientRect();
+            if (r && activeTouch.clientX >= r.left && activeTouch.clientX <= r.right) {
+              targetIdx = i;
+              break;
+            }
+          }
+        }
+        const targetRect = cells[targetIdx]?.getBoundingClientRect();
+        if (targetRect) dxPx = targetRect.left - originRect.left;
+      }
+      current.targetDayIdx = targetIdx;
+      current.deltaX = dxPx;
+      setDragPos({ eventId: current.eventId, deltaY: snappedDelta, deltaX: dxPx, targetDayIdx: targetIdx });
+    };
+    const finish = (_ev: TouchEvent, cancelled: boolean) => {
+      const current = touchDragRef.current;
+      touchDragRef.current = null;
+      clearTimer();
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      document.removeEventListener('touchcancel', onCancel);
+      document.body.style.userSelect = '';
+      if (current && current.eventId === event.id) {
+        if (current.moved) lastDragEndRef.current = Date.now();
+        if (!cancelled && current.active && current.moved && onEventMove) {
+          const minsDelta = snapToGrid(Math.round((current.deltaY * HOUR_HEIGHT) / 60));
+          const { start, end } = shiftEventByMinutes(
+            current.eventStart,
+            current.eventEnd,
+            minsDelta,
+            START_HOUR,
+            END_HOUR
+          );
+          let ns = start;
+          let ne = end;
+          const dayShift = current.targetDayIdx - current.dayIdx;
+          if (dayShift !== 0) {
+            const targetDay = dayList[Math.max(0, Math.min(dayList.length - 1, current.targetDayIdx))];
+            if (targetDay) {
+              const targetMs = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate()).getTime();
+              const atDay = (d: Date) => {
+                const nd = new Date(targetMs);
+                nd.setHours(d.getHours(), d.getMinutes(), 0, 0);
+                return nd;
+              };
+              ns = atDay(start);
+              ne = new Date(ns.getTime() + (end.getTime() - start.getTime()));
+            }
+          }
+          if (minsDelta !== 0 || dayShift !== 0) {
+            onEventMove(current.eventId, ns, ne);
+          }
+        }
+      }
+      setDragPos(null);
+      touchCleanupRef.current = null;
+    };
+    const onEnd = (ev: TouchEvent) => finish(ev, false);
+    const onCancel = (ev: TouchEvent) => finish(ev, true);
+    state.timer = window.setTimeout(() => {
+      if (touchDragRef.current !== state || state.active) return;
+      state.active = true;
+      setDragPos({ eventId: state.eventId, deltaY: 0, deltaX: 0, targetDayIdx: state.dayIdx });
+    }, LONG_PRESS_MS);
+    touchCleanupRef.current = () => {
+      clearTimer();
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+      document.removeEventListener('touchcancel', onCancel);
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+    document.addEventListener('touchcancel', onCancel);
+  }, [HOUR_HEIGHT, isMobile, dayList, onEventMove]);
 
   const handleResizeStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     if (isMobile) return;
@@ -389,7 +565,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       <div
                         key={ev.id}
                         data-event-id={ev.id}
-                        className={`absolute rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
+                        className={`absolute rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-all pl-2.5 pt-1 pb-1 pr-1 group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:none] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
                         style={{
                           top: `${visualTop}px`,
                           height: `${visualHeight}px`,
@@ -404,6 +580,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                           onEventClick?.(ev);
                         }}
                         onMouseDown={(e) => handleDragStart(ev, idx, e)}
+                        onTouchStart={(e) => handleTouchDragStart(ev, idx, e)}
                       >
                         <div
                           className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[7px] max-lg:rounded-l-[5px]"
@@ -457,7 +634,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     {/* Single-kind mode: one full-width column, no split. The live
                         session block is real — hidden in plan-only mode. */}
                     {single ? (
-                      <div className="absolute left-0 right-0 top-0 bottom-0 overflow-hidden" onClick={makeCellTapHandler(day, singleKind)}>
+                      <div className={`absolute left-0 right-0 top-0 bottom-0 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, singleKind)}>
                         {renderColumn(singleKind === 'real' ? visibleReal : visiblePlan)}
                         {isSameDay(day, new Date()) && activeSession && singleKind === 'real' && (
                           <LiveEventBlock
@@ -472,7 +649,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     ) : (
                       <>
                         {/* Left column: real events */}
-                        <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeCellTapHandler(day, 'real')}>
+                        <div className={`absolute left-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'real')}>
                           {renderColumn(visibleReal)}
                           {isSameDay(day, new Date()) && activeSession && (
                             <LiveEventBlock
@@ -490,7 +667,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                             2px always covers at least one full pixel. */}
                         <div className="absolute left-1/2 top-0 bottom-0 w-[2px] -translate-x-1/2 bg-outline-variant/60" />
                         {/* Right column: plan events */}
-                        <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeCellTapHandler(day, 'plan')}>
+                        <div className={`absolute right-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'plan')}>
                           {renderColumn(visiblePlan)}
                         </div>
                       </>
