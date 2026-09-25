@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom';
 
 const navItems = [
-  { path: '/', label: 'CALENDAR', icon: 'calendar_today' },
-  { path: '/study', label: 'FOCUS ROOM', icon: 'timer' },
-  { path: '/todo', label: 'TODO', icon: 'checklist' },
-  { path: '/statistics', label: 'STATISTICS', icon: 'bar_chart' },
-  { path: '/subjects', label: 'SUBJECTS', icon: 'layers' },
+  { path: '/', label: 'CALENDAR', icon: 'calendar_today', shortcut: 'C' },
+  { path: '/study', label: 'FOCUS ROOM', icon: 'timer', shortcut: 'F' },
+  { path: '/todo', label: 'TODO', icon: 'checklist', shortcut: 'T' },
+  { path: '/statistics', label: 'STATISTICS', icon: 'bar_chart', shortcut: '' },
+  { path: '/subjects', label: 'SUBJECTS', icon: 'layers', shortcut: '' },
 ];
 
 function navClass({ isActive }: { isActive: boolean }): string {
@@ -25,7 +25,7 @@ export function Sidebar() {
 
       <nav className="flex-1 px-5 pt-5 flex flex-col gap-2">
         {navItems.map((item) => (
-          <NavLink key={item.path} to={item.path} end={item.path === '/'} className={navClass}>
+          <NavLink key={item.path} to={item.path} end={item.path === '/'} className={navClass} title={item.shortcut ? `${item.label} (Shortcut: ${item.shortcut})` : item.label}>
             {({ isActive }) => (
               <>
                 <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-on-secondary-container' : ''}`}>{item.icon}</span>

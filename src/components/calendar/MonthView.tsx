@@ -60,7 +60,7 @@ export function MonthView({ date, events, subjects, onDateSelect, liveSession = 
               }`}
             >
               <span className="flex items-center justify-between gap-1">
-                <span className={`font-label-sm text-label-sm ${today ? 'text-primary font-bold' : 'text-on-surface'}`}>
+                <span className={`font-label-md text-label-md max-lg:!text-[9px] ${today ? 'text-primary font-bold' : 'text-on-surface'}`}>
                   {formatDayOfMonth(d)}
                 </span>
                 {today && liveSession && (
@@ -86,7 +86,7 @@ export function MonthView({ date, events, subjects, onDateSelect, liveSession = 
                     return (
                       <div
                         key={ev.id}
-                        className="flex items-center gap-1 px-1 py-0.5 rounded text-[8px] text-on-surface truncate"
+                        className="flex items-center gap-1 px-1 py-0.5 rounded font-body-sm text-body-sm max-lg:!text-[8px] text-on-surface truncate"
                       >
                         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: subj?.color || 'var(--color-on-surface-variant)' }} />
                         <span className="truncate">{totalMinutes > 0 ? `${Math.round(minutesBetween(ev.start, ev.end))}m` : ''}</span>
@@ -94,7 +94,7 @@ export function MonthView({ date, events, subjects, onDateSelect, liveSession = 
                     );
                   })}
                   {dayEvents.length > 3 && (
-                    <span className="text-[8px] text-on-surface-variant">+{dayEvents.length - 3}</span>
+                    <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant">+{dayEvents.length - 3}</span>
                   )}
                 </div>
               )}

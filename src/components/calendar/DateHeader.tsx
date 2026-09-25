@@ -40,8 +40,10 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
   };
 
   return (
-    <header className="flex items-center gap-4 mb-5 max-lg:mb-2 flex-shrink-0">
-      <div className="flex items-center gap-2 min-w-0 flex-1">
+    <header className="@container flex flex-wrap items-center gap-x-4 gap-y-2 mb-5 max-lg:mb-2 flex-shrink-0">
+      {/* Too narrow for one row: the date keeps the first line (full width)
+          and the view switcher / filter / Today drop below it. */}
+      <div className="order-first w-auto min-w-0 flex items-center gap-2 lg:@max-[64rem]:w-full lg:@min-[64rem]:flex-1">
         <button
           onClick={onPrev}
           aria-label="Previous"
