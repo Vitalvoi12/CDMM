@@ -452,7 +452,6 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           event={event}
           top={visualTop}
           height={visualHeight}
-          hourHeight={HOUR_HEIGHT}
           isMobile={isMobile}
           lane={lanes[event.id]}
           subject={subjectMap[event.subjectId]}
@@ -528,6 +527,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
                   endHour={END_HOUR}
                   hourHeight={HOUR_HEIGHT}
                   subject={subjectMap[activeSession.subjectId]}
+                  isMobile={isMobile}
                 />
               )}
             </div>
@@ -543,6 +543,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
                     endHour={END_HOUR}
                     hourHeight={HOUR_HEIGHT}
                     subject={subjectMap[activeSession.subjectId]}
+                    isMobile={isMobile}
                   />
                 )}
               </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Subject } from '../../types';
+import { eventLayout, showsLiveRange } from '../../utils/eventDensity';
 
 interface LiveEventBlockProps {
   /** ISO start of the running session. */
@@ -9,6 +10,7 @@ interface LiveEventBlockProps {
   endHour: number;
   hourHeight: number;
   subject?: Subject;
+  isMobile?: boolean;
 }
 
 /**
@@ -17,7 +19,7 @@ interface LiveEventBlockProps {
  * event box is cut off by the current-time line). Not persisted anywhere and
  * not interactive — stopping the session creates the real saved event.
  */
-export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject }: LiveEventBlockProps) {
+export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject, isMobile = false }: LiveEventBlockProps) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -48,29 +50,44 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject 
   if (height <= 1) return null;
 
   const colorBar = subject?.color || 'var(--color-on-surface-variant)';
+  const shellRadius = `${Math.max(2, Math.min(isMobile ? 5 : 7, height / 6))}px`;
+  // Same top-align rule as saved events; the clock is pinned to the top-right
+  // and dropped when the block is too short to hold it beside the title.
+  const layout = eventLayout(height, isMobile);
+  const showRange = showsLiveRange(height, isMobile);
 
   return (
     <div
-      className="absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto overflow-hidden pointer-events-none rounded-t-[7px] max-lg:rounded-t-[5px]"
+      className="absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto overflow-hidden pointer-events-none"
       style={{
         top: `${top}px`,
         height: `${height}px`,
+        borderTopLeftRadius: shellRadius,
+        borderTopRightRadius: shellRadius,
         backgroundColor: `color-mix(in srgb, ${colorBar} 42%, var(--color-surface-dim))`,
       }}
     >
       <div
-        className="absolute left-0 top-0 bottom-0 w-[3px] rounded-tl-[7px] max-lg:rounded-tl-[5px]"
-        style={{ backgroundColor: colorBar }}
+        className="absolute left-0 top-0 bottom-0 w-[3px]"
+        style={{ backgroundColor: colorBar, borderTopLeftRadius: shellRadius }}
       />
-      <div className="flex items-start justify-between h-full pl-3 pt-1 pr-3 gap-2 min-w-0">
+      <div
+        className="flex items-start h-full pl-3 pr-3 gap-2 min-w-0"
+        style={{
+          paddingTop: `${layout.padTop}px`,
+          justifyContent: layout.align === 'center' ? 'center' : 'flex-start',
+        }}
+      >
         <span
           className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 text-on-surface"
         >
           {subject?.name || 'Studying'}
         </span>
-        <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
-          {formatClock(startMs)} – now
-        </span>
+        {showRange && (
+          <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-auto">
+            {formatClock(startMs)} – now
+          </span>
+        )}
       </div>
     </div>
   );

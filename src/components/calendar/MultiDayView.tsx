@@ -6,6 +6,7 @@ import { bodyZoom } from '../../utils/zoom';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { LiveEventBlock } from './LiveEventBlock';
 import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
+import { canResizeEvent, eventLayout, eventResizeZone } from '../../utils/eventDensity';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
@@ -541,7 +542,6 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     let height = Math.max(endPx - top, 13);
                     const subject = subjectMap[ev.subjectId];
                     const displayName = subject?.name || ev.title || 'Untitled';
-                    const tiny = height < HOUR_HEIGHT * 0.5;
                     const plan = ev.kind === 'plan';
                     // Solid fill for plans (custom color for subject-less
                     // events, else the subject color) — foreground picked
@@ -563,15 +563,25 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     // Leave a couple of pixels before the event's nominal end
                     // so back-to-back events do not visually merge.
                     const visualHeight = Math.max(height - 2, 2);
+                    // The grid compresses on short screens, so the layout comes
+                    // from absolute pixels — see utils/eventDensity. Top-aligned
+                    // whenever there is room, centred only when there is not.
+                    const layout = eventLayout(visualHeight, isMobile);
+                    // Resizing works at any length; only the grab strip adapts
+                    // to how much room the block has.
+                    const zone = eventResizeZone(visualHeight, isMobile);
+                    const resizable = canResizeEvent(visualHeight, isMobile);
+                    const shellRadius = `${Math.max(2, Math.min(isMobile ? 5 : 7, visualHeight / 6))}px`;
                     const lane = lanes[ev.id];
                     return (
                       <div
                         key={ev.id}
                         data-event-id={ev.id}
-                        className={`absolute rounded-[7px] max-lg:rounded-[5px] overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] pl-2.5 pt-1 pb-1 pr-1 group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:none] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
+                        className={`absolute overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:none] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
                         style={{
                           top: `${visualTop}px`,
                           height: `${visualHeight}px`,
+                          borderRadius: shellRadius,
                           backgroundColor: plan ? fill : mutedFill,
                           transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined,
                           left: lane ? `${lane.left}%` : undefined,
@@ -586,32 +596,43 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                         onTouchStart={(e) => handleTouchDragStart(ev, idx, e)}
                       >
                         <div
-                          className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[7px] max-lg:rounded-l-[5px]"
-                          style={{ backgroundColor: spineColor }}
+                          className="absolute left-0 top-0 bottom-0 w-[3px]"
+                          style={{
+                            backgroundColor: spineColor,
+                            borderTopLeftRadius: shellRadius,
+                            borderBottomLeftRadius: shellRadius,
+                          }}
                         />
-                        {tiny ? (
-                          <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[7px] max-lg:leading-none font-semibold tracking-tight text-on-surface truncate" style={planFg}>
+                        <div
+                          className="flex flex-col items-start h-full pl-2.5 pr-1 min-w-0"
+                          style={{
+                            paddingTop: `${layout.padTop}px`,
+                            justifyContent: layout.align === 'center' ? 'center' : 'flex-start',
+                          }}
+                        >
+                          <span
+                            className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[7px] max-lg:leading-none font-semibold tracking-tight text-on-surface truncate"
+                            style={planFg}
+                          >
                             {displayName}
                           </span>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-1">
-                              <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[7px] max-lg:leading-none font-semibold tracking-tight text-on-surface truncate" style={planFg}>
-                                {displayName}
-                              </span>
-                            </div>
-                            {height > HOUR_HEIGHT * 0.67 && (
-                              <span className="font-body-sm text-body-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant block truncate" style={planFg}>
-                                {timeFromDate(ev.start)} - {timeFromDate(ev.end)}
-                              </span>
-                            )}
-                          </>
-                        )}
-                        {height >= HOUR_HEIGHT * 0.3 && (
+                          {layout.showTime && (
+                            <span
+                              className="font-body-sm text-body-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant block truncate"
+                              style={planFg}
+                            >
+                              {timeFromDate(ev.start)} - {timeFromDate(ev.end)}
+                            </span>
+                          )}
+                        </div>
+                        {resizable && (
                           <div
-                            className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute left-0 right-0 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ bottom: 0, height: `${zone.height}px`, marginBottom: `${zone.offset}px` }}
                             onMouseDown={(e) => handleResizeStart(ev, e)}
-                          />
+                          >
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-1 bg-outline-variant rounded-full" />
+                          </div>
                         )}
                       </div>
                     );
@@ -646,6 +667,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                             endHour={END_HOUR}
                             hourHeight={HOUR_HEIGHT}
                             subject={subjectMap[activeSession.subjectId]}
+                            isMobile={isMobile}
                           />
                         )}
                       </div>
@@ -661,6 +683,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                               endHour={END_HOUR}
                               hourHeight={HOUR_HEIGHT}
                               subject={subjectMap[activeSession.subjectId]}
+                              isMobile={isMobile}
                             />
                           )}
                         </div>
