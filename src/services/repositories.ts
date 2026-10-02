@@ -136,6 +136,7 @@ export function markSettingsDirty(): void {
 }
 
 const CHECKLIST_BACKFILL_KEY = 'cdmm.checklist-backfill-v1';
+const SUBJECTS_BACKFILL_KEY = 'cdmm.subjects-backfill-v1';
 
 /**
  * One-time repair for checklists pushed while the server did not know the
@@ -162,6 +163,28 @@ export function backfillEventChecklists(): boolean {
     // storage unavailable — try again next boot
   }
   return marked;
+}
+
+/**
+ * One-time repair for subjects that exist locally but never reached the
+ * server (lost dirty flags): re-mark every local subject as dirty so the
+ * next sync pushes the full local set and the account converges.
+ */
+export function backfillSubjects(): boolean {
+  try {
+    if (localStorage.getItem(SUBJECTS_BACKFILL_KEY)) return false;
+  } catch {
+    return false;
+  }
+  try {
+    for (const s of subjectRepo.getAll()) {
+      markDirty('subjects', s.id);
+    }
+    localStorage.setItem(SUBJECTS_BACKFILL_KEY, '1');
+  } catch {
+    // storage unavailable — try again next boot
+  }
+  return true;
 }
 
 export function clearSettingsDirty(): void {

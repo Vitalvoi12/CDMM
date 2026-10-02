@@ -14,8 +14,10 @@ interface SwipeNavOptions {
 /**
  * Horizontal swipe navigation for mobile timelines. Never calls
  * preventDefault, so native vertical scrolling is untouched; only a
- * dominant horizontal flick navigates. Touches that begin on an event
- * block (`[data-event-id]`) belong to event gestures and are ignored.
+ * dominant horizontal flick navigates. Touches may begin on event blocks
+ * too — a fast horizontal flick still swipes the timeline, while taps,
+ * long-presses and vertical drags are filtered out by the guards below
+ * (travel threshold, horizontal dominance, 1s staleness).
  *
  * Two things make this reliable where a naive start/end pair is not:
  * - consumers declare `touch-action: pan-y` on the surface, so the browser
@@ -52,11 +54,6 @@ export function useSwipeNav(options: SwipeNavOptions) {
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     decidedRef.current = null;
     if (!enabled || e.touches.length !== 1) {
-      startRef.current = null;
-      return;
-    }
-    const target = e.target as HTMLElement | null;
-    if (target?.closest?.('[data-event-id]')) {
       startRef.current = null;
       return;
     }

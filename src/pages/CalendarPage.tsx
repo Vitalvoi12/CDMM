@@ -19,6 +19,7 @@ import { getEventsForDate, calculateDailyStats } from '../utils/stats';
 import { expandRecurrence } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
+import { ViewSettingsSheet } from '../components/calendar/ViewSettingsSheet';
 import { checkpoint } from '../services/history';
 import type { CalendarEvent, EventChecklistItem, EventFilter } from '../types';
 
@@ -124,6 +125,8 @@ export function CalendarPage() {
     recurrenceId?: string | null;
   } | null>(null);
   const [dayPanel, setDayPanel] = useState<'timeline' | 'stats' | 'tasks'>('timeline');
+  // Mobile view-settings sheet (tune icon next to Today).
+  const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
   const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks'>('stats');
   // Which event kinds the timelines show. 'all' splits days into Real|Plan
@@ -617,46 +620,6 @@ export function CalendarPage() {
     </div>
   );
 
-  const renderToolbar = () => {
-    if (isMobile) {
-      const pillGroup = 'flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low flex-shrink-0';
-      const pillBtn = (active: boolean) =>
-        `px-3 py-1.5 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
-          active
-            ? 'bg-secondary-container text-on-secondary-container'
-            : 'text-on-surface-variant hover:text-on-surface'
-        }`;
-      return (
-        <div className="mb-3 flex gap-2 items-center justify-between overflow-x-auto">
-          <div className="flex gap-2 items-center flex-shrink-0">
-            <div className={pillGroup} role="group" aria-label="Calendar view">
-              {(['day', '3day'] as const).map((v) => (
-                <button key={v} onClick={() => setView(v)} className={pillBtn(view === v)}>
-                  {v === 'day' ? 'Day' : '3D'}
-                </button>
-              ))}
-            </div>
-            {view === 'day' && (
-              <div className={pillGroup} role="group" aria-label="Day panel">
-                <button onClick={() => setDayPanel('timeline')} className={pillBtn(dayPanel === 'timeline')}>
-                  Day
-                </button>
-                <button onClick={() => setDayPanel('stats')} className={pillBtn(dayPanel === 'stats')}>
-                  Stat
-                </button>
-                <button onClick={() => setDayPanel('tasks')} className={pillBtn(dayPanel === 'tasks')}>
-                  Tasks
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="flex-shrink-0">{renderEventFilter()}</div>
-        </div>
-      );
-    }
-    return null;
-  };
-
   const renderSubjectPicker = () =>
     showSubjectPicker && (
       <SubjectPickerModal
@@ -682,7 +645,17 @@ export function CalendarPage() {
         center={!isMobile ? renderViewSegmented() : undefined}
         right={!isMobile && view !== 'month' && view !== 'year' ? renderEventFilter() : undefined}
       />
-      {renderToolbar()}
+      {viewSettingsOpen && (
+        <ViewSettingsSheet
+          view={view}
+          onViewChange={setView}
+          dayPanel={dayPanel}
+          onDayPanelChange={setDayPanel}
+          eventFilter={eventFilter}
+          onEventFilterChange={setEventFilter}
+          onClose={() => setViewSettingsOpen(false)}
+        />
+      )}
 
       {view === 'day' &&
         (isMobile ? (
@@ -789,7 +762,7 @@ export function CalendarPage() {
           back to the viewport once the animation ends. */}
       {view === 'day' &&
         createPortal(
-          <div className="mt-auto pt-8 max-lg:pt-2 flex gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10 max-lg:bg-background/95">
+          <div className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10 max-lg:bg-background/95">
             <button
               onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
               className="px-6 py-3 bg-surface-container-high text-on-surface font-label-md text-label-md rounded-full hover:bg-surface-container-highest transition-colors uppercase tracking-[0.12em] flex items-center justify-center gap-2"
@@ -801,6 +774,15 @@ export function CalendarPage() {
               className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded-full hover:opacity-90 transition-opacity uppercase tracking-[0.12em] flex items-center justify-center gap-2"
             >
               Start studying
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewSettingsOpen(true)}
+              aria-label="View settings"
+              title="View settings"
+              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-outline transition-colors flex-shrink-0"
+            >
+              <span className="material-symbols-outlined text-[18px] leading-none">tune</span>
             </button>
           </div>,
           document.body
