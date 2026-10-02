@@ -40,34 +40,34 @@ export function pageBackground(): string {
 }
 
 /** Palette swatches shared by subjects and custom event colors. */
-/** Muted, deepened pastels that sit well on the dark theme. */
+/** Warm, muted tones that sit well on the near-black warm dark theme. */
 const PASTEL_COLORS = [
-  { value: '#b3778a', label: 'Rosewater' },
-  { value: '#a86a7e', label: 'Dusty rose' },
-  { value: '#ae7f6b', label: 'Nude peach' },
-  { value: '#bd8f5a', label: 'Pastel apricot' },
-  { value: '#b69a5f', label: 'Vanilla' },
-  { value: '#949a55', label: 'Pale lime' },
-  { value: '#7f9464', label: 'Pastel sage' },
-  { value: '#6f8a74', label: 'Soft sage' },
-  { value: '#6a9e86', label: 'Pastel mint' },
-  { value: '#5f938a', label: 'Seafoam' },
-  { value: '#5c8f9a', label: 'Powder teal' },
-  { value: '#5d81a0', label: 'Dusty sky' },
-  { value: '#6e90ad', label: 'Pastel sky' },
-  { value: '#7887ab', label: 'Periwinkle mist' },
-  { value: '#837eb2', label: 'Pastel periwinkle' },
-  { value: '#8e7fb0', label: 'Pastel lavender' },
-  { value: '#a0799f', label: 'Pastel lilac' },
-  { value: '#9c7590', label: 'Pastel mauve' },
-  { value: '#b08d6e', label: 'Pastel sand' },
-  { value: '#948b80', label: 'Greige mist' },
-  { value: '#7c8288', label: 'Slate gray' },
+  { value: '#E9826A', label: 'Coral' },
+  { value: '#D16A4E', label: 'Terracotta' },
+  { value: '#E0975A', label: 'Apricot' },
+  { value: '#D9A45B', label: 'Honey' },
+  { value: '#C2A154', label: 'Goldenrod' },
+  { value: '#A9713F', label: 'Ochre' },
+  { value: '#A8A15C', label: 'Olive' },
+  { value: '#8E9A55', label: 'Pale lime' },
+  { value: '#7F9464', label: 'Sage' },
+  { value: '#6A9E86', label: 'Eucalyptus' },
+  { value: '#8FD3B5', label: 'Mint' },
+  { value: '#5F938A', label: 'Seafoam' },
+  { value: '#5C8F9A', label: 'Teal' },
+  { value: '#5D81A0', label: 'Dusty sky' },
+  { value: '#7887AB', label: 'Periwinkle mist' },
+  { value: '#4F6E8C', label: 'Deep sea' },
+  { value: '#8E7FB0', label: 'Lavender' },
+  { value: '#A0799F', label: 'Lilac' },
+  { value: '#B3778A', label: 'Rosewater' },
+  { value: '#B08D6E', label: 'Sand' },
+  { value: '#8A857C', label: 'Taupe' },
 ];
 
 /** Grouped swatches for the color pickers. */
 export const SUBJECT_COLOR_GROUPS = [
-  { label: 'Pastel', colors: PASTEL_COLORS },
+  { label: 'Ember', colors: PASTEL_COLORS },
 ];
 
 /** Flat list (back-compat). */
@@ -75,7 +75,7 @@ export const SUBJECT_COLORS: { value: string; label: string }[] =
   SUBJECT_COLOR_GROUPS.flatMap((g) => g.colors);
 
 /** Default fill for custom events when the user picks no color. */
-export const DEFAULT_CUSTOM_COLOR = '#6e7e85';
+export const DEFAULT_CUSTOM_COLOR = '#8A857C';
 
 interface ColoredEvent {
   subjectId: string;
@@ -93,7 +93,7 @@ interface ColoredSubject {
 export function eventFillColor(
   event: ColoredEvent,
   subject?: ColoredSubject | null,
-  fallback = '#6e7e85'
+  fallback = '#8A857C'
 ): string {
   if (!event.subjectId && event.color) return event.color;
   return subject?.color || fallback;
