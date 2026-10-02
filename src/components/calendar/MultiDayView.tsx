@@ -473,10 +473,12 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   const gridPx = TOTAL_HOURS * HOUR_HEIGHT;
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden" onTouchStart={swipe.onTouchStart} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
+    // (Same touch-action note as Timeline: pan-y lets horizontal flicks
+    // complete as swipe navigation while vertical scrolling stays native.)
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
       {/* Page chrome stays fixed; only this area scrolls (short screens,
           horizontal overflow). Sticky day headers keep working inside it. */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-auto [touch-action:pan-y]">
       <div className="min-w-[448px] max-lg:min-w-0 flex flex-col">
         {/* Header row: corner cell + clickable day headers. Single compact
             line ("MON 14") — the old stacked layout with the static

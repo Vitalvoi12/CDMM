@@ -472,7 +472,12 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const planBlocks = eventBlocks.filter((b) => b.event.kind === 'plan');
 
   return (
-    <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto" onTouchStart={swipe.onTouchStart} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
+    // touch-action: pan-y keeps native vertical scrolling but forbids the
+    // browser from hijacking a horizontal flick (which would arrive as
+    // touchcancel and silently kill the swipe). The swipe then works from any
+    // empty spot of the grid — Real half, Plan half, hour gutter — not just
+    // from wherever the browser happened to deliver a full touchstart/end pair.
+    <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
       <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: `${BOTTOM_PAD}px` }}>
         <div className={`flex items-center mb-2 pl-4 ${single ? 'justify-center' : 'justify-between'}`}>
           {single ? (
