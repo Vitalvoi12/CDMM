@@ -6,6 +6,7 @@ import { MultiDayView } from '../components/calendar/MultiDayView';
 import { MonthView } from '../components/calendar/MonthView';
 import { YearView } from '../components/calendar/YearView';
 import { StatsSidebar } from '../components/calendar/StatsSidebar';
+import { matchesUrgentImportant } from '../components/todo/TodoRows';
 import { UrgentImportantCard } from '../components/todo/UrgentImportantCard';
 import { EventForm } from '../components/calendar/EventForm';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
@@ -13,13 +14,13 @@ import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { eventRepo, subjectRepo, tombstoneRepo, genId } from '../services/repositories';
+import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
-import { expandRecurrence } from '../utils/time';
+import { dateKey, expandRecurrence } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
 import { checkpoint } from '../services/history';
-import type { CalendarEvent, EventFilter } from '../types';
+import type { CalendarEvent, EventFilter, TodoTask } from '../types';
 
 const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[] = [
   { id: 'day', label: 'Day' },
@@ -93,6 +94,7 @@ export function CalendarPage() {
   const location = useLocation();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
+  const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const { startSession, isActive, pausedAt, subjectId, startTime } = useActiveSession();
   const navigate = useNavigate();
 
@@ -121,7 +123,7 @@ export function CalendarPage() {
     end: string;
     recurrenceId?: string | null;
   } | null>(null);
-  const [dayPanel, setDayPanel] = useState<'timeline' | 'stats'>('timeline');
+  const [dayPanel, setDayPanel] = useState<'timeline' | 'info'>('timeline');
   // Which event kinds the timelines show. 'all' splits days into Real|Plan
   // halves; 'real'/'plan' renders a single full-width column. Persisted.
   const [eventFilter, setEventFilterState] = useState<EventFilter>(loadEventFilter);
@@ -188,7 +190,26 @@ export function CalendarPage() {
     [events, currentDate]
   );
 
-  const refreshEvents = useCallback(() => setEvents(eventRepo.getAll()), []);
+  const refreshEvents = useCallback(() => {
+    setEvents(eventRepo.getAll());
+    setTodos(todoRepo.getAll());
+  }, []);
+
+  // Checkbox on the priority card: shared by the card and the red dot, so both
+  // update in the same step. Undoable like everything else on this page.
+  const handleTodoToggle = useCallback(
+    (id: string, completed: boolean) => {
+      checkpoint(completed ? 'Complete task' : 'Reopen task');
+      todoRepo.update(id, { completed });
+      refreshEvents();
+    },
+    [refreshEvents]
+  );
+
+  // Whether the info tab has urgent & important deadlines for the shown day —
+  // drives the red dot on its button.
+  const dayKeyStr = dateKey(currentDate);
+  const hasPriorityDeadlines = todos.some((t) => matchesUrgentImportant(t, dayKeyStr));
 
   useSyncRefresh(
     useCallback(() => {
@@ -604,11 +625,22 @@ export function CalendarPage() {
             </div>
             {view === 'day' && (
               <div className={pillGroup} role="group" aria-label="Day panel">
-                {(['timeline', 'stats'] as const).map((p) => (
-                  <button key={p} onClick={() => setDayPanel(p)} className={pillBtn(dayPanel === p)}>
-                    {p === 'timeline' ? 'Day' : 'Stats'}
-                  </button>
-                ))}
+                <button onClick={() => setDayPanel('timeline')} className={pillBtn(dayPanel === 'timeline')}>
+                  Day
+                </button>
+                <button
+                  onClick={() => setDayPanel('info')}
+                  className={`${pillBtn(dayPanel === 'info')} relative`}
+                  aria-label={hasPriorityDeadlines ? 'Info, has urgent tasks' : 'Info'}
+                >
+                  Info
+                  {hasPriorityDeadlines && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-error ring-1 ring-background"
+                    />
+                  )}
+                </button>
               </div>
             )}
           </div>
@@ -648,8 +680,8 @@ export function CalendarPage() {
 
       {view === 'day' &&
         (isMobile ? (
-          dayPanel === 'stats' ? (
-            // Mobile has no right-hand column: the stats tab carries the same
+          dayPanel === 'info' ? (
+            // Mobile has no right-hand column: the info tab carries the same
             // two cards the desktop day view stacks on the side.
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
               <StatsSidebar
@@ -657,7 +689,7 @@ export function CalendarPage() {
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
               />
-              <UrgentImportantCard date={currentDate} onOpenTodo={() => navigate('/todo')} />
+              <UrgentImportantCard date={currentDate} todos={todos} onToggle={handleTodoToggle} onOpenTodo={() => navigate('/todo')} />
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto">
@@ -696,7 +728,7 @@ export function CalendarPage() {
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
               />
-              <UrgentImportantCard date={currentDate} onOpenTodo={() => navigate('/todo')} />
+              <UrgentImportantCard date={currentDate} todos={todos} onToggle={handleTodoToggle} onOpenTodo={() => navigate('/todo')} />
             </aside>
           </div>
         ))}

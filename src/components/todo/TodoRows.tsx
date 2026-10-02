@@ -1,5 +1,5 @@
 import type { TodoTask } from '../../types';
-import { formatDuration } from '../../utils/time';
+import { dateKey, formatDuration } from '../../utils/time';
 import { TodoCheckbox } from './TodoCheckbox';
 
 /** Relative day label for a due date (mockup style). Times are not shown:
@@ -21,6 +21,17 @@ export function formatDueLabel(iso: string | undefined, completed: boolean): str
 
 export function isOverdue(task: TodoTask): boolean {
   return !!task.dueDate && !task.completed && new Date(task.dueDate).getTime() < Date.now();
+}
+
+/** True when a task belongs on the "Urgent & Important" card for a given day. */
+export function matchesUrgentImportant(task: TodoTask, day: string): boolean {
+  return (
+    !!task.important &&
+    !!task.urgent &&
+    !task.completed &&
+    !!task.dueDate &&
+    dateKey(new Date(task.dueDate)) === day
+  );
 }
 
 /** Total estimate of the given tasks, in minutes (0 when none is estimated). */

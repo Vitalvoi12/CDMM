@@ -1,15 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { TodoTask } from '../../types';
-import { todoRepo } from '../../services/repositories';
-import { checkpoint } from '../../services/history';
-import { useSyncRefresh } from '../../hooks/useServerSync';
 import { dateKey, formatDuration } from '../../utils/time';
 import { TodoCheckbox } from './TodoCheckbox';
-import { formatDueLabel, isOverdue, totalEstMinutes } from './TodoRows';
+import { formatDueLabel, isOverdue, matchesUrgentImportant, totalEstMinutes } from './TodoRows';
 
 interface UrgentImportantCardProps {
   /** The calendar day being shown — the card lists that day's deadlines. */
   date: Date;
+  /** All tasks; owned by the page so the "info dot" runs off the same list. */
+  todos: TodoTask[];
+  onToggle: (id: string, completed: boolean) => void;
   /** Opens the Todo page — the card itself is read-only apart from the checkbox. */
   onOpenTodo: () => void;
 }
@@ -23,27 +23,13 @@ interface UrgentImportantCardProps {
  *
  * Same data as the Todo page, so it stays in step through sync.
  */
-export function UrgentImportantCard({ date, onOpenTodo }: UrgentImportantCardProps) {
-  const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
-
-  // Seeded from the repository, so only the sync bus has to tell us about
-  // changes made on another device.
-  const refresh = useCallback(() => setTodos(todoRepo.getAll()), []);
-  useSyncRefresh(refresh);
-
+export function UrgentImportantCard({ date, todos, onToggle, onOpenTodo }: UrgentImportantCardProps) {
   const day = dateKey(date);
 
   const priority = useMemo(
     () =>
       todos
-        .filter(
-          (t) =>
-            t.important &&
-            t.urgent &&
-            !t.completed &&
-            !!t.dueDate &&
-            dateKey(new Date(t.dueDate)) === day
-        )
+        .filter((t) => matchesUrgentImportant(t, day))
         .sort(
           (a, b) =>
             new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime()
@@ -54,13 +40,13 @@ export function UrgentImportantCard({ date, onOpenTodo }: UrgentImportantCardPro
   const est = useMemo(() => totalEstMinutes(priority), [priority]);
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
+  // Completion goes through the page's own toggle so the row, the info dot and
+  // the Todo page all move together.
   const handleToggle = useCallback(
     (id: string, completed: boolean) => {
-      checkpoint(completed ? 'Complete task' : 'Reopen task');
-      todoRepo.update(id, { completed });
-      refresh();
+      onToggle(id, completed);
     },
-    [refresh]
+    [onToggle]
   );
 
   return (
