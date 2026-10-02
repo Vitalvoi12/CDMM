@@ -69,7 +69,7 @@ export function SubjectTasksPanel({ date, events, subjects, onToggleTask }: Subj
   return (
     <section
       aria-label={`Event tasks for ${dayLabel}`}
-      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 h-[320px] max-lg:h-[280px] flex-shrink-0 animate-fade-in"
+      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 flex-1 overflow-y-auto animate-fade-in"
     >
       <div className="flex items-baseline justify-between gap-3 mb-4 max-lg:mb-2">
         <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">

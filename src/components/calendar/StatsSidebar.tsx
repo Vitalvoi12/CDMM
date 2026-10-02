@@ -48,10 +48,10 @@ export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarPro
     .sort((a, b) => b.planMinutes + b.realMinutes - (a.planMinutes + a.realMinutes));
 
   return (
-    // Scrolling is owned by the parent column (the day view stacks this under
-    // the priority card); a second scrollbar here would nest badly.
-    <aside className="col-span-12 lg:col-span-4 min-h-0 max-lg:mt-1">
-      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col gap-6 max-lg:gap-3">
+    // Fixed to its column with an internal scroll: tall content must never
+    // push the card past the floating action bar, at any zoom level.
+    <aside className="col-span-12 lg:col-span-4 min-h-0 max-lg:mt-1 flex-1 flex flex-col">
+      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col gap-6 max-lg:gap-3 flex-1 min-h-0 overflow-y-auto">
         {/* Total Time */}
         <div>
           <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em] mb-1">

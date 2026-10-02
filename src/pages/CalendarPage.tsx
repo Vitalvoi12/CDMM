@@ -123,7 +123,9 @@ export function CalendarPage() {
     end: string;
     recurrenceId?: string | null;
   } | null>(null);
-  const [dayPanel, setDayPanel] = useState<'timeline' | 'info'>('timeline');
+  const [dayPanel, setDayPanel] = useState<'timeline' | 'stats' | 'tasks'>('timeline');
+  // Desktop day view: the right column shows either statistics or tasks.
+  const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks'>('stats');
   // Which event kinds the timelines show. 'all' splits days into Real|Plan
   // halves; 'real'/'plan' renders a single full-width column. Persisted.
   const [eventFilter, setEventFilterState] = useState<EventFilter>(loadEventFilter);
@@ -166,7 +168,13 @@ export function CalendarPage() {
       const digit = /^Digit[0-9]$/.test(e.code) ? e.code.slice(5) : '';
       const key = letter || digit || e.key.toLowerCase();
       if (!isMobile && key === '3') setView('3day');
-      else if (!isMobile && key === 'd') setView('day');
+      // D: first jump to the day view, then toggle the side panel Stat/Tasks.
+      // On mobile it toggles the Stat/Tasks tabs (from the timeline it lands on Stat).
+      else if (key === 'd') {
+        if (!isMobile && view !== 'day') setView('day');
+        else if (!isMobile) setAsidePanel((p) => (p === 'stats' ? 'tasks' : 'stats'));
+        else setDayPanel((p) => (p === 'stats' ? 'tasks' : 'stats'));
+      }
       else if (!isMobile && key === 'w') setView('week');
       else if (!isMobile && key === 'm') setView('month');
       else if (key === 'r') setEventFilter('real');
@@ -175,7 +183,7 @@ export function CalendarPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMobile, modalOpen, setEventFilter, setView, goToPrevious, goToNext]);
+  }, [isMobile, modalOpen, view, setEventFilter, setView, goToPrevious, goToNext]);
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
 
@@ -633,8 +641,11 @@ export function CalendarPage() {
                 <button onClick={() => setDayPanel('timeline')} className={pillBtn(dayPanel === 'timeline')}>
                   Day
                 </button>
-                <button onClick={() => setDayPanel('info')} className={pillBtn(dayPanel === 'info')}>
-                  Info
+                <button onClick={() => setDayPanel('stats')} className={pillBtn(dayPanel === 'stats')}>
+                  Stat
+                </button>
+                <button onClick={() => setDayPanel('tasks')} className={pillBtn(dayPanel === 'tasks')}>
+                  Tasks
                 </button>
               </div>
             )}
@@ -675,18 +686,7 @@ export function CalendarPage() {
 
       {view === 'day' &&
         (isMobile ? (
-          dayPanel === 'info' ? (
-            // Mobile has no right-hand column: the info tab carries the same
-            // two cards the desktop day view stacks on the side.
-            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
-              <StatsSidebar
-                events={dayEvents}
-                subjects={subjects}
-                totalMinutes={stats.totalMinutes}
-              />
-              <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
-            </div>
-          ) : (
+          dayPanel === 'timeline' ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <Timeline
                 events={dayEvents}
@@ -702,6 +702,18 @@ export function CalendarPage() {
                 onSwipeRight={swipePrev}
               />
             </div>
+          ) : dayPanel === 'stats' ? (
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40">
+              <StatsSidebar
+                events={dayEvents}
+                subjects={subjects}
+                totalMinutes={stats.totalMinutes}
+              />
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40">
+              <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
+            </div>
           )
         ) : (
           <div className="grid grid-cols-12 gap-16 flex-1 min-h-0 lg:pb-4">
@@ -716,14 +728,35 @@ export function CalendarPage() {
               onBackgroundClick={handleTimelineBackgroundClick}
               mode={eventFilter}
             />
-            {/* Right column: the day's stats, then the per-subject tasks. */}
-            <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1">
-              <StatsSidebar
-                events={dayEvents}
-                subjects={subjects}
-                totalMinutes={stats.totalMinutes}
-              />
-              <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
+            {/* Right column: statistics or per-subject tasks, switched like Real/Plan. */}
+            {/* Bottom clearance: the action bar floats over this corner, so the
+                filling card must end above it at any zoom level. */}
+            <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1 pb-32">
+              <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low self-start flex-shrink-0" role="group" aria-label="Side panel">
+                {(['stats', 'tasks'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setAsidePanel(p)}
+                    title="Toggle Stat/Tasks (Shortcut: D)"
+                    className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
+                      asidePanel === p
+                        ? 'bg-secondary-container text-on-secondary-container'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    {p === 'stats' ? 'Stat' : 'Tasks'}
+                  </button>
+                ))}
+              </div>
+              {asidePanel === 'stats' ? (
+                <StatsSidebar
+                  events={dayEvents}
+                  subjects={subjects}
+                  totalMinutes={stats.totalMinutes}
+                />
+              ) : (
+                <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
+              )}
             </aside>
           </div>
         ))}
