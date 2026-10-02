@@ -17,7 +17,7 @@ export function TodoCheckbox({
         e.stopPropagation();
         onToggle(task.id, !task.completed);
       }}
-      className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+      className={`no-press w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         task.completed
           ? 'bg-primary border-primary text-on-primary'
           : 'border-outline hover:border-primary bg-transparent'

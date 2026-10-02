@@ -32,6 +32,31 @@ export function TodoPage() {
 
   useSyncRefresh(refresh);
 
+  // N opens a new task (plain quadrant); skipped while typing or when a
+  // modal is open, same guards as the calendar shortcuts.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (document.querySelector('.fixed.inset-0')) return;
+      const letter = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : '';
+      if ((letter || e.key.toLowerCase()) === 'n') {
+        setFormState((prev) => prev || { task: null, quadrant: 'nn' });
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   // Smart transition: an incomplete task becomes urgent as soon as its due day
   // is here — today or already past. Urgency comes from the clock, so the
   // Important flag does not gate it: a non-important task due today is still

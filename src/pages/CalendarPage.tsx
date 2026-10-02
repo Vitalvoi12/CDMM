@@ -183,10 +183,14 @@ export function CalendarPage() {
       else if (key === 'r') setEventFilter('real');
       else if (key === 'p') setEventFilter('plan');
       else if (key === 'a') setEventFilter('all');
+      // N opens a new event, same defaults as the New Event button.
+      else if (key === 'n') {
+        setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter });
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMobile, modalOpen, view, setEventFilter, setView, goToPrevious, goToNext]);
+  }, [isMobile, modalOpen, view, eventFilter, currentDate, setEventFilter, setView, goToPrevious, goToNext]);
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
 
@@ -765,6 +769,7 @@ export function CalendarPage() {
           <div className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10 max-lg:bg-background/95">
             <button
               onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
+              title="New event (Shortcut: N)"
               className="px-6 py-3 bg-surface-container-high text-on-surface font-label-md text-label-md rounded-full hover:bg-surface-container-highest transition-colors uppercase tracking-[0.12em] flex items-center justify-center gap-2"
             >
               New Event

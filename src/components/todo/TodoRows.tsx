@@ -91,16 +91,21 @@ export function CompactTodoRow({
 }) {
   return (
     <div
-      className={`flex items-center gap-3 min-w-0 border border-outline-variant rounded-xl px-4 py-3 transition-colors hover:border-outline ${
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(task)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(task);
+        }
+      }}
+      className={`flex items-center gap-3 min-w-0 border border-outline-variant rounded-xl px-4 py-3 transition-colors hover:border-outline cursor-pointer no-press focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         task.completed ? 'opacity-60' : ''
       }`}
     >
       <TodoCheckbox task={task} onToggle={onToggle} />
-      <button
-        type="button"
-        onClick={() => onOpen(task)}
-        className="flex items-center gap-3 min-w-0 flex-1 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      >
+      <span className="flex items-center gap-3 min-w-0 flex-1 text-left">
         <span
           className={`font-body-md text-body-md truncate min-w-0 flex-1 ${
             task.completed ? 'line-through text-on-surface-variant' : 'text-on-surface'
@@ -110,7 +115,7 @@ export function CompactTodoRow({
         </span>
         <EstLabel task={task} />
         <DueLabel task={task} />
-      </button>
+      </span>
     </div>
   );
 }
@@ -126,15 +131,22 @@ export function FullTodoRow({
 }) {
   const overdue = isOverdue(task);
   return (
-    <div className={`flex items-start gap-3 py-3 border-b border-outline-variant last:border-b-0 ${task.completed ? 'opacity-60' : ''}`}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(task)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(task);
+        }
+      }}
+      className={`flex items-start gap-3 py-3 border-b border-outline-variant last:border-b-0 cursor-pointer no-press rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${task.completed ? 'opacity-60' : ''}`}
+    >
       <div className="pt-0.5">
         <TodoCheckbox task={task} onToggle={onToggle} />
       </div>
-      <button
-        type="button"
-        onClick={() => onOpen(task)}
-        className="flex-1 min-w-0 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      >
+      <span className="flex-1 min-w-0 text-left">
         <span
           className={`font-body-md text-body-md break-words block ${
             task.completed ? 'line-through text-on-surface-variant' : 'text-on-surface font-medium'
@@ -160,7 +172,7 @@ export function FullTodoRow({
             </span>
           )}
         </span>
-      </button>
+      </span>
     </div>
   );
 }

@@ -411,6 +411,11 @@ html[data-theme='dark'] {
   }
 }
 
+/* Opt out of the press-scale for tiny inline controls (task rows). */
+.no-press:active {
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
