@@ -43,7 +43,7 @@ export function YearView({ date, events }: YearViewProps) {
   const maxMinutes = Math.max(...monthlyData.map((m) => m.totalMinutes), 1);
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto">
+    <div className="flex-1 min-h-0 overflow-y-auto animate-view-enter">
       <div className="grid grid-cols-4 gap-6 max-lg:grid-cols-2">
         {monthlyData.map((m, i) => {
           const percent = Math.round((m.totalMinutes / maxMinutes) * 100);

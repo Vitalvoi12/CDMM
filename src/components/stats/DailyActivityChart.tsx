@@ -24,12 +24,15 @@ export function DailyActivityChart({ dailyMinutes }: DailyActivityChartProps) {
               {label}
             </span>
             <div
-              className={`w-full rounded-t-sm relative overflow-hidden group-hover:opacity-80 transition-colors ${
+              className={`w-full rounded-t-sm relative overflow-hidden group-hover:opacity-80 transition-[height,opacity,background-color] duration-300 ease-out animate-bar-grow-y ${
                 isMax
                   ? 'bg-primary shadow-md'
                   : 'bg-surface-container-highest'
               }`}
-              style={{ height: `${Math.max(percent, 4)}%` }}
+              style={{
+                height: `${Math.max(percent, 4)}%`,
+                animationDelay: `${Math.min(i * 60, 360)}ms`,
+              }}
             >
               {isMax && (
                 <div className="absolute inset-0 bg-gradient-to-t from-transparent to-on-surface/10" />

@@ -27,14 +27,14 @@ export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-scrim p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <div
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={mode === 'edit' ? 'Edit recurring event' : 'Delete recurring event'}
-        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md focus:outline-none"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >

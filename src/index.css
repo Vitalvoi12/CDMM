@@ -262,66 +262,66 @@
 /* Focus Room dark — becomes the implicit default theme (data-theme="dark"). */
 html[data-theme='dark'] {
   color-scheme: dark;
-  --color-background: #120a0d;
-  --color-on-background: #e2e2e2;
-  --color-surface: #1c1115;
-  --color-surface-dim: #0b0608;
-  --color-surface-bright: #2b1a20;
-  --color-surface-variant: #302025;
-  --color-on-surface: #e2e2e2;
-  --color-on-surface-variant: #bbbac6;
-  --color-surface-container-lowest: #0e0709;
-  --color-surface-container-low: #150b0e;
-  --color-surface-container: #25161b;
-  --color-surface-container-high: #311e25;
-  --color-surface-container-highest: #3f2930;
-  --color-inverse-surface: #e2e2e2;
-  --color-inverse-on-surface: #1c0f13;
-  --color-inverse-primary: #6e7e85;
-  --color-scrim: rgba(8, 4, 6, 0.7);
+  --color-background: #0B0B0A;
+  --color-on-background: #F1EEE7;
+  --color-surface: #111110;
+  --color-surface-dim: #0B0B0A;
+  --color-surface-bright: #20201D;
+  --color-surface-variant: #181816;
+  --color-on-surface: #F1EEE7;
+  --color-on-surface-variant: #A9A59C;
+  --color-surface-container-lowest: #111110;
+  --color-surface-container-low: #141414;
+  --color-surface-container: #181816;
+  --color-surface-container-high: #1C1C19;
+  --color-surface-container-highest: #20201D;
+  --color-inverse-surface: #F1EEE7;
+  --color-inverse-on-surface: #0B0B0A;
+  --color-inverse-primary: #E9826A;
+  --color-scrim: rgba(11, 11, 10, 0.7);
 
-  --color-primary: #b7cece;
-  --color-on-primary: #1c0f13;
-  --color-primary-container: #37474c;
-  --color-on-primary-container: #cfe2e2;
-  --color-primary-fixed: #b7cece;
-  --color-primary-fixed-dim: #6e7e85;
-  --color-on-primary-fixed: #101d20;
-  --color-on-primary-fixed-variant: #37474c;
+  --color-primary: #E9826A;
+  --color-on-primary: #0B0B0A;
+  --color-primary-container: #3A201B;
+  --color-on-primary-container: #F1EEE7;
+  --color-primary-fixed: #E9826A;
+  --color-primary-fixed-dim: #A85A44;
+  --color-on-primary-fixed: #0B0B0A;
+  --color-on-primary-fixed-variant: #3A201B;
 
-  --color-secondary: #a7b8bd;
-  --color-on-secondary: #141a1c;
-  --color-secondary-container: #2e3a3e;
-  --color-on-secondary-container: #cfdde0;
-  --color-secondary-fixed: #cfdde0;
-  --color-secondary-fixed-dim: #8fa1a6;
-  --color-on-secondary-fixed: #141a1c;
-  --color-on-secondary-fixed-variant: #2e3a3e;
+  --color-secondary: #A9A59C;
+  --color-on-secondary: #0B0B0A;
+  --color-secondary-container: #292824;
+  --color-on-secondary-container: #F1EEE7;
+  --color-secondary-fixed: #A9A59C;
+  --color-secondary-fixed-dim: #706D66;
+  --color-on-secondary-fixed: #0B0B0A;
+  --color-on-secondary-fixed-variant: #3A3833;
 
-  --color-tertiary: #a5a3b5;
-  --color-tertiary-container: #35313d;
-  --color-tertiary-fixed: #c9c8d4;
-  --color-tertiary-fixed-dim: #8f8da0;
+  --color-tertiary: #A9A59C;
+  --color-tertiary-container: #20201D;
+  --color-tertiary-fixed: #A9A59C;
+  --color-tertiary-fixed-dim: #706D66;
 
-  --color-error: #d78f9a;
-  --color-on-error: #2a0e14;
-  --color-error-container: #52222b;
-  --color-on-error-container: #ecb6bf;
+  --color-error: #E07A7A;
+  --color-on-error: #0B0B0A;
+  --color-error-container: #3A201B;
+  --color-on-error-container: #F1EEE7;
 
-  --color-success: #8fa1a6;
+  --color-success: #8FD3B5;
 
-  --color-outline: #4a3a42;
-  --color-outline-variant: #2a1f23;
+  --color-outline: #3A3833;
+  --color-outline-variant: #292824;
 
-  --color-surface-tint: #96909e;
+  --color-surface-tint: #A9A59C;
 
-  --color-now: #b7cece;
+  --color-now: #8FD3B5;
 
-  --color-heatmap-0: #1c161a;
-  --color-heatmap-1: #293438;
-  --color-heatmap-2: #45565b;
-  --color-heatmap-3: #6e7e85;
-  --color-heatmap-4: #b7cece;
+  --color-heatmap-0: #181816;
+  --color-heatmap-1: #2A3530;
+  --color-heatmap-2: #3E5A4C;
+  --color-heatmap-3: #5E8A72;
+  --color-heatmap-4: #8FD3B5;
 }
 
 ::-webkit-scrollbar {
@@ -334,6 +334,83 @@ html[data-theme='dark'] {
 
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---- Motion system (CSS-only, no dependencies) ----
+ * Mount animations run once per element mount (React re-renders don't
+ * restart them unless the key changes). Stagger via inline
+ * `animationDelay`; every utility uses fill-mode `backwards` so delayed
+ * elements stay hidden until their turn without overriding inline
+ * transforms (drag) after finishing. */
+
+@keyframes cdmm-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cdmm-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cdmm-pop-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes cdmm-view-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cdmm-event-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cdmm-bar-grow-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes cdmm-bar-grow-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes cdmm-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.animate-fade-up { animation: cdmm-fade-up 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+.animate-fade-in { animation: cdmm-fade-in 0.25s ease-out backwards; }
+.animate-pop-in { animation: cdmm-pop-in 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+.animate-view-enter { animation: cdmm-view-enter 0.3s ease-out backwards; }
+.animate-event-in { animation: cdmm-event-in 0.22s ease-out backwards; transform-origin: top center; }
+.animate-bar-grow-y { animation: cdmm-bar-grow-y 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; transform-origin: bottom; }
+.animate-bar-grow-x { animation: cdmm-bar-grow-x 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; transform-origin: left; }
+.animate-breathe { animation: cdmm-breathe 2.2s ease-in-out infinite; }
+
+@layer base {
+  /* Tactile press on every button; transform-only so drag math
+   * (clientX/Y deltas) and layout are unaffected. */
+  button:not(:disabled) {
+    transition-property: transform, opacity, background-color, border-color, color, box-shadow;
+    transition-duration: 0.15s;
+    transition-timing-function: ease-out;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* NOTE: banani mockups are ~15% denser than a default desktop layout, but

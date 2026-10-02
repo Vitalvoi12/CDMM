@@ -1,4 +1,9 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { todoRepo } from '../../services/repositories';
+import { useSyncRefresh } from '../../hooks/useServerSync';
+import { hasTodoDueToday } from '../todo/TodoRows';
+import { LiveSessionCard } from './LiveSessionCard';
 
 const navItems = [
   { path: '/', label: 'CALENDAR', icon: 'calendar_today', shortcut: 'C' },
@@ -15,6 +20,12 @@ function navClass({ isActive }: { isActive: boolean }): string {
 }
 
 export function Sidebar() {
+  // Red dot on Todo when something is due today; checkpoint() notifies, so the
+  // dot follows toggles/creates without a page revisit.
+  const [todos, setTodos] = useState(() => todoRepo.getAll());
+  useSyncRefresh(() => setTodos(todoRepo.getAll()));
+  const todoDueToday = hasTodoDueToday(todos);
+
   return (
     <aside className="fixed left-0 top-0 h-full w-[19rem] bg-surface-dim border-r border-outline-variant z-50 flex flex-col max-lg:hidden">
       <div className="px-8 pt-8 pb-6 flex flex-col gap-1 border-b border-outline-variant">
@@ -30,11 +41,15 @@ export function Sidebar() {
               <>
                 <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-on-secondary-container' : ''}`}>{item.icon}</span>
                 {item.label}
+                {item.path === '/todo' && todoDueToday && (
+                  <span aria-label="Tasks due today" className="ml-auto w-2 h-2 rounded-full bg-error flex-shrink-0" />
+                )}
               </>
             )}
           </NavLink>
         ))}
-        <div className="mt-auto pb-6">
+        <div className="mt-auto pb-6 flex flex-col gap-3">
+          <LiveSessionCard />
           <NavLink to="/settings" className={navClass}>
             {({ isActive }) => (
               <>

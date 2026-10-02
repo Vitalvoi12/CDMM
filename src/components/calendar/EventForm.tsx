@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CalendarEvent, Subject } from '../../types';
+import type { CalendarEvent, EventChecklistItem, Subject } from '../../types';
+import { genId } from '../../services/repositories';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
 
@@ -25,6 +26,8 @@ interface EventFormProps {
     recurrence?: EventRecurrence;
     /** Custom (subject-less) event color. Ignored for subject-bound events. */
     color?: string;
+    /** Per-event mini tasks. Empty texts are dropped on save. */
+    checklist?: EventChecklistItem[];
   }) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -73,6 +76,14 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
   const [repeat, setRepeat] = useState<RepeatFreq>('none');
   const [repeatUntil, setRepeatUntil] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Per-event tasks: exactly one template row when empty; "+" lives only on
+  // the last row and moves down as rows are added.
+  const [tasks, setTasks] = useState<EventChecklistItem[]>(() => {
+    const initial = (event?.checklist ?? []).map((t) => ({ ...t }));
+    return initial.length > 0 ? initial : [{ id: genId(), text: '', done: false }];
+  });
+  const lastInputRef = useRef<HTMLInputElement | null>(null);
+  const tasksLenRef = useRef(tasks.length);
   const formRef = useRef<HTMLFormElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +102,32 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
     // even if the user hasn't clicked any field yet.
     dialogRef.current?.focus({ preventScroll: true });
   }, []);
+
+  // After a new task row appears, move focus into it.
+  useEffect(() => {
+    if (tasks.length > tasksLenRef.current) lastInputRef.current?.focus();
+    tasksLenRef.current = tasks.length;
+  }, [tasks.length]);
+
+  const addTask = () => {
+    const last = tasks[tasks.length - 1];
+    if (last && !last.text.trim()) {
+      lastInputRef.current?.focus();
+      return;
+    }
+    setTasks([...tasks, { id: genId(), text: '', done: false }]);
+  };
+
+  const updateTaskText = (id: string, text: string) => {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, text } : t)));
+  };
+
+  const removeTask = (id: string) => {
+    setTasks((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      return next.length > 0 ? next : [{ id: genId(), text: '', done: false }];
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +184,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
       countInStats,
       recurrence,
       color: isCustom ? color : undefined,
+      // Always an array (possibly empty): an empty list must overwrite, not
+      // inherit — otherwise clearing all tasks would not propagate.
+      checklist: tasks
+        .map((t) => ({ ...t, text: t.text.trim() }))
+        .filter((t) => t.text.length > 0),
     });
   };
 
@@ -180,11 +222,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
     'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
@@ -332,8 +374,66 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
               className={inputClass}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>
+              Tasks
+            </label>
             <div className="flex flex-col gap-2">
+              {tasks.map((t, i) => {
+                const isLast = i === tasks.length - 1;
+                return (
+                  <div key={t.id} className="flex items-center gap-2 animate-fade-in">
+                    <input
+                      type="text"
+                      value={t.text}
+                      ref={isLast ? lastInputRef : undefined}
+                      onChange={(e) => updateTaskText(t.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        // Enter grows the list instead of submitting the form.
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addTask();
+                        } else if (e.key === 'Escape') {
+                          // First Esc just drops focus back to the dialog —
+                          // the next one closes it via the dialog handler.
+                          e.preventDefault();
+                          e.stopPropagation();
+                          dialogRef.current?.focus();
+                        }
+                      }}
+                      placeholder={isLast ? 'New task — type and press +' : 'Task'}
+                      aria-label={`Task ${i + 1}`}
+                      className={`${inputClass} flex-1`}
+                    />
+                    {isLast ? (
+                      <button
+                        type="button"
+                        onClick={addTask}
+                        aria-label="Add another task"
+                        title="Add another task"
+                        className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl border border-outline-variant text-on-surface hover:border-primary hover:text-primary transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px] leading-none">add</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => removeTask(t.id)}
+                        aria-label={`Remove task ${i + 1}`}
+                        title="Remove task"
+                        className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-error transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px] leading-none">close</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 min-[481px]:grid-cols-2 min-[481px]:gap-4">
+            <div className="flex flex-col gap-2 min-w-0">
               <label className={labelClass}>
                 Start Date
               </label>
@@ -347,7 +447,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                 className={inputClass}
               />
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 min-w-0">
               <label className={labelClass}>
                 Start Time
               </label>
@@ -361,7 +461,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                 className={inputClass}
               />
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 min-w-0">
               <label className={labelClass}>
                 End Date
               </label>
@@ -375,7 +475,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                 className={inputClass}
               />
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 min-w-0">
               <label className={labelClass}>
                 End Time
               </label>

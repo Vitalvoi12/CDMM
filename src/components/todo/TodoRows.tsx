@@ -34,6 +34,19 @@ export function matchesUrgentImportant(task: TodoTask, day: string): boolean {
   );
 }
 
+/** True when at least one incomplete task is due today or overdue — drives the red dot. */
+export function hasTodoDueToday(todos: TodoTask[]): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return todos.some((t) => {
+    if (t.completed || !t.dueDate) return false;
+    const d = new Date(t.dueDate);
+    if (Number.isNaN(d.getTime())) return false;
+    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return day.getTime() <= today.getTime();
+  });
+}
+
 /** Total estimate of the given tasks, in minutes (0 when none is estimated). */
 export function totalEstMinutes(tasks: TodoTask[]): number {
   let sum = 0;

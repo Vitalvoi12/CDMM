@@ -29,9 +29,9 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
   }, [onCancel]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <div
-        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
+        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6 max-lg:mb-4">

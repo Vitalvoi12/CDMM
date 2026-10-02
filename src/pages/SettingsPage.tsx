@@ -69,7 +69,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           {activeSection === 'account' && (
             <div className="mb-20 flex flex-col gap-6">
               <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface">Account</h1>
-              <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-8 flex flex-col gap-7 max-w-xl">
+              <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-7 max-w-xl">
                 <div className="flex flex-col gap-1">
                   <span className="text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                     Username
@@ -111,7 +111,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           {activeSection === 'general' && (
             <div className="mb-20 flex flex-col gap-6">
               <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface">General</h1>
-              <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
+              <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
                 <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                   Appearance
                 </label>
@@ -149,7 +149,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
+              <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
                 <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
                   Synchronization
                 </label>

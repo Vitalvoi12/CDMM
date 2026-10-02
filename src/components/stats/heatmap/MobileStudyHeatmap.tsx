@@ -88,7 +88,7 @@ export function MobileStudyHeatmap({ days, range }: MobileStudyHeatmapProps) {
       </div>
 
       {selected && (
-        <div className="bg-surface-container rounded p-4 flex items-center justify-between gap-3">
+        <div className="bg-surface-container rounded border border-outline-variant p-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="font-label-md text-label-md text-on-surface">
               {new Date(

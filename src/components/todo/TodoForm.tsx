@@ -94,7 +94,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in"
       onClick={onCancel}
     >
       <div
@@ -103,7 +103,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
         role="dialog"
         aria-modal="true"
         aria-label={task ? 'Edit task' : 'New task'}
-        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
@@ -149,8 +149,8 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               }}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-1 gap-3 min-[481px]:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] min-[481px]:gap-2">
+            <div className="flex flex-col gap-2 min-w-0">
               <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
                 Due Date{urgent && <span className="text-error"> *</span>}
               </label>
@@ -163,7 +163,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                   if (e.target.value) setError(null);
                 }}
                 aria-invalid={error ? true : undefined}
-                className={`w-full bg-surface-container-low border rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
+                className={`w-full min-w-0 bg-surface-container-low border rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
               />
               {error && (
                 <p role="alert" className="font-body-sm text-body-sm text-error">
@@ -171,7 +171,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                 </p>
               )}
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 min-w-0">
               <label htmlFor="todo-est" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
                 Est. Time
               </label>
@@ -185,7 +185,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                 value={estInput}
                 onChange={(e) => setEstInput(e.target.value)}
                 placeholder="e.g. 45"
-                className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+                className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
               />
               {estHint(estInput) && (
                 <p className="font-body-sm text-body-sm text-on-surface-variant">{estHint(estInput)}</p>

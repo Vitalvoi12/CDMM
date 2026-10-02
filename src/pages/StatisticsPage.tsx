@@ -46,7 +46,7 @@ export function StatisticsPage() {
   return (
     <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
       {/* Heatmap range picker */}
-      <div className="flex items-end justify-between mb-8">
+      <div className="flex items-end justify-between mb-8 animate-fade-up">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Statistics</h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant">
@@ -63,25 +63,32 @@ export function StatisticsPage() {
       </div>
 
       {/* Study activity */}
-      <section className="mb-12">
+      <section className="mb-12 animate-fade-up" style={{ animationDelay: '80ms' }}>
         <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
           <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
             Study activity
           </h2>
         </div>
-        <StudyHeatmap days={heatmapDays} range={heatmapRange} />
+        {/* Keyed by range so switching year/period replays a soft fade. */}
+        <div key={heatmapRange.label} className="animate-fade-in">
+          <StudyHeatmap days={heatmapDays} range={heatmapRange} />
+        </div>
       </section>
 
       {/* Summary */}
-      <section className="mb-12">
+      <section className="mb-12 animate-fade-up" style={{ animationDelay: '160ms' }}>
         <div className="grid grid-cols-2 max-lg:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { value: formatDurationLong(yearStats.totalMinutes), label: 'Total study' },
             { value: String(yearStats.activeDays), label: 'Active days' },
             { value: String(yearStats.sessionCount), label: 'Sessions' },
             { value: formatDuration(yearStats.averageSessionMinutes), label: 'Average session' },
-          ].map((m) => (
-            <div key={m.label} className="border-l-2 border-outline-variant pl-4">
+          ].map((m, i) => (
+            <div
+              key={m.label}
+              style={{ animationDelay: `${200 + i * 70}ms` }}
+              className="border-l-2 border-outline-variant pl-4 animate-fade-up"
+            >
               <p className="font-headline-md text-headline-md text-on-surface tabular-nums">{m.value}</p>
               <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mt-1">
                 {m.label}
@@ -97,7 +104,7 @@ export function StatisticsPage() {
       </section>
 
       {/* Daily study time + weekly overview */}
-      <section className="mb-12">
+      <section className="mb-12 animate-fade-up" style={{ animationDelay: '240ms' }}>
         <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
           <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
             Daily study time
@@ -124,7 +131,7 @@ export function StatisticsPage() {
           </div>
         </div>
 
-        <div className="bg-surface-container rounded-2xl shadow-elev-1 p-6 mb-6">
+        <div className="bg-surface-container rounded-2xl border border-outline-variant shadow-elev-1 p-6 mb-6">
           <DailyActivityChart dailyMinutes={weekStats.dailyMinutes} />
         </div>
 
@@ -155,7 +162,7 @@ export function StatisticsPage() {
       </section>
 
       {/* Subjects by custom period (calendar range) */}
-      <section className="mb-4">
+      <section className="mb-4 animate-fade-up" style={{ animationDelay: '320ms' }}>
         <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
           <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
             Subjects · {periodLabel}

@@ -75,6 +75,31 @@ export function markDirty(entity: SyncEntity, key: string): void {
   persistDirty(d);
 }
 
+// ---- local-change bus ----
+// Emitted on every user write (create/update/delete) so mounted components
+// refresh instantly instead of waiting for the next background sync pull.
+// serverSync bridges this into its own refresh bus; remote/undo paths notify
+// through their existing channels, so they stay silent here.
+type RepoChangeListener = () => void;
+const repoChangeListeners = new Set<RepoChangeListener>();
+
+export function subscribeRepoChanges(fn: RepoChangeListener): () => void {
+  repoChangeListeners.add(fn);
+  return () => {
+    repoChangeListeners.delete(fn);
+  };
+}
+
+function emitRepoChange(): void {
+  for (const fn of repoChangeListeners) {
+    try {
+      fn();
+    } catch {
+      // ignore listener errors
+    }
+  }
+}
+
 function unmarkDirty(entries: string[]): void {
   if (entries.length === 0) return;
   const d = loadDirty();
@@ -110,6 +135,35 @@ export function markSettingsDirty(): void {
   save(STORAGE_KEYS.settingsDirty, true);
 }
 
+const CHECKLIST_BACKFILL_KEY = 'cdmm.checklist-backfill-v1';
+
+/**
+ * One-time repair for checklists pushed while the server did not know the
+ * column yet: the server dropped them but the push cleared the dirty flag,
+ * so the records look clean and would never be re-sent. Re-mark every event
+ * that still holds local tasks as dirty — the next sync pushes them whole.
+ */
+export function backfillEventChecklists(): boolean {
+  try {
+    if (localStorage.getItem(CHECKLIST_BACKFILL_KEY)) return false;
+  } catch {
+    return false;
+  }
+  let marked = false;
+  try {
+    for (const e of eventRepo.getAll()) {
+      if (e.checklist && e.checklist.length > 0) {
+        markDirty('events', e.id);
+        marked = true;
+      }
+    }
+    localStorage.setItem(CHECKLIST_BACKFILL_KEY, '1');
+  } catch {
+    // storage unavailable — try again next boot
+  }
+  return marked;
+}
+
 export function clearSettingsDirty(): void {
   save(STORAGE_KEYS.settingsDirty, false);
 }
@@ -130,6 +184,7 @@ class SubjectRepository {
     this.subjects.push(newSubject);
     save(STORAGE_KEYS.subjects, this.subjects);
     markDirty('subjects', newSubject.id);
+    emitRepoChange();
     return newSubject;
   }
 
@@ -139,6 +194,7 @@ class SubjectRepository {
     this.subjects[idx] = { ...this.subjects[idx], ...data, id, updatedAt: Date.now() };
     save(STORAGE_KEYS.subjects, this.subjects);
     markDirty('subjects', id);
+    emitRepoChange();
     return this.subjects[idx];
   }
 
@@ -146,7 +202,11 @@ class SubjectRepository {
     const before = this.subjects.length;
     this.subjects = this.subjects.filter((s) => s.id !== id);
     save(STORAGE_KEYS.subjects, this.subjects);
-    return this.subjects.length < before;
+    if (this.subjects.length < before) {
+      emitRepoChange();
+      return true;
+    }
+    return false;
   }
 
   /** Apply a remote record (LWW). Never marks dirty. */
@@ -209,6 +269,7 @@ class TodoRepository {
     this.todos.push(newTodo);
     save(STORAGE_KEYS.todos, this.todos);
     markDirty('todos', id);
+    emitRepoChange();
     return newTodo;
   }
 
@@ -218,6 +279,7 @@ class TodoRepository {
     this.todos[idx] = { ...this.todos[idx], ...data, id, updatedAt: Date.now() };
     save(STORAGE_KEYS.todos, this.todos);
     markDirty('todos', id);
+    emitRepoChange();
     return this.todos[idx];
   }
 
@@ -225,7 +287,11 @@ class TodoRepository {
     const before = this.todos.length;
     this.todos = this.todos.filter((t) => t.id !== id);
     save(STORAGE_KEYS.todos, this.todos);
-    return this.todos.length < before;
+    if (this.todos.length < before) {
+      emitRepoChange();
+      return true;
+    }
+    return false;
   }
 
   /** Apply a remote record (LWW). Never marks dirty. */
@@ -297,6 +363,7 @@ class EventRepository {
     }
     save(STORAGE_KEYS.events, this.events);
     markDirty('events', id);
+    emitRepoChange();
     return newEvent;
   }
 
@@ -306,6 +373,7 @@ class EventRepository {
     this.events[idx] = { ...this.events[idx], ...data, id, updatedAt: Date.now() };
     save(STORAGE_KEYS.events, this.events);
     markDirty('events', id);
+    emitRepoChange();
     return this.events[idx];
   }
 
@@ -313,7 +381,11 @@ class EventRepository {
     const before = this.events.length;
     this.events = this.events.filter((e) => e.id !== id);
     save(STORAGE_KEYS.events, this.events);
-    return this.events.length < before;
+    if (this.events.length < before) {
+      emitRepoChange();
+      return true;
+    }
+    return false;
   }
 
   /** Apply a remote record (LWW). Never marks dirty. */

@@ -9,6 +9,12 @@ export interface Subject {
   updatedAt: number;
 }
 
+export interface EventChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 export interface CalendarEvent {
   id: string;
   uid: string;
@@ -39,6 +45,12 @@ export interface CalendarEvent {
    * Absent/null = standalone event. null is sent to the server to clear it.
    */
   recurrenceId?: string | null;
+  /**
+   * Per-event mini tasks, edited in the event editor and aggregated by
+   * subject in the calendar day panel. Absent = none (backward compat).
+   * Travels inside the synced record, so all devices see the same list.
+   */
+  checklist?: EventChecklistItem[];
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;
 }

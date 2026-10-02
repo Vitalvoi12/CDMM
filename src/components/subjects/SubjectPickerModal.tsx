@@ -8,9 +8,9 @@ interface SubjectPickerModalProps {
 
 export function SubjectPickerModal({ subjects, onSelect, onClose }: SubjectPickerModalProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim animate-fade-in" onClick={onClose}>
       <div
-        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-sm mx-4"
+        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-sm mx-4 animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-headline-md text-headline-md max-lg:!text-[12px] max-lg:mb-3 text-on-surface mb-5">Select Subject</h2>

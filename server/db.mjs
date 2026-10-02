@@ -47,6 +47,7 @@ export function openDb(dir) {
       kind TEXT NOT NULL DEFAULT 'real',
       recurrence_id TEXT,
       count_in_stats INTEGER NOT NULL DEFAULT 1,
+      checklist TEXT,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
@@ -111,6 +112,12 @@ export function openDb(dir) {
   } catch {
     // column already exists — ignore
   }
+  // Migration for per-event checklist tasks (JSON array, NULL = none).
+  try {
+    db.exec('ALTER TABLE events ADD COLUMN checklist TEXT');
+  } catch {
+    // column already exists — ignore
+  }
   return db;
 }
 
@@ -172,7 +179,7 @@ function rowToPayload(entity, row) {
     return { id: row.id, name: row.name, color: row.color, icon: row.icon, progress: row.progress, updatedAt: row.updated_at };
   }
   if (entity === 'events') {
-    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, updatedAt: row.updated_at };
+    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), updatedAt: row.updated_at };
   }
   return {
     id: row.id, title: row.title, description: row.description,
@@ -186,7 +193,7 @@ function rowToPayload(entity, row) {
 
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
-  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats'],
+  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'completed', 'created_at'],
 };
 
@@ -194,10 +201,29 @@ const FROM_CLIENT = {
   name: 'name', color: 'color', icon: 'icon', progress: 'progress',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
   start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id', color: 'color',
-  countInStats: 'count_in_stats',
+  countInStats: 'count_in_stats', checklist: 'checklist',
   important: 'important', urgent: 'urgent', dueDate: 'due_date', estMinutes: 'est_minutes', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
 };
+
+/**
+ * Checklist wire form is a JSON array; anything else (or an empty list)
+ * reads back as "no tasks" so old records and cleared lists stay clean.
+ */
+function parseChecklist(value) {
+  if (value == null || value === '') return undefined;
+  try {
+    const arr = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(arr)) return undefined;
+    const items = arr
+      .filter((t) => t && typeof t === 'object')
+      .map((t) => ({ id: String(t.id || ''), text: String(t.text ?? ''), done: t.done === true }))
+      .filter((t) => t.id && t.text);
+    return items.length > 0 ? items : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Apply client dirty records with last-write-wins on updated_at.
@@ -243,6 +269,13 @@ export function applyChanges(db, userId, dirty) {
       } else if (col === 'count_in_stats') {
         if (v === undefined) v = prev[col] === undefined ? 1 : prev[col];
         else v = v ? 1 : 0;
+      } else if (col === 'checklist') {
+        // JSON array on the wire, TEXT in the column. Absent inherits the
+        // stored value; an empty list (or explicit null) clears to NULL.
+        if (v === undefined) v = prev[col] === undefined ? null : prev[col];
+        else if (v === null) v = null;
+        else if (Array.isArray(v)) v = v.length > 0 ? JSON.stringify(v) : null;
+        else v = prev[col] === undefined ? null : prev[col];
       } else if (v === undefined) {
         // Absent on a NEW record: nullable columns stay NULL so a later
         // partial update that omits them does not invent a value.

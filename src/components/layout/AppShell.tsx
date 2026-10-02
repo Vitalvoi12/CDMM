@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 
 export function AppShell() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   // Section shortcuts: C → calendar, T → todo, F → focus room. Physical keys
   // (e.code) so they work on any layout; skipped while typing or with a modal
@@ -36,7 +37,10 @@ export function AppShell() {
       <Sidebar />
       <div className="pl-[19rem] max-lg:pl-0 max-lg:pb-16 flex flex-col flex-1 min-h-0">
         <main className="px-10 max-lg:px-4 py-8 max-lg:py-4 flex-1 flex flex-col min-h-0 overflow-y-auto max-lg:overflow-hidden">
-          <Outlet />
+          {/* Keyed by route so every page switch replays the enter animation. */}
+          <div key={pathname} className="animate-view-enter flex flex-col flex-1 min-h-0">
+            <Outlet />
+          </div>
         </main>
       </div>
       <MobileNav />

@@ -32,7 +32,8 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId, 
   ) => (
     <div
       key={key}
-      className={`relative flex items-center gap-3 px-4 py-3 max-lg:px-3 max-lg:py-2 rounded-xl border transition-colors ${
+      style={{ animationDelay: `${Math.min(index * 50, 400)}ms` }}
+      className={`relative flex items-center gap-3 px-4 py-3 max-lg:px-3 max-lg:py-2 rounded-xl border transition-colors animate-fade-up ${
         opts.highlight
           ? 'border-outline bg-surface-container'
           : 'border-outline-variant bg-transparent hover:border-outline'

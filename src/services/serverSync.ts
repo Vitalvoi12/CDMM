@@ -1,6 +1,7 @@
 import {
   eventRepo, subjectRepo, todoRepo, tombstoneRepo, settingsRepo,
   takeDirtySnapshot, clearDirtySnapshot, isSettingsDirty, clearSettingsDirty,
+  subscribeRepoChanges,
   type SyncEntity,
 } from './repositories';
 import type { CalendarEvent, Subject, TodoTask, UserSettings } from '../types';
@@ -44,6 +45,11 @@ export function notifySync(): void {
     }
   }
 }
+
+// Local writes fan out to the same subscribers immediately: a todo toggled,
+// deleted or re-dated on the Todo page must move the sidebar dot at once,
+// not on the next background pull.
+subscribeRepoChanges(() => notifySync());
 
 function hasLocalData(): boolean {
   return (

@@ -32,7 +32,7 @@ export function AuthPage({ onDone }: AuthPageProps) {
 
   return (
     <div className="min-h-dvh bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-surface-container-lowest rounded-2xl shadow-elev-2 p-8 flex flex-col gap-6">
+      <div className="w-full max-w-sm bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-2 p-8 flex flex-col gap-6">
         <div>
           <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">CDMM</h1>
           <p className="font-body-md text-body-md text-on-surface-variant mt-3">

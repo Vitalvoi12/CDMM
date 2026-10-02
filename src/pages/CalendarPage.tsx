@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DateHeader } from '../components/calendar/DateHeader';
 import { Timeline } from '../components/calendar/Timeline';
@@ -6,21 +7,20 @@ import { MultiDayView } from '../components/calendar/MultiDayView';
 import { MonthView } from '../components/calendar/MonthView';
 import { YearView } from '../components/calendar/YearView';
 import { StatsSidebar } from '../components/calendar/StatsSidebar';
-import { matchesUrgentImportant } from '../components/todo/TodoRows';
-import { UrgentImportantCard } from '../components/todo/UrgentImportantCard';
+import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
 import { EventForm } from '../components/calendar/EventForm';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, genId } from '../services/repositories';
+import { eventRepo, subjectRepo, tombstoneRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats } from '../utils/stats';
-import { dateKey, expandRecurrence } from '../utils/time';
+import { expandRecurrence } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
 import { checkpoint } from '../services/history';
-import type { CalendarEvent, EventFilter, TodoTask } from '../types';
+import type { CalendarEvent, EventChecklistItem, EventFilter } from '../types';
 
 const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[] = [
   { id: 'day', label: 'Day' },
@@ -68,6 +68,7 @@ interface PendingRecurrence {
     kind: 'real' | 'plan';
     countInStats: boolean;
     color?: string;
+    checklist?: EventChecklistItem[];
   } | null;
 }
 
@@ -94,7 +95,6 @@ export function CalendarPage() {
   const location = useLocation();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
-  const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const { startSession, isActive, pausedAt, subjectId, startTime } = useActiveSession();
   const navigate = useNavigate();
 
@@ -192,24 +192,21 @@ export function CalendarPage() {
 
   const refreshEvents = useCallback(() => {
     setEvents(eventRepo.getAll());
-    setTodos(todoRepo.getAll());
   }, []);
 
-  // Checkbox on the priority card: shared by the card and the red dot, so both
-  // update in the same step. Undoable like everything else on this page.
-  const handleTodoToggle = useCallback(
-    (id: string, completed: boolean) => {
-      checkpoint(completed ? 'Complete task' : 'Reopen task');
-      todoRepo.update(id, { completed });
+  // Checkbox in the day task panel: toggles one checklist item on its event.
+  const handleChecklistToggle = useCallback(
+    (eventId: string, itemId: string, done: boolean) => {
+      const stored = eventRepo.getById(eventId);
+      if (!stored || !stored.checklist) return;
+      checkpoint(done ? 'Complete event task' : 'Reopen event task');
+      eventRepo.update(eventId, {
+        checklist: stored.checklist.map((t) => (t.id === itemId ? { ...t, done } : t)),
+      });
       refreshEvents();
     },
     [refreshEvents]
   );
-
-  // Whether the info tab has urgent & important deadlines for the shown day —
-  // drives the red dot on its button.
-  const dayKeyStr = dateKey(currentDate);
-  const hasPriorityDeadlines = todos.some((t) => matchesUrgentImportant(t, dayKeyStr));
 
   useSyncRefresh(
     useCallback(() => {
@@ -258,7 +255,7 @@ export function CalendarPage() {
   );
 
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; checklist?: EventChecklistItem[] }) => {
       if (editingEvent) {
         const stored = eventRepo.getById(editingEvent.id);
         const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
@@ -305,6 +302,7 @@ export function CalendarPage() {
           kind: data.kind,
           countInStats: data.countInStats,
           color: data.color,
+          checklist: data.checklist,
         });
       } else if (data.recurrence && data.recurrence.freq !== 'none') {
         const occurrences = expandRecurrence(
@@ -327,6 +325,7 @@ export function CalendarPage() {
             countInStats: data.countInStats,
             color: data.color,
             recurrenceId,
+            checklist: data.checklist?.map((t) => ({ ...t, id: genId() })),
           });
         }
       } else {
@@ -340,6 +339,7 @@ export function CalendarPage() {
           kind: data.kind,
           countInStats: data.countInStats,
           color: data.color,
+          checklist: data.checklist,
         });
       }
       setEditingEvent(null);
@@ -430,6 +430,7 @@ export function CalendarPage() {
               kind: data.kind,
               countInStats: data.countInStats,
               color: data.color,
+              checklist: data.checklist,
               recurrenceId: null,
             });
           }
@@ -451,6 +452,7 @@ export function CalendarPage() {
               kind: data.kind,
               countInStats: data.countInStats,
               color: data.color,
+              checklist: data.checklist,
             });
           }
           for (const s of following) {
@@ -467,6 +469,7 @@ export function CalendarPage() {
               kind: data.kind,
               countInStats: data.countInStats,
               color: data.color,
+              checklist: data.checklist?.map((t) => ({ ...t, id: genId() })),
             });
           }
         }
@@ -494,6 +497,8 @@ export function CalendarPage() {
         countInStats: source.countInStats,
         // A copy starts its own life — never join the source's series.
         recurrenceId: null,
+        // Same tasks as a fresh list: new ids, nothing pre-checked.
+        checklist: source.checklist?.map((t) => ({ ...t, id: genId(), done: false })),
       });
       // Open the copy so the new time can be adjusted right away.
       setEditingEvent(copy);
@@ -628,18 +633,8 @@ export function CalendarPage() {
                 <button onClick={() => setDayPanel('timeline')} className={pillBtn(dayPanel === 'timeline')}>
                   Day
                 </button>
-                <button
-                  onClick={() => setDayPanel('info')}
-                  className={`${pillBtn(dayPanel === 'info')} relative`}
-                  aria-label={hasPriorityDeadlines ? 'Info, has urgent tasks' : 'Info'}
-                >
+                <button onClick={() => setDayPanel('info')} className={pillBtn(dayPanel === 'info')}>
                   Info
-                  {hasPriorityDeadlines && (
-                    <span
-                      aria-hidden="true"
-                      className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-error ring-1 ring-background"
-                    />
-                  )}
                 </button>
               </div>
             )}
@@ -689,7 +684,7 @@ export function CalendarPage() {
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
               />
-              <UrgentImportantCard date={currentDate} todos={todos} onToggle={handleTodoToggle} onOpenTodo={() => navigate('/todo')} />
+              <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto">
@@ -721,14 +716,14 @@ export function CalendarPage() {
               onBackgroundClick={handleTimelineBackgroundClick}
               mode={eventFilter}
             />
-            {/* Right column: the day's stats, then the priority tasks. */}
+            {/* Right column: the day's stats, then the per-subject tasks. */}
             <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1">
               <StatsSidebar
                 events={dayEvents}
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
               />
-              <UrgentImportantCard date={currentDate} todos={todos} onToggle={handleTodoToggle} onOpenTodo={() => navigate('/todo')} />
+              <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
             </aside>
           </div>
         ))}
@@ -743,6 +738,7 @@ export function CalendarPage() {
 
       {view === 'month' && (
         <MonthView
+          key={`month-${currentDate.getFullYear()}-${currentDate.getMonth()}`}
           date={currentDate}
           events={events}
           subjects={subjects}
@@ -752,25 +748,30 @@ export function CalendarPage() {
       )}
 
       {view === 'year' && (
-        <YearView date={currentDate} events={events} subjects={subjects} />
+        <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} events={events} subjects={subjects} />
       )}
 
-      {view === 'day' && (
-        <div className="mt-auto pt-8 max-lg:pt-2 flex gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10 max-lg:bg-background/95">
-          <button
-            onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
-            className="px-6 py-3 bg-surface-container-high text-on-surface font-label-md text-label-md rounded-full hover:bg-surface-container-highest transition-colors uppercase tracking-[0.12em] flex items-center justify-center gap-2"
-          >
-            New Event
-          </button>
-          <button
-            onClick={handleStartStudying}
-            className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded-full hover:opacity-90 transition-opacity uppercase tracking-[0.12em] flex items-center justify-center gap-2"
-          >
-            Start studying
-          </button>
-        </div>
-      )}
+      {/* Portalled to body: the page-enter animation transforms an ancestor,
+          which would re-anchor `fixed` to it mid-animation and snap the bar
+          back to the viewport once the animation ends. */}
+      {view === 'day' &&
+        createPortal(
+          <div className="mt-auto pt-8 max-lg:pt-2 flex gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10 max-lg:bg-background/95">
+            <button
+              onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
+              className="px-6 py-3 bg-surface-container-high text-on-surface font-label-md text-label-md rounded-full hover:bg-surface-container-highest transition-colors uppercase tracking-[0.12em] flex items-center justify-center gap-2"
+            >
+              New Event
+            </button>
+            <button
+              onClick={handleStartStudying}
+              className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded-full hover:opacity-90 transition-opacity uppercase tracking-[0.12em] flex items-center justify-center gap-2"
+            >
+              Start studying
+            </button>
+          </div>,
+          document.body
+        )}
 
       {creatingEvent && (
         <EventForm

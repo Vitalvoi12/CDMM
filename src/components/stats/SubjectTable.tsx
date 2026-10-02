@@ -13,19 +13,20 @@ export function SubjectTable({ subjectStats, subjectMap }: SubjectTableProps) {
         <div className="flex justify-between items-end mb-6">
           <h2 className="font-headline-md text-headline-md text-on-surface">By Subject</h2>
         </div>
-        <div className="bg-surface-container rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-surface-container rounded-xl border border-outline-variant shadow-sm overflow-hidden">
           <div className="grid grid-cols-12 gap-4 p-4 bg-surface-container-high/50 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest border-b border-surface-variant">
             <div className="col-span-5 pl-sm">Subject</div>
             <div className="col-span-5">Progress</div>
             <div className="col-span-2 text-right pr-sm">Time</div>
           </div>
           <div className="flex flex-col">
-            {subjectStats.map((stat) => {
+            {subjectStats.map((stat, i) => {
               const subject = subjectMap[stat.subjectId];
               return (
                 <div
                   key={stat.subjectId}
-                  className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-surface-container-high transition-colors group"
+                  style={{ animationDelay: `${Math.min(i * 60, 420)}ms` }}
+                  className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-surface-container-high transition-colors group animate-fade-up"
                 >
                   <div className="col-span-5 flex items-center gap-4 pl-sm">
                     <div
@@ -39,10 +40,11 @@ export function SubjectTable({ subjectStats, subjectMap }: SubjectTableProps) {
                   <div className="col-span-5 flex items-center gap-4">
                     <div className="flex-1 h-1.5 bg-surface-variant rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full group-hover:scale-x-[1.02] origin-left transition-transform"
+                        className="h-full rounded-full group-hover:scale-x-[1.02] origin-left transition-transform animate-bar-grow-x"
                         style={{
                           width: `${stat.percentage}%`,
                           backgroundColor: subject?.color || "var(--color-on-surface-variant)",
+                          animationDelay: `${Math.min(i * 60, 420)}ms`,
                         }}
                       />
                     </div>
