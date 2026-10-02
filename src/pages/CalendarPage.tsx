@@ -6,6 +6,7 @@ import { MultiDayView } from '../components/calendar/MultiDayView';
 import { MonthView } from '../components/calendar/MonthView';
 import { YearView } from '../components/calendar/YearView';
 import { StatsSidebar } from '../components/calendar/StatsSidebar';
+import { UrgentImportantCard } from '../components/todo/UrgentImportantCard';
 import { EventForm } from '../components/calendar/EventForm';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
@@ -648,12 +649,15 @@ export function CalendarPage() {
       {view === 'day' &&
         (isMobile ? (
           dayPanel === 'stats' ? (
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            // Mobile has no right-hand column: the stats tab carries the same
+            // two cards the desktop day view stacks on the side.
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4">
               <StatsSidebar
                 events={dayEvents}
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
               />
+              <UrgentImportantCard onOpenTodo={() => navigate('/todo')} />
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto">
@@ -685,11 +689,15 @@ export function CalendarPage() {
               onBackgroundClick={handleTimelineBackgroundClick}
               mode={eventFilter}
             />
-            <StatsSidebar
-              events={dayEvents}
-              subjects={subjects}
-              totalMinutes={stats.totalMinutes}
-            />
+            {/* Right column: the day's stats, then the priority tasks. */}
+            <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1">
+              <StatsSidebar
+                events={dayEvents}
+                subjects={subjects}
+                totalMinutes={stats.totalMinutes}
+              />
+              <UrgentImportantCard onOpenTodo={() => navigate('/todo')} />
+            </aside>
           </div>
         ))}
 
