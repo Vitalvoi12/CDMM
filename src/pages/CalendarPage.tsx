@@ -657,7 +657,7 @@ export function CalendarPage() {
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
               />
-              <UrgentImportantCard onOpenTodo={() => navigate('/todo')} />
+              <UrgentImportantCard date={currentDate} onOpenTodo={() => navigate('/todo')} />
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto">
@@ -696,7 +696,7 @@ export function CalendarPage() {
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
               />
-              <UrgentImportantCard onOpenTodo={() => navigate('/todo')} />
+              <UrgentImportantCard date={currentDate} onOpenTodo={() => navigate('/todo')} />
             </aside>
           </div>
         ))}

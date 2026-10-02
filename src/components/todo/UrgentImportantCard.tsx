@@ -8,19 +8,22 @@ import { TodoCheckbox } from './TodoCheckbox';
 import { formatDueLabel, isOverdue, totalEstMinutes } from './TodoRows';
 
 interface UrgentImportantCardProps {
+  /** The calendar day being shown — the card lists that day's deadlines. */
+  date: Date;
   /** Opens the Todo page — the card itself is read-only apart from the checkbox. */
   onOpenTodo: () => void;
 }
 
 /**
  * The "Urgent & Important" quadrant of the Eisenhower matrix, narrowed to what
- * is on the clock today: incomplete tasks that are both important and urgent
- * AND whose due date is today. It answers "what has to happen today", so
- * anything without a deadline or due later is not the list's business.
+ * is on the clock: incomplete tasks that are both important and urgent AND
+ * whose deadline falls on the day being viewed. Following `date` rather than
+ * "today" is the whole point — stepping through the calendar must show that
+ * day's own deadlines.
  *
  * Same data as the Todo page, so it stays in step through sync.
  */
-export function UrgentImportantCard({ onOpenTodo }: UrgentImportantCardProps) {
+export function UrgentImportantCard({ date, onOpenTodo }: UrgentImportantCardProps) {
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
 
   // Seeded from the repository, so only the sync bus has to tell us about
@@ -28,21 +31,28 @@ export function UrgentImportantCard({ onOpenTodo }: UrgentImportantCardProps) {
   const refresh = useCallback(() => setTodos(todoRepo.getAll()), []);
   useSyncRefresh(refresh);
 
-  const priority = useMemo(() => {
-    const today = dateKey(new Date());
-    return todos
-      .filter(
-        (t) =>
-          t.important &&
-          t.urgent &&
-          !t.completed &&
-          !!t.dueDate &&
-          dateKey(new Date(t.dueDate)) === today
-      )
-      .sort((a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime());
-  }, [todos]);
+  const day = dateKey(date);
+
+  const priority = useMemo(
+    () =>
+      todos
+        .filter(
+          (t) =>
+            t.important &&
+            t.urgent &&
+            !t.completed &&
+            !!t.dueDate &&
+            dateKey(new Date(t.dueDate)) === day
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime()
+        ),
+    [todos, day]
+  );
 
   const est = useMemo(() => totalEstMinutes(priority), [priority]);
+  const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   const handleToggle = useCallback(
     (id: string, completed: boolean) => {
@@ -55,14 +65,17 @@ export function UrgentImportantCard({ onOpenTodo }: UrgentImportantCardProps) {
 
   return (
     <section
-      aria-label="Urgent and important tasks due today"
+      aria-label={`Urgent and important tasks due ${dayLabel}`}
       className="bg-surface-container-lowest rounded-2xl shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0"
     >
       <div className="flex items-baseline justify-between gap-3 mb-4 max-lg:mb-2">
         <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
           Urgent &amp; Important
         </h2>
-        <span className="flex items-center gap-2 flex-shrink-0">
+        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 uppercase tracking-[0.14em] flex-shrink-0">
+          {dayLabel}
+        </span>
+        <span className="flex items-center gap-2 flex-shrink-0 ml-auto">
           {est > 0 && (
             <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant/70 tabular-nums inline-flex items-center gap-1">
               <span className="material-symbols-outlined text-[12px] leading-none">timer</span>
@@ -77,7 +90,7 @@ export function UrgentImportantCard({ onOpenTodo }: UrgentImportantCardProps) {
 
       {priority.length === 0 ? (
         <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
-          Nothing urgent and important due today
+          Nothing urgent and important due {dayLabel}
         </p>
       ) : (
         <ul className="flex flex-col gap-2.5 max-lg:gap-1.5 overflow-y-auto min-h-0">
