@@ -182,7 +182,12 @@ class SubjectRepository {
 }
 
 class TodoRepository {
-  private todos: TodoTask[] = load<TodoTask[]>(STORAGE_KEYS.todos, []);
+  private todos: TodoTask[] = load<TodoTask[]>(STORAGE_KEYS.todos, []).map((t) => ({
+    ...t,
+    description: t.description ?? undefined,
+    dueDate: t.dueDate ?? undefined,
+    estMinutes: t.estMinutes ?? undefined,
+  }));
 
   getAll(): TodoTask[] {
     return [...this.todos];
@@ -225,14 +230,22 @@ class TodoRepository {
 
   /** Apply a remote record (LWW). Never marks dirty. */
   applyRemote(rec: TodoTask): boolean {
+    // Optional columns arrive as explicit nulls on the wire; keep them out of
+    // the in-memory model so `task.dueDate` stays a plain optional string.
+    const clean: TodoTask = {
+      ...rec,
+      description: rec.description ?? undefined,
+      dueDate: rec.dueDate ?? undefined,
+      estMinutes: rec.estMinutes ?? undefined,
+    };
     const idx = this.todos.findIndex((t) => t.id === rec.id);
     if (idx === -1) {
-      this.todos.push(rec);
+      this.todos.push(clean);
       save(STORAGE_KEYS.todos, this.todos);
       return true;
     }
-    if ((rec.updatedAt || 0) > (this.todos[idx].updatedAt || 0)) {
-      this.todos[idx] = rec;
+    if ((clean.updatedAt || 0) > (this.todos[idx].updatedAt || 0)) {
+      this.todos[idx] = clean;
       save(STORAGE_KEYS.todos, this.todos);
       return true;
     }

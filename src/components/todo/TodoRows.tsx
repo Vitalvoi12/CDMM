@@ -1,4 +1,5 @@
 import type { TodoTask } from '../../types';
+import { formatDuration } from '../../utils/time';
 import { TodoCheckbox } from './TodoCheckbox';
 
 /** Relative day label for a due date (mockup style). Times are not shown:
@@ -20,6 +21,24 @@ export function formatDueLabel(iso: string | undefined, completed: boolean): str
 
 export function isOverdue(task: TodoTask): boolean {
   return !!task.dueDate && !task.completed && new Date(task.dueDate).getTime() < Date.now();
+}
+
+/** Total estimate of the given tasks, in minutes (0 when none is estimated). */
+export function totalEstMinutes(tasks: TodoTask[]): number {
+  let sum = 0;
+  for (const t of tasks) if (t.estMinutes && t.estMinutes > 0) sum += t.estMinutes;
+  return sum;
+}
+
+/** "45m" chip shown next to the due label; nothing when unset. */
+function EstLabel({ task }: { task: TodoTask }) {
+  if (!task.estMinutes || task.estMinutes <= 0) return null;
+  return (
+    <span className="font-label-sm text-label-sm flex-shrink-0 uppercase tracking-[0.1em] text-on-surface-variant inline-flex items-center gap-1">
+      <span className="material-symbols-outlined text-[12px] leading-none">timer</span>
+      {formatDuration(task.estMinutes)}
+    </span>
+  );
 }
 
 function DueLabel({ task }: { task: TodoTask }) {
@@ -65,6 +84,7 @@ export function CompactTodoRow({
         >
           {task.title}
         </span>
+        <EstLabel task={task} />
         <DueLabel task={task} />
       </button>
     </div>
@@ -103,11 +123,19 @@ export function FullTodoRow({
             {task.description}
           </span>
         )}
-        {task.dueDate && (
-          <span className={`font-label-sm text-label-sm inline-block mt-1 uppercase tracking-[0.1em] ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
-            {formatDueLabel(task.dueDate, task.completed)}
-          </span>
-        )}
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+          {task.estMinutes != null && task.estMinutes > 0 && (
+            <span className="font-label-sm text-label-sm inline-flex items-center gap-1 uppercase tracking-[0.1em] text-on-surface-variant">
+              <span className="material-symbols-outlined text-[12px] leading-none">timer</span>
+              Est. {formatDuration(task.estMinutes)}
+            </span>
+          )}
+          {task.dueDate && (
+            <span className={`font-label-sm text-label-sm uppercase tracking-[0.1em] ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
+              {formatDueLabel(task.dueDate, task.completed)}
+            </span>
+          )}
+        </span>
       </button>
     </div>
   );

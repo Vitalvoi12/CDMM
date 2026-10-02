@@ -1,6 +1,7 @@
 import { forwardRef, useMemo } from 'react';
 import type { TodoTask } from '../../types';
-import { CompactTodoRow } from './TodoRows';
+import { CompactTodoRow, totalEstMinutes } from './TodoRows';
+import { formatDuration } from '../../utils/time';
 
 interface QuadrantCardProps {
   title: string;
@@ -17,6 +18,7 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
 ) {
   const active = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
   const visible = active;
+  const est = useMemo(() => totalEstMinutes(active), [active]);
 
   return (
     <section
@@ -36,6 +38,15 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
           <span className="font-label-sm text-label-sm text-on-surface-variant flex-shrink-0 tabular-nums">
             {active.length}
           </span>
+          {est > 0 && (
+            <span
+              className="font-label-sm text-label-sm text-on-surface-variant/70 flex-shrink-0 tabular-nums inline-flex items-center gap-1"
+              title={`Estimated time in this quadrant: ${formatDuration(est)}`}
+            >
+              <span className="material-symbols-outlined text-[12px] leading-none">timer</span>
+              {formatDuration(est)}
+            </span>
+          )}
           <span className="material-symbols-outlined text-[13px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             open_in_full
           </span>

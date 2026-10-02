@@ -80,6 +80,11 @@ export interface TodoTask {
   important: boolean;
   urgent: boolean;
   dueDate?: string;
+  /**
+   * Estimated time to complete, in minutes. Absent = not estimated.
+   * Purely advisory: nothing is scheduled from it.
+   */
+  estMinutes?: number;
   completed: boolean;
   createdAt: string;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */

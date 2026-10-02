@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TodoTask } from '../../types';
+import { formatDuration } from '../../utils/time';
 import { Toggle } from '../common/Toggle';
 
 interface TodoFormProps {
@@ -11,6 +12,7 @@ interface TodoFormProps {
     important: boolean;
     urgent: boolean;
     dueDate?: string;
+    estMinutes?: number;
   }) => void;
   onDelete?: (id: string) => void;
   onCancel: () => void;
@@ -29,6 +31,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const [important, setImportant] = useState(task?.important ?? defaults.important);
   const [urgent, setUrgent] = useState(task?.urgent ?? defaults.urgent);
   const [dueDate, setDueDate] = useState(toInputValue(task?.dueDate));
+  const [estInput, setEstInput] = useState(task?.estMinutes ? String(task.estMinutes) : '');
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -52,12 +55,16 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
       setError('Set date');
       return;
     }
+    // Empty / non-numeric / zero clears the estimate rather than storing 0.
+    const parsedEst = Number.parseInt(estInput, 10);
+    const estMinutes = Number.isFinite(parsedEst) && parsedEst > 0 ? parsedEst : undefined;
     onSave({
       title: trimmed,
       description: description.trim() || undefined,
       important,
       urgent,
       dueDate: dueDate ? new Date(`${dueDate}T18:00:00`).toISOString() : undefined,
+      estMinutes,
     });
   };
 
@@ -142,26 +149,48 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               }}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
-              Due Date{urgent && <span className="text-error"> *</span>}
-            </label>
-            <input
-              id="todo-due"
-              type="date"
-              value={dueDate}
-              onChange={(e) => {
-                setDueDate(e.target.value);
-                if (e.target.value) setError(null);
-              }}
-              aria-invalid={error ? true : undefined}
-              className={`w-full bg-surface-container-low border rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
-            />
-            {error && (
-              <p role="alert" className="font-body-sm text-body-sm text-error">
-                {error}
-              </p>
-            )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
+              <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+                Due Date{urgent && <span className="text-error"> *</span>}
+              </label>
+              <input
+                id="todo-due"
+                type="date"
+                value={dueDate}
+                onChange={(e) => {
+                  setDueDate(e.target.value);
+                  if (e.target.value) setError(null);
+                }}
+                aria-invalid={error ? true : undefined}
+                className={`w-full bg-surface-container-low border rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
+              />
+              {error && (
+                <p role="alert" className="font-body-sm text-body-sm text-error">
+                  {error}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <label htmlFor="todo-est" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+                Est. Time
+              </label>
+              <input
+                id="todo-est"
+                type="number"
+                inputMode="numeric"
+                min={5}
+                step={5}
+                max={1440}
+                value={estInput}
+                onChange={(e) => setEstInput(e.target.value)}
+                placeholder="e.g. 45"
+                className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+              />
+              {estHint(estInput) && (
+                <p className="font-body-sm text-body-sm text-on-surface-variant">{estHint(estInput)}</p>
+              )}
+            </div>
           </div>
           <div className="flex gap-3 mt-1">
             {task && onDelete && (
@@ -191,4 +220,11 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
       </div>
     </div>
   );
+}
+
+/** Live readout of the estimate, so "90" reads as 1h 30m instead of a bare number. */
+function estHint(raw: string): string | null {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return formatDuration(n);
 }

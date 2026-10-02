@@ -32,22 +32,34 @@ export function TodoPage() {
 
   useSyncRefresh(refresh);
 
-  // Smart transition: an important but not urgent task with a due date
-  // automatically becomes urgent once its due day arrives (or is overdue).
+  // Smart transition: an incomplete task becomes urgent as soon as its due day
+  // is here — today or already past. Urgency comes from the clock, so the
+  // Important flag does not gate it: a non-important task due today is still
+  // urgent, it just lands in "Urgent" rather than "Urgent & Important".
   // Persisted via the repo so sync and the edit form see urgent=true.
   useEffect(() => {
-    const today = dateKey(new Date());
-    const toPromote = todos.filter(
-      (t) =>
-        t.important &&
-        !t.urgent &&
-        !t.completed &&
-        t.dueDate &&
-        dateKey(new Date(t.dueDate)) <= today
-    );
-    if (toPromote.length === 0) return;
-    for (const t of toPromote) todoRepo.update(t.id, { urgent: true });
-    refresh();
+    const promoteDue = () => {
+      const today = dateKey(new Date());
+      const due = todos.filter(
+        (t) =>
+          !t.urgent &&
+          !t.completed &&
+          t.dueDate &&
+          dateKey(new Date(t.dueDate)) <= today
+      );
+      if (due.length === 0) return;
+      for (const t of due) todoRepo.update(t.id, { urgent: true });
+      refresh();
+    };
+    promoteDue();
+    // A task that was due "tomorrow" becomes due "today" while this page sits
+    // open, so re-check whenever the tab is looked at again.
+    document.addEventListener('visibilitychange', promoteDue);
+    window.addEventListener('focus', promoteDue);
+    return () => {
+      document.removeEventListener('visibilitychange', promoteDue);
+      window.removeEventListener('focus', promoteDue);
+    };
   }, [todos, refresh]);
 
   const byQuadrant = useMemo(() => {
@@ -89,6 +101,7 @@ export function TodoPage() {
     important: boolean;
     urgent: boolean;
     dueDate?: string;
+    estMinutes?: number;
   }) => {
     if (formState?.task) {
       checkpoint('Edit task');

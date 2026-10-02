@@ -58,6 +58,7 @@ export function openDb(dir) {
       important INTEGER NOT NULL DEFAULT 0,
       urgent INTEGER NOT NULL DEFAULT 0,
       due_date TEXT,
+      est_minutes INTEGER,
       completed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT '',
       updated_at INTEGER NOT NULL DEFAULT 0
@@ -101,6 +102,12 @@ export function openDb(dir) {
   // Migration for the "count in stats" event flag (default: counted).
   try {
     db.exec('ALTER TABLE events ADD COLUMN count_in_stats INTEGER NOT NULL DEFAULT 1');
+  } catch {
+    // column already exists — ignore
+  }
+  // Migration for the todo estimated-duration field (NULL = not estimated).
+  try {
+    db.exec('ALTER TABLE todos ADD COLUMN est_minutes INTEGER');
   } catch {
     // column already exists — ignore
   }
@@ -170,7 +177,9 @@ function rowToPayload(entity, row) {
   return {
     id: row.id, title: row.title, description: row.description,
     important: row.important === 1, urgent: row.urgent === 1,
-    dueDate: row.due_date, completed: row.completed === 1,
+    dueDate: row.due_date,
+    estMinutes: row.est_minutes == null ? undefined : row.est_minutes,
+    completed: row.completed === 1,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
@@ -178,7 +187,7 @@ function rowToPayload(entity, row) {
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
   events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats'],
-  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'completed', 'created_at'],
+  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'completed', 'created_at'],
 };
 
 const FROM_CLIENT = {
@@ -186,7 +195,7 @@ const FROM_CLIENT = {
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
   start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id', color: 'color',
   countInStats: 'count_in_stats',
-  important: 'important', urgent: 'urgent', dueDate: 'due_date', completed: 'completed',
+  important: 'important', urgent: 'urgent', dueDate: 'due_date', estMinutes: 'est_minutes', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
 };
 
@@ -235,7 +244,9 @@ export function applyChanges(db, userId, dirty) {
         if (v === undefined) v = prev[col] === undefined ? 1 : prev[col];
         else v = v ? 1 : 0;
       } else if (v === undefined) {
-        v = col === 'description' || col === 'icon' || col === 'due_date' ? null : '';
+        // Absent on a NEW record: nullable columns stay NULL so a later
+        // partial update that omits them does not invent a value.
+        v = col === 'description' || col === 'icon' || col === 'due_date' || col === 'est_minutes' ? null : '';
       }
       colVals[col] = v;
     }

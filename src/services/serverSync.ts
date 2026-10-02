@@ -57,11 +57,28 @@ function withTs<T extends { updatedAt?: number }>(rec: T): T & { updatedAt: numb
   return { ...rec, updatedAt: rec.updatedAt || 0 };
 }
 
+/**
+ * Wire form of a todo.
+ *
+ * Optional columns have to travel as explicit `null`, not be omitted: JSON
+ * drops keys whose value is `undefined`, and the server reads an absent key as
+ * "inherit the existing row". Without this a cleared description, due date or
+ * estimate would be silently resurrected on every other device.
+ */
+function dirtyTodo(rec: TodoTask) {
+  return {
+    ...withTs(rec),
+    description: rec.description ?? null,
+    dueDate: rec.dueDate ?? null,
+    estMinutes: rec.estMinutes ?? null,
+  } as unknown as TodoTask & { updatedAt: number };
+}
+
 function collectFullDirty() {
   return {
     subjects: subjectRepo.getAll().map(withTs),
     events: eventRepo.getAll().map(withTs),
-    todos: todoRepo.getAll().map(withTs),
+    todos: todoRepo.getAll().map(dirtyTodo),
     tombstones: tombstoneRepo.getAll().map((t) => ({ ...t })),
     settings: { data: settingsRepo.get(), updatedAt: settingsRepo.getWithMeta().updatedAt || 0 },
   };
@@ -86,7 +103,7 @@ function collectDirty() {
   }
   for (const id of ids.todos) {
     const rec = todoRepo.getById(id);
-    if (rec) dirty.todos.push(withTs(rec));
+    if (rec) dirty.todos.push(dirtyTodo(rec));
   }
   if (isSettingsDirty()) {
     const meta = settingsRepo.getWithMeta();
