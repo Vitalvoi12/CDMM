@@ -92,7 +92,7 @@ export function CalendarPage() {
   const location = useLocation();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
-  const { startSession, isActive, subjectId, startTime } = useActiveSession();
+  const { startSession, isActive, pausedAt, subjectId, startTime } = useActiveSession();
   const navigate = useNavigate();
 
   // Deep link from the Statistics heatmap: jump to the tapped day.
@@ -176,9 +176,11 @@ export function CalendarPage() {
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
 
+  // Comes from the synced session record, so the running block shows up on
+  // every signed-in device — including one that only ever opens the calendar.
   const activeSession = useMemo(
-    () => (isActive && subjectId && startTime ? { subjectId, start: startTime } : null),
-    [isActive, subjectId, startTime]
+    () => (isActive && subjectId && startTime ? { subjectId, start: startTime, pausedAt } : null),
+    [isActive, subjectId, startTime, pausedAt]
   );
   const stats = useMemo(
     () => calculateDailyStats(events, currentDate),

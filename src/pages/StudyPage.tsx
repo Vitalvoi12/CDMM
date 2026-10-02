@@ -1,5 +1,4 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
-import { useTimer } from '../hooks/useTimer';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { eventRepo, subjectRepo } from '../services/repositories';
@@ -8,23 +7,38 @@ import { buildYearHeatmap, calculateYearStats, getEventsForDate, calculateDailyS
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { FocusRoom } from '../components/study/FocusRoom';
 import { TodaySessions } from '../components/study/TodaySessions';
-import type { CalendarEvent } from '../types';
+import type { CalendarEvent, Subject } from '../types';
 
 export function StudyPage() {
-  const { isActive, subjectId, startTime, startSession, stopSession } = useActiveSession();
-  const { elapsed } = useTimer(startTime);
+  const {
+    isActive,
+    isPaused,
+    subjectId,
+    startTime,
+    elapsed,
+    startSession,
+    pause,
+    resume,
+    stopSession,
+  } = useActiveSession();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
+  // Subjects live in state (not a bare getAll() during render) so the object
+  // identity is stable between refreshes — the session-save callback below
+  // depends on the resolved subject and must not change every tick.
+  const [subjects, setSubjects] = useState<Subject[]>(() => subjectRepo.getAll());
 
-  const refreshEvents = useCallback(() => setEvents(eventRepo.getAll()), []);
+  const refresh = useCallback(() => {
+    setEvents(eventRepo.getAll());
+    setSubjects(subjectRepo.getAll());
+  }, []);
 
-  useSyncRefresh(refreshEvents);
+  useSyncRefresh(refresh);
 
   useEffect(() => {
-    refreshEvents();
-  }, [refreshEvents]);
+    refresh();
+  }, [refresh]);
 
-  const subjects = subjectRepo.getAll();
   const currentStreakDays = useMemo(() => {
     const heatmap = buildYearHeatmap(events, new Date().getFullYear());
     return calculateYearStats(heatmap).longestStreakDays;
@@ -37,19 +51,23 @@ export function StudyPage() {
 
   const todayEvents = useMemo(() => getEventsForDate(events, new Date()), [events]);
 
-  const todayStats = useMemo(() => calculateDailyStats(events, new Date()), [events]);  const handleStop = useCallback(() => {
+  const todayStats = useMemo(() => calculateDailyStats(events, new Date()), [events]);
+
+  /** Close the running session and persist it as a real event. */
+  const saveSession = useCallback(() => {
     const event = stopSession();
-    if (event) {
-      checkpoint('Stop session');
-      eventRepo.create({
-        subjectId: event.subjectId,
-        title: event.title,
-        start: event.start,
-        end: event.end,
-      });
-      refreshEvents();
-    }
-  }, [stopSession, refreshEvents]);
+    if (!event) return;
+    checkpoint('Stop session');
+    eventRepo.create({
+      subjectId: event.subjectId,
+      title: subject?.name || event.title,
+      start: event.start,
+      end: event.end,
+      kind: 'real',
+      countInStats: true,
+    });
+    refresh();
+  }, [stopSession, refresh, subject]);
 
   const handleStart = useCallback(() => {
     setShowSubjectPicker(true);
@@ -99,13 +117,16 @@ export function StudyPage() {
       <div className="flex flex-col xl:flex-row w-full h-full relative min-h-0 overflow-y-auto">
         <FocusRoom
           isActive={isActive}
+          isPaused={isPaused}
           subjectName={subject?.name || ''}
           startTime={startTime || null}
           elapsed={elapsed}
           subjects={subjects}
           dailyMinutes={todayTotalMinutes}
           streakDays={currentStreakDays}
-          onStop={isActive ? handleStop : undefined}
+          onStop={isActive ? saveSession : undefined}
+          onPause={isActive && !isPaused ? pause : undefined}
+          onResume={isActive && isPaused ? resume : undefined}
           onStart={!isActive ? handleStart : undefined}
           onQuickStart={!isActive ? handleQuickStart : undefined}
         />

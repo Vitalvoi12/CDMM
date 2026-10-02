@@ -211,9 +211,22 @@ export async function initialSync(): Promise<void> {
   await syncOnce();
 }
 
+/** In-flight cycle, shared by concurrent callers (timer + background sync). */
+let inFlight: Promise<boolean> | null = null;
+
 /** One push/pull cycle against the cursor. Returns true when anything changed locally. */
 export async function syncOnce(): Promise<boolean> {
   if (!getToken()) return false;
+  // Two callers at once (the 15s session poll and the 90s background tick)
+  // would race on the cursor and on clearing the dirty set. Share one cycle.
+  if (inFlight) return inFlight;
+  inFlight = runCycle().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function runCycle(): Promise<boolean> {
   const { ids, dirty } = collectDirty();
   const hasDirty =
     dirty.subjects.length > 0 || dirty.events.length > 0 || dirty.todos.length > 0 ||

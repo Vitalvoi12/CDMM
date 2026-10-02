@@ -3,6 +3,7 @@ import type { Subject } from '../../types';
 
 interface FocusRoomProps {
   isActive: boolean;
+  isPaused?: boolean;
   subjectName: string;
   startTime: string | null;
   elapsed: number;
@@ -10,12 +11,15 @@ interface FocusRoomProps {
   dailyMinutes: number;
   streakDays: number;
   onStop?: () => void;
+  onPause?: () => void;
+  onResume?: () => void;
   onStart?: () => void;
   onQuickStart?: (subjectId: string) => void;
 }
 
 export function FocusRoom({
   isActive,
+  isPaused = false,
   subjectName,
   startTime,
   elapsed,
@@ -23,6 +27,8 @@ export function FocusRoom({
   dailyMinutes,
   streakDays,
   onStop,
+  onPause,
+  onResume,
   onStart,
   onQuickStart,
 }: FocusRoomProps) {
@@ -39,7 +45,7 @@ export function FocusRoom({
             Focus Room
           </h1>
           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.18em]">
-            {isActive ? 'Live' : 'Idle'}
+            {isActive ? (isPaused ? 'Paused' : 'Live') : 'Idle'}
           </span>
         </div>
 
@@ -68,12 +74,18 @@ export function FocusRoom({
                   <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.18em]">
                     Live session
                   </span>
-                  <span className="flex items-center gap-2 font-label-sm text-label-sm text-primary uppercase tracking-[0.18em]">
+                  <span
+                    className={`flex items-center gap-2 font-label-sm text-label-sm uppercase tracking-[0.18em] ${
+                      isPaused ? 'text-on-surface-variant' : 'text-primary'
+                    }`}
+                  >
                     <span className="relative flex w-2 h-2">
-                      <span className="absolute w-full h-full bg-now rounded-full opacity-40 animate-ping" />
-                      <span className="w-2 h-2 bg-now rounded-full" />
+                      {!isPaused && (
+                        <span className="absolute w-full h-full bg-now rounded-full opacity-40 animate-ping" />
+                      )}
+                      <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-outline' : 'bg-now'}`} />
                     </span>
-                    Recording
+                    {isPaused ? 'Paused' : 'Recording'}
                   </span>
                 </div>
                 <p className="font-display-lg text-display-lg max-lg:!text-[34px] max-lg:leading-none text-on-surface tabular-nums leading-none tracking-tight text-center">
@@ -88,10 +100,10 @@ export function FocusRoom({
                 <div className="flex items-center justify-center gap-3 mt-8 max-lg:mt-4">
                   <button
                     type="button"
-                    onClick={onStop}
+                    onClick={isPaused ? onResume : onPause}
                     className="px-8 py-3 max-lg:px-6 max-lg:py-2.5 rounded-xl border border-outline text-on-surface font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.12em] hover:bg-surface-container-low transition-colors"
                   >
-                    Pause
+                    {isPaused ? 'Resume' : 'Pause'}
                   </button>
                   <button
                     type="button"

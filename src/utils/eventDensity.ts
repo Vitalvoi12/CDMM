@@ -136,8 +136,3 @@ export function eventResizeZone(height: number, isMobile = false): ResizeZone {
   if (height >= grab * 2.2) return { height: grab, offset: 0 };
   return { height: grab, offset: -Math.round(grab / 2) };
 }
-
-/** Whether the "HH:MM – now" range of the live block still fits beside the title. */
-export function showsLiveRange(height: number, isMobile = false): boolean {
-  return height >= (isMobile ? 14 : 20);
-}
