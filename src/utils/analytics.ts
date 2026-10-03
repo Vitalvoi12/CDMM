@@ -287,7 +287,6 @@ export const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export interface RhythmCell {
   minutes: number;
-  sessions: number;
 }
 
 export interface Rhythm {
@@ -301,7 +300,7 @@ export interface Rhythm {
 
 export function buildRhythm(slices: FocusSlice[]): Rhythm {
   const cells: RhythmCell[][] = Array.from({ length: 7 }, () =>
-    Array.from({ length: 24 }, () => ({ minutes: 0, sessions: 0 }))
+    Array.from({ length: 24 }, () => ({ minutes: 0 }))
   );
   let maxMinutes = 0;
   let totalMinutes = 0;
@@ -309,12 +308,13 @@ export function buildRhythm(slices: FocusSlice[]): Rhythm {
   for (const s of slices) {
     const d = new Date(`${s.date}T00:00:00`);
     const weekday = (d.getDay() + 6) % 7;
-    const cell = cells[weekday][Math.min(23, Math.max(0, s.hour))];
+    const hour = Math.min(23, Math.max(0, s.hour));
+    // Time only: a 40-minute and a 3-hour session both weigh what they cost.
+    const cell = cells[weekday][hour];
     cell.minutes += s.minutes;
-    if (s.sessionStart) cell.sessions += 1;
     totalMinutes += s.minutes;
     if (cell.minutes > maxMinutes) maxMinutes = cell.minutes;
-    if (!peak || cell.minutes > peak.minutes) peak = { weekday, hour: s.hour, minutes: cell.minutes };
+    if (!peak || cell.minutes > peak.minutes) peak = { weekday, hour, minutes: cell.minutes };
   }
   return { cells, maxMinutes, totalMinutes, peak };
 }
@@ -473,6 +473,8 @@ export interface PlanStabilityEvent {
   subjectId: string;
   /** Planned time this block gave up, in minutes. */
   lostMinutes: number;
+  /** The block was removed outright rather than shortened. */
+  deleted: boolean;
   lastAt: number;
 }
 
@@ -508,18 +510,58 @@ function durationMinutes(start: string, end: string): number {
 }
 
 /**
+ * How long a freshly created block is given before its corrections count.
+ *
+ * Right after creating a block people nudge it — a few minutes later they fix
+ * the hour they mis-typed. Those edits are part of making the plan, not a sign
+ * of an unstable one, so the first ten minutes are ignored. Everything else
+ * about the event (statistics, sync, the calendar) behaves exactly as before.
+ */
+export const PLAN_FIX_WINDOW_MS = 10 * 60 * 1000;
+
+/** One block's fixed length and everything it gave up after being fixed. */
+interface PlanStabilityWalk {
+  eventId: string;
+  subjectId: string;
+  title: string;
+  deleted: boolean;
+  fixedMinutes: number;
+  lostMinutes: number;
+  lastAt: number;
+}
+
+/**
+ * True once a change is far enough from its block's creation to be a real
+ * correction. Events created before the stamp existed — and events that have
+ * since been deleted, where the creation time is simply unknown — are never
+ * inside a grace period, so their history keeps counting as it did.
+ */
+function isPastFixWindow(
+  eventId: string,
+  at: number,
+  live: Map<string, CalendarEvent>
+): boolean {
+  const created = live.get(eventId)?.createdAt;
+  if (!created) return true;
+  const createdMs = new Date(created).getTime();
+  if (!Number.isFinite(createdMs)) return true;
+  return at >= createdMs + PLAN_FIX_WINDOW_MS;
+}
+
+/**
  * How much of the plan survived its own corrections.
  *
- * Stability is measured in planned TIME: every correction that makes a block
- * shorter takes minutes out of the plan, and those losses are summed per
- * subject and then across all subjects. A block that is merely moved to another
- * hour loses nothing, and a block that is made longer never counts against
- * stability — which is why nothing here is measured in clicks.
+ * Every planned block gets its length FIXED ten minutes after it is created —
+ * that is the plan this metric holds it to. From then on two things cost it:
+ * shortening the block, and deleting it (which costs everything it still held).
+ * Moving it to another hour costs nothing, and making it longer never helps
+ * either. Losses are summed per subject and then across all subjects, so the
+ * percentage is a share of planned time, not a count of edits.
  *
- * Only planned blocks count, and only ones included in statistics — swapping
- * the tasks inside a block, retitling it, re-colouring it or excluding it from
- * stats leaves the plan's length untouched, so none of that shows up here. A
- * finished focus session is not part of the plan at all.
+ * Nothing inside the first ten minutes counts: whatever the block looks like
+ * when the clock runs out is simply what it was planned to be. Events created
+ * before this stamp existed — and events that have since been deleted, whose
+ * creation time is unknowable — are treated as fixed already.
  */
 export function calculatePlanStability(
   edits: EventTimeEdit[],
@@ -530,62 +572,74 @@ export function calculatePlanStability(
   const start = startOfDay(from).getTime();
   const end = endOfDay(to).getTime();
   const live = new Map(events.map((e) => [e.id, e]));
-  const inPeriod = edits.filter((ed) => {
-    if (ed.kind !== 'plan' || ed.countInStats === false) return false;
-    if (ed.at < start || ed.at > end) return false;
-    // A block excluded from stats after the fact stops counting too.
-    const now = live.get(ed.eventId);
-    return !now || now.countInStats !== false;
-  });
+  const eligible = edits
+    .filter((ed) => {
+      if (ed.kind !== 'plan' || ed.countInStats === false) return false;
+      if (ed.at < start || ed.at > end) return false;
+      // A block excluded from stats after the fact stops counting too.
+      const now = live.get(ed.eventId);
+      if (now && now.countInStats === false) return false;
+      return isPastFixWindow(ed.eventId, ed.at, live);
+    })
+    .sort((a, b) => a.at - b.at);
   const trackedSince = edits.length > 0 ? Math.min(...edits.map((e) => e.at)) : null;
 
-  const scheduled = new Set<string>();
-  for (const e of events) {
-    if ((e.kind ?? 'real') === 'plan' && e.countInStats !== false && overlapsPeriod(e, from, to)) {
-      scheduled.add(e.id);
-    }
-  }
-  // A block that was rescheduled and then deleted still belongs to the period.
-  for (const ed of inPeriod) scheduled.add(ed.eventId);
-
-  const byEvent = new Map<string, PlanStabilityEvent>();
-  /** A block's length before its FIRST recorded change — its original plan. */
-  const originalMinutes = new Map<string, number>();
-  let lostMinutes = 0;
-  const lostBySubject = new Map<string, number>();
-
-  for (const ed of inPeriod) {
+  // Walk each block's own history: its first eligible entry is the length it
+  // was fixed with, and every entry after that moves that length.
+  const walks = new Map<string, PlanStabilityWalk>();
+  for (const ed of eligible) {
     const before = durationMinutes(ed.fromStart, ed.fromEnd);
     const after = durationMinutes(ed.toStart, ed.toEnd);
-    const loss = Math.max(0, before - after);
-    if (!originalMinutes.has(ed.eventId)) originalMinutes.set(ed.eventId, before);
-    if (loss <= 0) continue;
-
-    const row =
-      byEvent.get(ed.eventId) ||
-      ({
+    // Removing a fixed block costs everything it still held; shortening it
+    // costs only what the shortening actually took away.
+    const loss = ed.deleted ? before : Math.max(0, before - after);
+    const walk = walks.get(ed.eventId);
+    if (walk) {
+      walk.lostMinutes += loss;
+      walk.deleted = walk.deleted || !!ed.deleted;
+      walk.lastAt = Math.max(walk.lastAt, ed.at);
+    } else {
+      walks.set(ed.eventId, {
         eventId: ed.eventId,
-        title: ed.title,
         subjectId: ed.subjectId,
-        lostMinutes: 0,
-        lastAt: 0,
-      } satisfies PlanStabilityEvent);
-    row.lostMinutes += loss;
-    row.lastAt = Math.max(row.lastAt, ed.at);
-    byEvent.set(ed.eventId, row);
-
-    lostMinutes += loss;
-    lostBySubject.set(ed.subjectId, (lostBySubject.get(ed.subjectId) || 0) + loss);
+        title: ed.title,
+        deleted: !!ed.deleted,
+        fixedMinutes: before,
+        lostMinutes: loss,
+        lastAt: ed.at,
+      });
+    }
   }
 
-  // The plan the period started with: every scheduled block at its original
-  // length where we know it, otherwise at the length it still has today.
   let plannedMinutes = 0;
-  for (const id of scheduled) {
-    const event = live.get(id);
-    const original = originalMinutes.get(id);
-    if (original !== undefined) plannedMinutes += original;
-    else if (event) plannedMinutes += durationMinutes(event.start, event.end);
+  let lostMinutes = 0;
+  const lostBySubject = new Map<string, number>();
+  const top: PlanStabilityEvent[] = [];
+  for (const walk of walks.values()) {
+    plannedMinutes += walk.fixedMinutes;
+    // A block can never give up more than it was fixed with: growing it and
+    // then cutting it back must not book a loss larger than the plan itself.
+    const lost = Math.min(walk.lostMinutes, walk.fixedMinutes);
+    if (lost <= 0) continue;
+    lostMinutes += lost;
+    lostBySubject.set(walk.subjectId, (lostBySubject.get(walk.subjectId) || 0) + lost);
+    top.push({
+      eventId: walk.eventId,
+      title: walk.title,
+      subjectId: walk.subjectId,
+      deleted: walk.deleted,
+      lostMinutes: lost,
+      lastAt: walk.lastAt,
+    });
+  }
+  top.sort((a, b) => b.lostMinutes - a.lostMinutes || b.lastAt - a.lastAt);
+
+  // Blocks nobody ever touched still belong to the plan, at the length they
+  // stand at today.
+  for (const e of events) {
+    if ((e.kind ?? 'real') !== 'plan' || e.countInStats === false) continue;
+    if (walks.has(e.id) || !overlapsPeriod(e, from, to)) continue;
+    plannedMinutes += durationMinutes(e.start, e.end);
   }
 
   const stability =
@@ -602,7 +656,7 @@ export function calculatePlanStability(
     bySubject: [...lostBySubject.entries()]
       .map(([subjectId, minutes]) => ({ subjectId, lostMinutes: minutes }))
       .sort((a, b) => b.lostMinutes - a.lostMinutes),
-    top: [...byEvent.values()].sort((a, b) => b.lostMinutes - a.lostMinutes || b.lastAt - a.lastAt),
+    top,
     trackedSince,
   };
 }

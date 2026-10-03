@@ -11,18 +11,23 @@ import {
 } from '../../utils/analytics';
 import { EmptyState, Section, anchorOf, Tooltip } from './StatParts';
 
-interface StudyRhythmHeatmapProps {
+interface TimeHeatmapProps {
   rhythm: Rhythm;
   periodLabel: string;
 }
 
 /**
- * When study time actually lands: one row per hour of the day against the seven
- * weekdays. Same intensity scale as the activity calendar, so a cell here and a
- * day there are read the same way. Hour labels appear every third row — enough
- * to orient, not enough to turn the grid into a wall of digits.
+ * When study time lands: one row per hour of the day against the seven weekdays,
+ * counted purely in studied time. Same intensity scale as the activity
+ * calendar, so a cell here and a day there are read the same way. Hour labels
+ * appear every third row — enough to orient, not enough to turn the grid into a
+ * wall of digits.
+ *
+ * Deliberately motionless: a 24×7 field that reflows on hover reads as flicker,
+ * so the cells neither animate nor scale, and the section skips the page's
+ * entrance animation.
  */
-export function StudyRhythmHeatmap({ rhythm, periodLabel }: StudyRhythmHeatmapProps) {
+export function TimeHeatmap({ rhythm, periodLabel }: TimeHeatmapProps) {
   const [hover, setHover] = useState<{
     cell: RhythmCell;
     label: string;
@@ -34,7 +39,7 @@ export function StudyRhythmHeatmap({ rhythm, periodLabel }: StudyRhythmHeatmapPr
 
   if (rhythm.totalMinutes === 0) {
     return (
-      <Section title="When you study" delay={240}>
+      <Section title="Time heatmap" delay={240} still>
         <EmptyState
           text="No study hours in this period"
           hint={`${periodLabel} holds no focus sessions, so there is no rhythm to show yet.`}
@@ -48,8 +53,9 @@ export function StudyRhythmHeatmap({ rhythm, periodLabel }: StudyRhythmHeatmapPr
 
   return (
     <Section
-      title="When you study"
+      title="Time heatmap"
       delay={240}
+      still
       aside={
         peak ? (
           <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
@@ -88,7 +94,7 @@ export function StudyRhythmHeatmap({ rhythm, periodLabel }: StudyRhythmHeatmapPr
                       key={weekday}
                       type="button"
                       aria-label={`${range}: ${cell.minutes} minutes`}
-                      className={`h-[13px] rounded-[3px] border border-outline/60 transition-transform hover:scale-[1.35] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      className={`no-press transition-none active:transform-none h-[13px] rounded-[3px] border border-outline/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                         heatmapCellClass(rhythmLevel(cell.minutes, rhythm.maxMinutes))
                       } ${picked?.label === range ? 'ring-2 ring-primary' : ''}`}
                       onMouseEnter={(e) => setHover({ cell, label: range, ...anchorOf(e.currentTarget) })}
@@ -106,9 +112,7 @@ export function StudyRhythmHeatmap({ rhythm, periodLabel }: StudyRhythmHeatmapPr
         <p className="font-body-sm text-body-sm text-on-surface-variant mt-3 min-h-[16px]">
           {active
             ? `${active.label} — ${
-                active.cell.minutes > 0
-                  ? `${formatDurationLong(active.cell.minutes)} · ${active.cell.sessions} session${active.cell.sessions === 1 ? '' : 's'}`
-                  : 'nothing'
+                active.cell.minutes > 0 ? formatDurationLong(active.cell.minutes) : 'nothing'
               }`
             : 'Hover or tap a cell for the exact time.'}
         </p>
@@ -118,9 +122,7 @@ export function StudyRhythmHeatmap({ rhythm, periodLabel }: StudyRhythmHeatmapPr
         <Tooltip x={hover.x} y={hover.y} below={hover.below}>
           <p className="font-label-sm text-label-sm font-semibold whitespace-nowrap">{hover.label}</p>
           <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
-            {hover.cell.minutes > 0
-              ? `${formatDurationLong(hover.cell.minutes)} · ${hover.cell.sessions} session${hover.cell.sessions === 1 ? '' : 's'}`
-              : 'No study'}
+            {hover.cell.minutes > 0 ? formatDurationLong(hover.cell.minutes) : 'No study'}
           </p>
         </Tooltip>
       )}

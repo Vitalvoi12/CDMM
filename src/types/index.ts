@@ -51,6 +51,16 @@ export interface CalendarEvent {
    * Travels inside the synced record, so all devices see the same list.
    */
   checklist?: EventChecklistItem[];
+  /**
+   * ISO time the event was first written. Absent on events created before this
+   * field existed (and on imported ones that predate it).
+   *
+   * Used by plan stability to give a freshly created block a short grace period
+   * before its corrections start counting — the seconds spent fixing a typo in
+   * the slot you just made are not a sign of an unstable plan. Nothing else
+   * reads it: statistics and sync are unaffected.
+   */
+  createdAt?: string;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;
 }
@@ -86,6 +96,12 @@ export interface EventTimeEdit {
    * plan stability even after it has been deleted.
    */
   countInStats?: boolean;
+  /**
+   * The block was deleted rather than moved. Its `from*` still carries the
+   * length it held, which is the loss plan stability counts — without such an
+   * entry a deleted block would leave no trace of how much plan went with it.
+   */
+  deleted?: boolean;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;
 }

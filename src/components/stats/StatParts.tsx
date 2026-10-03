@@ -6,6 +6,8 @@ interface SectionProps {
   aside?: ReactNode;
   children: ReactNode;
   delay?: number;
+  /** Opt out of the entrance animation (dense, grid-like blocks). */
+  still?: boolean;
 }
 
 /**
@@ -13,9 +15,12 @@ interface SectionProps {
  * rhythm of the spacing and the entrance animation here is what makes the page
  * read as a single analytical screen instead of a pile of unrelated cards.
  */
-export function Section({ title, aside, children, delay = 0 }: SectionProps) {
+export function Section({ title, aside, children, delay = 0, still = false }: SectionProps) {
   return (
-    <section className="mb-12 animate-fade-up" style={{ animationDelay: `${delay}ms` }}>
+    <section
+      className={`mb-12 ${still ? '' : 'animate-fade-up'}`}
+      style={still ? undefined : { animationDelay: `${delay}ms` }}
+    >
       <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
         <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
           {title}

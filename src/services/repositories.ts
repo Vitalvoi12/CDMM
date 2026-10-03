@@ -1,6 +1,7 @@
 import type {
   Subject, CalendarEvent, UserSettings, TodoTask, ThemeMode, SyncedSession, EventTimeEdit,
 } from '../types';
+import { PLAN_FIX_WINDOW_MS } from '../utils/analytics';
 
 export type SyncEntity = 'subjects' | 'events' | 'todos' | 'eventEdits';
 
@@ -494,6 +495,42 @@ function recordTimeChange(prev: CalendarEvent, next: CalendarEvent): void {
   });
 }
 
+/**
+ * Log the removal of a planned block, so plan stability can charge its whole
+ * length as lost. Same skip list as `recordTimeChange`: real sessions are not
+ * part of the plan, and an excluded block was never counted.
+ *
+ * Undo restores records through `replaceAll`, which never logs, so reverting a
+ * deletion does not also undo the loss it booked.
+ *
+ * A block removed inside its grace period is skipped here rather than in the
+ * statistics: once the event is gone nothing remembers when it was created, and
+ * the rule is that a length which never got fixed was never committed — so it
+ * leaves no entry and no loss. `PLAN_FIX_WINDOW_MS` is imported from the
+ * analytics so the window is defined in exactly one place.
+ */
+function recordDeletion(event: CalendarEvent): void {
+  if (event.kind !== 'plan' || event.countInStats === false) return;
+  if (!Number.isFinite(new Date(event.start).getTime())) return;
+  if (!Number.isFinite(new Date(event.end).getTime())) return;
+  if (event.createdAt) {
+    const createdMs = new Date(event.createdAt).getTime();
+    if (Number.isFinite(createdMs) && Date.now() < createdMs + PLAN_FIX_WINDOW_MS) return;
+  }
+  eventEditRepo.record({
+    eventId: event.id,
+    fromStart: event.start,
+    fromEnd: event.end,
+    toStart: event.start,
+    toEnd: event.end,
+    title: event.title,
+    subjectId: event.subjectId,
+    kind: 'plan',
+    countInStats: true,
+    deleted: true,
+  });
+}
+
 class EventRepository {
   private events: CalendarEvent[] = load<CalendarEvent[]>(STORAGE_KEYS.events, []);
 
@@ -505,12 +542,16 @@ class EventRepository {
     return this.events.find((e) => e.id === id);
   }
 
-  create(event: Omit<CalendarEvent, 'id' | 'uid' | 'updatedAt'> & { id?: string; uid?: string }): CalendarEvent {
+  create(event: Omit<CalendarEvent, 'id' | 'uid' | 'updatedAt'> & { id?: string; uid?: string; createdAt?: string }): CalendarEvent {
     const id = event.id || genId();
     const newEvent: CalendarEvent = {
       ...event,
       id,
       uid: event.uid || `evt-${id}@cdmm`,
+      // Stamped once, never touched again: it is the anchor for the plan-
+      // stability grace period. A re-create with a known id (a closed session
+      // overwriting its placeholder) keeps the original stamp.
+      createdAt: event.createdAt || new Date().toISOString(),
       updatedAt: Date.now(),
     };
     // A closed session writes an event keyed by the session id, so two devices
@@ -550,10 +591,15 @@ class EventRepository {
   }
 
   delete(id: string): boolean {
+    const idx = this.events.findIndex((e) => e.id === id);
+    if (idx === -1) return false;
+    // A fixed planned block that disappears takes its whole length with it.
+    // Record that, or plan stability would never know what was lost.
+    recordDeletion(this.events[idx]);
     const before = this.events.length;
     this.events = this.events.filter((e) => e.id !== id);
-    save(STORAGE_KEYS.events, this.events);
     if (this.events.length < before) {
+      save(STORAGE_KEYS.events, this.events);
       emitRepoChange();
       return true;
     }

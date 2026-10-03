@@ -1,4 +1,4 @@
-import type { PlanStability } from '../../utils/analytics';
+import { PLAN_FIX_WINDOW_MS, type PlanStability } from '../../utils/analytics';
 import type { Subject } from '../../types';
 import { EmptyState, Section, StatTile } from './StatParts';
 import { formatDuration } from '../../utils/time';
@@ -136,9 +136,6 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel }: PlanStabi
               {stats.top.slice(0, 5).map((row) => {
                 const subject = subjectMap[row.subjectId];
                 const color = subject?.color || 'var(--color-on-surface-variant)';
-                const percent = stats.lostMinutes > 0
-                  ? (row.lostMinutes / stats.lostMinutes) * 100
-                  : 0;
                 return (
                   <div
                     key={row.eventId}
@@ -151,10 +148,12 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel }: PlanStabi
                     <span className="font-body-sm text-body-sm text-on-surface truncate flex-1 min-w-0">
                       {row.title || 'Untitled block'}
                     </span>
-                    <span className="font-label-sm text-label-sm text-on-surface-variant tabular-nums flex-shrink-0 w-8 text-right">
-                      {Math.round(percent)}%
-                    </span>
-                    <span className="font-label-md text-label-md text-on-surface tabular-nums flex-shrink-0 w-20 text-right whitespace-nowrap">
+                    {row.deleted && (
+                      <span className="font-label-sm text-label-sm text-on-surface-variant flex-shrink-0">
+                        deleted
+                      </span>
+                    )}
+                    <span className="font-label-md text-label-md text-on-surface tabular-nums flex-shrink-0 w-20 text-right whitespace-nowrap ml-auto">
                       −{formatDuration(row.lostMinutes)}
                     </span>
                   </div>
@@ -165,10 +164,11 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel }: PlanStabi
         )}
 
         <p className="font-body-sm text-body-sm text-on-surface-variant">
-          Counts only the planned minutes a correction took away — shortening a
-          block, or replacing it with a shorter one. Moving it to another hour
-          costs nothing, and swapping tasks, retitling or excluding a block from
-          statistics does not count at all
+          A block's length is fixed {Math.round(PLAN_FIX_WINDOW_MS / 60000)}{' '}
+          minutes after it is created, and from then on two things cost plan
+          time: shortening it and deleting it. Moving it to another hour costs
+          nothing, and swapping tasks, retitling or excluding it from statistics
+          does not count at all
           {stats.trackedSince
             ? ` · tracking since ${new Date(stats.trackedSince).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
             : ''}
