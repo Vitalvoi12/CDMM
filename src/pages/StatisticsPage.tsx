@@ -1,201 +1,94 @@
-import { useReducer } from 'react';
+import { useCallback, useReducer } from 'react';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { useStudyStatistics } from '../hooks/useStudyStatistics';
-import { formatDurationLong, formatDuration } from '../utils/time';
-import { StudyHeatmap } from '../components/stats/heatmap/StudyHeatmap';
-import { HeatmapRangeSelect } from '../components/stats/heatmap/HeatmapRangeSelect';
-import { DailyActivityChart } from '../components/stats/DailyActivityChart';
-import { SubjectTable } from '../components/stats/SubjectTable';
+import { useStatisticsPeriod } from '../hooks/useStatisticsPeriod';
+import { formatDurationLong } from '../utils/time';
+import { PeriodSelect } from '../components/stats/PeriodSelect';
+import { SubjectBreakdown } from '../components/stats/SubjectBreakdown';
+import { FocusTimeChart } from '../components/stats/FocusTimeChart';
+import { StudyRhythmHeatmap } from '../components/stats/StudyRhythmHeatmap';
+import { ConsistencyPanel } from '../components/stats/ConsistencyPanel';
+import { TaskStatsPanel } from '../components/stats/TaskStatsPanel';
+import { PlanStabilityPanel } from '../components/stats/PlanStabilityPanel';
 
-const WEEKDAY_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
+/**
+ * One screen, one period. The header picks the range and every block below
+ * recomputes from it, so subjects, focus time, rhythm, consistency, tasks and
+ * plan stability always describe the same window.
+ */
 export function StatisticsPage() {
   const [, forceRefresh] = useReducer((x: number) => x + 1, 0);
-  useSyncRefresh(forceRefresh);
-  const {
-    rangeMode,
-    heatmapRange,
-    availableYears,
-    pickYear,
-    pickRolling,
-    heatmapDays,
-    yearStats,
-    weekDate,
-    goToPrevWeek,
-    goToNextWeek,
-    weekStats,
-    subjFrom,
-    subjTo,
-    setSubjFrom,
-    setSubjTo,
-    periodLabel,
-    subjectStats,
-    subjectMap,
-  } = useStudyStatistics();
+  const refresh = useCallback(() => forceRefresh(), []);
+  useSyncRefresh(refresh);
 
-  const weekStart = new Date(weekDate.getFullYear(), weekDate.getMonth(), weekDate.getDate() - ((weekDate.getDay() + 6) % 7));
-  const bestDayIdx = weekStats.dailyMinutes.indexOf(Math.max(...weekStats.dailyMinutes));
-  const mostStudied = yearStats.bestDay
-    ? new Date(
-        Number(yearStats.bestDay.date.slice(0, 4)),
-        Number(yearStats.bestDay.date.slice(5, 7)) - 1,
-        Number(yearStats.bestDay.date.slice(8, 10))
-      )
-    : null;
+  const {
+    preset,
+    setPreset,
+    metric,
+    setMetric,
+    period,
+    customFrom,
+    customTo,
+    setCustom,
+    subjectMap,
+    subjectRows,
+    totalMinutes,
+    totalSessions,
+    days,
+    bucketSize,
+    buckets,
+    rhythm,
+    consistency,
+    tasks,
+    stability,
+  } = useStatisticsPeriod();
+
+  const averageMinutes = buckets.length > 0 ? totalMinutes / buckets.length : 0;
 
   return (
     <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
-      {/* Heatmap range picker */}
-      <div className="flex items-end justify-between mb-8 animate-fade-up">
-        <div>
-          <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Statistics</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant">
-            Study activity · {heatmapRange.label}
-          </p>
+      <div className="mb-8 animate-fade-up">
+        <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Statistics</h1>
+        <p className="font-body-lg text-body-lg text-on-surface-variant">
+          {totalMinutes > 0
+            ? `${formatDurationLong(totalMinutes)} of focus time · ${totalSessions} session${totalSessions === 1 ? '' : 's'} · ${period.label}`
+            : period.label}
+        </p>
+        <div className="mt-6">
+          <PeriodSelect
+            preset={preset}
+            onChange={setPreset}
+            customFrom={customFrom}
+            customTo={customTo}
+            onCustomChange={setCustom}
+          />
         </div>
-        <HeatmapRangeSelect
-          mode={rangeMode}
-          year={heatmapRange.mode === 'year' ? heatmapRange.from.getFullYear() : new Date().getFullYear()}
-          availableYears={availableYears}
-          onPickRolling={pickRolling}
-          onPickYear={pickYear}
-        />
       </div>
 
-      {/* Study activity */}
-      <section className="mb-12 animate-fade-up" style={{ animationDelay: '80ms' }}>
-        <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
-          <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
-            Study activity
-          </h2>
-        </div>
-        {/* Keyed by range so switching year/period replays a soft fade. */}
-        <div key={heatmapRange.label} className="animate-fade-in">
-          <StudyHeatmap days={heatmapDays} range={heatmapRange} />
-        </div>
-      </section>
+      <SubjectBreakdown
+        rows={subjectRows}
+        metric={metric}
+        onMetricChange={setMetric}
+        totalMinutes={totalMinutes}
+        totalSessions={totalSessions}
+        periodLabel={period.label}
+      />
 
-      {/* Summary */}
-      <section className="mb-12 animate-fade-up" style={{ animationDelay: '160ms' }}>
-        <div className="grid grid-cols-2 max-lg:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { value: formatDurationLong(yearStats.totalMinutes), label: 'Total study' },
-            { value: String(yearStats.activeDays), label: 'Active days' },
-            { value: String(yearStats.sessionCount), label: 'Sessions' },
-            { value: formatDuration(yearStats.averageSessionMinutes), label: 'Average session' },
-          ].map((m, i) => (
-            <div
-              key={m.label}
-              style={{ animationDelay: `${200 + i * 70}ms` }}
-              className="border-l-2 border-outline-variant pl-4 animate-fade-up"
-            >
-              <p className="font-headline-md text-headline-md text-on-surface tabular-nums">{m.value}</p>
-              <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mt-1">
-                {m.label}
-              </p>
-            </div>
-          ))}
-        </div>
-        <p className="font-body-sm text-body-sm text-on-surface-variant mt-6">
-          {mostStudied
-            ? `Best day ${mostStudied.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} · ${formatDurationLong(yearStats.bestDay!.minutes)} · Longest streak ${yearStats.longestStreakDays} day${yearStats.longestStreakDays === 1 ? '' : 's'}`
-            : 'No study recorded in this period yet.'}
-        </p>
-      </section>
+      <FocusTimeChart
+        buckets={buckets}
+        size={bucketSize}
+        averageMinutes={averageMinutes}
+        totalMinutes={totalMinutes}
+        totalSessions={totalSessions}
+        periodLabel={period.label}
+      />
 
-      {/* Daily study time + weekly overview */}
-      <section className="mb-12 animate-fade-up" style={{ animationDelay: '240ms' }}>
-        <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
-          <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
-            Daily study time
-          </h2>
-          <div className="flex gap-2 items-center">
-            <button
-              onClick={goToPrevWeek}
-              aria-label="Previous week"
-              className="w-9 h-9 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
-            >
-              <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-            </button>
-            <span className="font-label-md text-label-md text-on-surface tabular-nums">
-              {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} –{' '}
-              {new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            </span>
-            <button
-              onClick={goToNextWeek}
-              aria-label="Next week"
-              className="w-9 h-9 flex items-center justify-center rounded bg-surface-container hover:bg-surface-container-high transition-colors text-on-surface"
-            >
-              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-            </button>
-          </div>
-        </div>
+      <StudyRhythmHeatmap rhythm={rhythm} periodLabel={period.label} />
 
-        <div className="bg-surface-container rounded-2xl border border-outline-variant shadow-elev-1 p-6 mb-6">
-          <DailyActivityChart dailyMinutes={weekStats.dailyMinutes} />
-        </div>
+      <ConsistencyPanel stats={consistency} days={days} periodLabel={period.label} />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { label: 'Total', value: formatDurationLong(weekStats.totalMinutes) },
-            { label: 'Average', value: `${formatDuration(weekStats.dailyAverage)}/day` },
-            {
-              label: 'Active',
-              value: `${weekStats.dailyMinutes.filter((m) => m > 0).length} / 7 days`,
-            },
-            {
-              label: 'Best day',
-              value:
-                weekStats.totalMinutes > 0
-                  ? `${WEEKDAY_FULL[(bestDayIdx + 1) % 7]} · ${formatDurationLong(weekStats.dailyMinutes[bestDayIdx])}`
-                  : '—',
-            },
-          ].map((m) => (
-            <div key={m.label} className="border-l-2 border-outline-variant pl-4">
-              <p className="font-body-md text-body-md text-on-surface font-semibold tabular-nums">{m.value}</p>
-              <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mt-1">
-                {m.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <TaskStatsPanel stats={tasks} subjectMap={subjectMap} periodLabel={period.label} />
 
-      {/* Subjects by custom period (calendar range) */}
-      <section className="mb-4 animate-fade-up" style={{ animationDelay: '320ms' }}>
-        <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
-          <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
-            Subjects · {periodLabel}
-          </h2>
-          <div className="flex gap-2 items-center flex-wrap" aria-label="Subject statistics period">
-            <label className="flex items-center gap-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.12em]">
-              From
-              <input
-                type="date"
-                value={subjFrom}
-                max={subjTo}
-                onChange={(e) => setSubjFrom(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-outline-variant bg-surface-container-low text-on-surface font-body-sm text-body-sm normal-case tracking-normal [color-scheme:light] dark:[color-scheme:dark]"
-              />
-            </label>
-            <label className="flex items-center gap-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.12em]">
-              To
-              <input
-                type="date"
-                value={subjTo}
-                min={subjFrom}
-                onChange={(e) => setSubjTo(e.target.value)}
-                className="px-3 py-1.5 rounded-xl border border-outline-variant bg-surface-container-low text-on-surface font-body-sm text-body-sm normal-case tracking-normal [color-scheme:light] dark:[color-scheme:dark]"
-              />
-            </label>
-          </div>
-        </div>
-        {subjectStats.length > 0 ? (
-          <SubjectTable subjectStats={subjectStats} subjectMap={subjectMap} />
-        ) : (
-          <p className="font-body-sm text-body-sm text-on-surface-variant">No sessions in this period yet.</p>
-        )}
-      </section>
+      <PlanStabilityPanel stats={stability} subjectMap={subjectMap} periodLabel={period.label} />
     </div>
   );
 }

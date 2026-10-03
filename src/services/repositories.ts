@@ -1,8 +1,8 @@
 import type {
-  Subject, CalendarEvent, UserSettings, TodoTask, ThemeMode, SyncedSession,
+  Subject, CalendarEvent, UserSettings, TodoTask, ThemeMode, SyncedSession, EventTimeEdit,
 } from '../types';
 
-export type SyncEntity = 'subjects' | 'events' | 'todos';
+export type SyncEntity = 'subjects' | 'events' | 'todos' | 'eventEdits';
 
 export interface Tombstone {
   entity: SyncEntity;
@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
   settings: 'cdmm.settings',
   tombstones: 'cdmm.tombstones',
   todos: 'cdmm.todos',
+  eventEdits: 'cdmm.eventEdits',
   dirty: 'cdmm.dirty',
   settingsDirty: 'cdmm.settingsDirty',
 } as const;
@@ -107,21 +108,27 @@ function unmarkDirty(entries: string[]): void {
   persistDirty(d);
 }
 
-export function takeDirtySnapshot(): { subjects: string[]; events: string[]; todos: string[] } {
-  const out = { subjects: [] as string[], events: [] as string[], todos: [] as string[] };
+export function takeDirtySnapshot(): {
+  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[];
+} {
+  const out = {
+    subjects: [] as string[], events: [] as string[], todos: [] as string[], eventEdits: [] as string[],
+  };
   for (const e of loadDirty()) {
     const [entity, ...rest] = e.split(':');
     const key = rest.join(':');
-    if (entity === 'subjects' || entity === 'events' || entity === 'todos') {
+    if (entity === 'subjects' || entity === 'events' || entity === 'todos' || entity === 'eventEdits') {
       (out[entity] as string[]).push(key);
     }
   }
   return out;
 }
 
-export function clearDirtySnapshot(keys: { subjects: string[]; events: string[]; todos: string[] }): void {
+export function clearDirtySnapshot(keys: {
+  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[];
+}): void {
   const entries: string[] = [];
-  for (const entity of ['subjects', 'events', 'todos'] as const) {
+  for (const entity of ['subjects', 'events', 'todos', 'eventEdits'] as const) {
     for (const k of keys[entity]) entries.push(`${entity}:${k}`);
   }
   unmarkDirty(entries);
@@ -137,6 +144,15 @@ export function markSettingsDirty(): void {
 
 const CHECKLIST_BACKFILL_KEY = 'cdmm.checklist-backfill-v1';
 const SUBJECTS_BACKFILL_KEY = 'cdmm.subjects-backfill-v1';
+
+/**
+ * Safety limits for the plan-stability log: two years of history (the longest
+ * selectable period is a year) and a hard entry count so localStorage can never
+ * grow without bound. Hitting either one is visible in the UI — the "tracking
+ * since" line is derived from the oldest surviving entry.
+ */
+const MAX_EDIT_LOG = 4000;
+const EDIT_LOG_MAX_AGE_MS = 730 * 24 * 60 * 60 * 1000;
 
 /**
  * One-time repair for checklists pushed while the server did not know the
@@ -264,13 +280,90 @@ class SubjectRepository {
   }
 }
 
+/**
+ * Optional columns arrive as explicit nulls on the wire (JSON drops undefined
+ * keys, so a cleared value has to travel as null). Normalize them back to
+ * `undefined` once, at the edge, and the rest of the app never sees a null.
+ */
+function cleanTodo(rec: TodoTask): TodoTask {
+  return {
+    ...rec,
+    description: rec.description ?? undefined,
+    dueDate: rec.dueDate ?? undefined,
+    estMinutes: rec.estMinutes ?? undefined,
+    subjectId: rec.subjectId || undefined,
+    completedAt: rec.completedAt ?? undefined,
+  };
+}
+
+/**
+ * The plan-stability log: an append-only record of every change that moved an
+ * event in the calendar. Entries are only written by local user edits (see
+ * EventRepository.update) — a change made on another device travels here as
+ * its own entry, so logging on sync would double-count it.
+ */
+class EventEditRepository {
+  private edits: EventTimeEdit[] = load<EventTimeEdit[]>(STORAGE_KEYS.eventEdits, []).filter(
+    (e) => e && typeof e.eventId === 'string' && Number.isFinite(e.at)
+  );
+
+  getAll(): EventTimeEdit[] {
+    return [...this.edits];
+  }
+
+  getById(id: string): EventTimeEdit | undefined {
+    return this.edits.find((e) => e.id === id);
+  }
+
+  record(entry: Omit<EventTimeEdit, 'id' | 'at' | 'updatedAt'>): EventTimeEdit {
+    const at = Date.now();
+    const edit: EventTimeEdit = { ...entry, id: genId(), at, updatedAt: at };
+    this.edits.push(edit);
+    // The log only feeds period statistics, and a year-old entry can no longer
+    // land in any of them — drop it instead of growing without bound.
+    const cutoff = at - EDIT_LOG_MAX_AGE_MS;
+    let kept = this.edits.filter((e) => e.at >= cutoff);
+    if (kept.length > MAX_EDIT_LOG) kept = kept.slice(-MAX_EDIT_LOG);
+    this.edits = kept;
+    save(STORAGE_KEYS.eventEdits, this.edits);
+    markDirty('eventEdits', edit.id);
+    return edit;
+  }
+
+  /** Apply a remote entry (LWW). Never marks dirty. */
+  applyRemote(rec: EventTimeEdit): boolean {
+    const idx = this.edits.findIndex((e) => e.id === rec.id);
+    if (idx === -1) {
+      this.edits.push(rec);
+      save(STORAGE_KEYS.eventEdits, this.edits);
+      return true;
+    }
+    if ((rec.updatedAt || 0) > (this.edits[idx].updatedAt || 0)) {
+      this.edits[idx] = rec;
+      save(STORAGE_KEYS.eventEdits, this.edits);
+      return true;
+    }
+    return false;
+  }
+
+  removeLocal(id: string): boolean {
+    const before = this.edits.length;
+    this.edits = this.edits.filter((e) => e.id !== id);
+    if (this.edits.length < before) {
+      save(STORAGE_KEYS.eventEdits, this.edits);
+      return true;
+    }
+    return false;
+  }
+
+  replaceAll(edits: EventTimeEdit[]): void {
+    this.edits = edits;
+    save(STORAGE_KEYS.eventEdits, this.edits);
+  }
+}
+
 class TodoRepository {
-  private todos: TodoTask[] = load<TodoTask[]>(STORAGE_KEYS.todos, []).map((t) => ({
-    ...t,
-    description: t.description ?? undefined,
-    dueDate: t.dueDate ?? undefined,
-    estMinutes: t.estMinutes ?? undefined,
-  }));
+  private todos: TodoTask[] = load<TodoTask[]>(STORAGE_KEYS.todos, []).map((t) => cleanTodo(t));
 
   getAll(): TodoTask[] {
     return [...this.todos];
@@ -296,14 +389,26 @@ class TodoRepository {
     return newTodo;
   }
 
+  /**
+   * `completedAt` is maintained here rather than in the UI: any path that
+   * ticks a task off (checkbox, quadrant dialog, undo of an unrelated edit)
+   * stamps the moment, and reopening clears it again. Statistics then read a
+   * real completion time instead of `updatedAt`, which any later edit — the
+   * due-date promotion included — would move.
+   */
   update(id: string, data: Partial<TodoTask>): TodoTask | undefined {
     const idx = this.todos.findIndex((t) => t.id === id);
     if (idx === -1) return undefined;
-    this.todos[idx] = { ...this.todos[idx], ...data, id, updatedAt: Date.now() };
+    const prev = this.todos[idx];
+    const next: TodoTask = { ...prev, ...data, id, updatedAt: Date.now() };
+    if (data.completed !== undefined && data.completed !== prev.completed) {
+      next.completedAt = data.completed ? data.completedAt || new Date().toISOString() : undefined;
+    }
+    this.todos[idx] = next;
     save(STORAGE_KEYS.todos, this.todos);
     markDirty('todos', id);
     emitRepoChange();
-    return this.todos[idx];
+    return next;
   }
 
   delete(id: string): boolean {
@@ -321,12 +426,7 @@ class TodoRepository {
   applyRemote(rec: TodoTask): boolean {
     // Optional columns arrive as explicit nulls on the wire; keep them out of
     // the in-memory model so `task.dueDate` stays a plain optional string.
-    const clean: TodoTask = {
-      ...rec,
-      description: rec.description ?? undefined,
-      dueDate: rec.dueDate ?? undefined,
-      estMinutes: rec.estMinutes ?? undefined,
-    };
+    const clean = cleanTodo(rec);
     const idx = this.todos.findIndex((t) => t.id === rec.id);
     if (idx === -1) {
       this.todos.push(clean);
@@ -355,6 +455,40 @@ class TodoRepository {
     this.todos = todos;
     save(STORAGE_KEYS.todos, this.todos);
   }
+}
+
+/**
+ * Log a write that moves a planned block to a different slot in the calendar —
+ * another day, another start, another end, a different duration.
+ *
+ * This is the exact line between "the plan moved" and "the content changed":
+ * adding a task inside a block, retitling it or recolouring it never shifts a
+ * timestamp, so those edits stay out of the plan-stability log. A drag or a
+ * resize commits here, which is why a move is counted once, at the moment the
+ * calendar actually changed.
+ *
+ * Finished focus sessions are skipped on purpose: they are what actually
+ * happened, not a plan, so correcting one is not a replan.
+ */
+function recordTimeChange(prev: CalendarEvent, next: CalendarEvent): void {
+  if (next.kind !== 'plan') return;
+  const fromStart = new Date(prev.start).getTime();
+  const fromEnd = new Date(prev.end).getTime();
+  const toStart = new Date(next.start).getTime();
+  const toEnd = new Date(next.end).getTime();
+  if (!Number.isFinite(fromStart) || !Number.isFinite(fromEnd)) return;
+  if (!Number.isFinite(toStart) || !Number.isFinite(toEnd)) return;
+  if (fromStart === toStart && fromEnd === toEnd) return;
+  eventEditRepo.record({
+    eventId: next.id,
+    fromStart: prev.start,
+    fromEnd: prev.end,
+    toStart: next.start,
+    toEnd: next.end,
+    title: next.title,
+    subjectId: next.subjectId,
+    kind: next.kind === 'plan' ? 'plan' : 'real',
+  });
 }
 
 class EventRepository {
@@ -390,14 +524,26 @@ class EventRepository {
     return newEvent;
   }
 
-  update(id: string, data: Partial<CalendarEvent>): CalendarEvent | undefined {
+  /**
+   * `restoring` marks a write that puts the record back the way it was — the
+   * editor's Cancel undoing a drag that auto-opened it. That rollback is not
+   * the user changing their plan, so it stays out of the plan-stability log.
+   */
+  update(
+    id: string,
+    data: Partial<CalendarEvent>,
+    opts?: { restoring?: boolean }
+  ): CalendarEvent | undefined {
     const idx = this.events.findIndex((e) => e.id === id);
     if (idx === -1) return undefined;
-    this.events[idx] = { ...this.events[idx], ...data, id, updatedAt: Date.now() };
+    const prev = this.events[idx];
+    const next: CalendarEvent = { ...prev, ...data, id, updatedAt: Date.now() };
+    if (!opts?.restoring) recordTimeChange(prev, next);
+    this.events[idx] = next;
     save(STORAGE_KEYS.events, this.events);
     markDirty('events', id);
     emitRepoChange();
-    return this.events[idx];
+    return next;
   }
 
   delete(id: string): boolean {
@@ -627,12 +773,14 @@ export const eventRepo = new EventRepository();
 export const settingsRepo = new SettingsRepository();
 export const tombstoneRepo = new TombstoneRepository();
 export const todoRepo = new TodoRepository();
+export const eventEditRepo = new EventEditRepository();
 
 /** Wipe all local data (logout / account switch). */
 export function clearAllLocalData(): void {
   subjectRepo.replaceAll([]);
   eventRepo.replaceAll([]);
   todoRepo.replaceAll([]);
+  eventEditRepo.replaceAll([]);
   tombstoneRepo.replaceAll([]);
   persistDirty(new Set());
   save(STORAGE_KEYS.settingsDirty, false);

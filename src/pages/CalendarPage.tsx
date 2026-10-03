@@ -575,11 +575,17 @@ export function CalendarPage() {
   const handleEditorCancel = useCallback(() => {
     // If this editor session followed a drag/resize, undo the committed change.
     if (editingEvent && dragUndo && dragUndo.id === editingEvent.id) {
-      eventRepo.update(dragUndo.id, {
-        start: dragUndo.start,
-        end: dragUndo.end,
-        recurrenceId: dragUndo.recurrenceId,
-      });
+      // A rollback, not a replan: the block ends up on the slot it started on,
+      // so it must not land in the plan-stability log as a second correction.
+      eventRepo.update(
+        dragUndo.id,
+        {
+          start: dragUndo.start,
+          end: dragUndo.end,
+          recurrenceId: dragUndo.recurrenceId,
+        },
+        { restoring: true }
+      );
       setDragUndo(null);
       refreshEvents();
     }

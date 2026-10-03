@@ -3,7 +3,16 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-const ENTITIES = ['subjects', 'events', 'todos'];
+// Entity names as they travel on the wire (the client mirrors them).
+const ENTITIES = ['subjects', 'events', 'todos', 'eventEdits'];
+
+/** Wire entity name -> SQL table. Only the plan-stability log differs. */
+const TABLE = {
+  subjects: 'subjects',
+  events: 'events',
+  todos: 'todos',
+  eventEdits: 'event_edits',
+};
 
 export function openDb(dir) {
   mkdirSync(dir, { recursive: true });
@@ -51,6 +60,21 @@ export function openDb(dir) {
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
+    CREATE TABLE IF NOT EXISTS event_edits (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      event_id TEXT NOT NULL DEFAULT '',
+      at INTEGER NOT NULL DEFAULT 0,
+      from_start TEXT NOT NULL DEFAULT '',
+      from_end TEXT NOT NULL DEFAULT '',
+      to_start TEXT NOT NULL DEFAULT '',
+      to_end TEXT NOT NULL DEFAULT '',
+      title TEXT NOT NULL DEFAULT '',
+      subject_id TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL DEFAULT 'real',
+      updated_at INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_event_edits_user ON event_edits(user_id);
     CREATE TABLE IF NOT EXISTS todos (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -60,6 +84,8 @@ export function openDb(dir) {
       urgent INTEGER NOT NULL DEFAULT 0,
       due_date TEXT,
       est_minutes INTEGER,
+      subject_id TEXT,
+      completed_at TEXT,
       completed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT '',
       updated_at INTEGER NOT NULL DEFAULT 0
@@ -118,6 +144,18 @@ export function openDb(dir) {
   } catch {
     // column already exists — ignore
   }
+  // Migration for the todo subject link (drives subject task statistics).
+  try {
+    db.exec('ALTER TABLE todos ADD COLUMN subject_id TEXT');
+  } catch {
+    // column already exists — ignore
+  }
+  // Migration for the todo completion timestamp (deadline statistics).
+  try {
+    db.exec('ALTER TABLE todos ADD COLUMN completed_at TEXT');
+  } catch {
+    // column already exists — ignore
+  }
   return db;
 }
 
@@ -160,6 +198,7 @@ export function getState(db, userId) {
     subjects: db.prepare('SELECT * FROM subjects WHERE user_id = ?').all(userId).map((r) => rowToPayload('subjects', r)),
     events: db.prepare('SELECT * FROM events WHERE user_id = ?').all(userId).map((r) => rowToPayload('events', r)),
     todos: db.prepare('SELECT * FROM todos WHERE user_id = ?').all(userId).map((r) => rowToPayload('todos', r)),
+    eventEdits: db.prepare('SELECT * FROM event_edits WHERE user_id = ?').all(userId).map((r) => rowToPayload('eventEdits', r)),
     tombstones: db.prepare('SELECT entity, key FROM tombstones WHERE user_id = ?').all(userId),
     settings,
     cursor: db.prepare('SELECT COALESCE(MAX(seq), 0) AS c FROM change_log WHERE user_id = ?').get(userId).c,
@@ -178,6 +217,15 @@ function rowToPayload(entity, row) {
   if (entity === 'subjects') {
     return { id: row.id, name: row.name, color: row.color, icon: row.icon, progress: row.progress, updatedAt: row.updated_at };
   }
+  if (entity === 'eventEdits') {
+    return {
+      id: row.id, eventId: row.event_id, at: row.at,
+      fromStart: row.from_start, fromEnd: row.from_end,
+      toStart: row.to_start, toEnd: row.to_end,
+      title: row.title, subjectId: row.subject_id,
+      kind: row.kind === 'plan' ? 'plan' : 'real', updatedAt: row.updated_at,
+    };
+  }
   if (entity === 'events') {
     return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), updatedAt: row.updated_at };
   }
@@ -186,6 +234,8 @@ function rowToPayload(entity, row) {
     important: row.important === 1, urgent: row.urgent === 1,
     dueDate: row.due_date,
     estMinutes: row.est_minutes == null ? undefined : row.est_minutes,
+    subjectId: row.subject_id || undefined,
+    completedAt: row.completed_at || undefined,
     completed: row.completed === 1,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
@@ -194,16 +244,20 @@ function rowToPayload(entity, row) {
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
   events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist'],
-  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'completed', 'created_at'],
+  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'subject_id', 'completed_at', 'completed', 'created_at'],
+  eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind'],
 };
 
 const FROM_CLIENT = {
   name: 'name', color: 'color', icon: 'icon', progress: 'progress',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
-  start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id', color: 'color',
+  start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id',
   countInStats: 'count_in_stats', checklist: 'checklist',
-  important: 'important', urgent: 'urgent', dueDate: 'due_date', estMinutes: 'est_minutes', completed: 'completed',
+  important: 'important', urgent: 'urgent', dueDate: 'due_date', estMinutes: 'est_minutes',
+  completedAt: 'completed_at', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
+  eventId: 'event_id', at: 'at',
+  fromStart: 'from_start', fromEnd: 'from_end', toStart: 'to_start', toEnd: 'to_end',
 };
 
 /**
@@ -236,14 +290,15 @@ export function applyChanges(db, userId, dirty) {
   const forced = [];
 
   const fullRow = (entity, id) => {
-    const row = db.prepare(`SELECT * FROM ${entity} WHERE id = ? AND user_id = ?`).get(id, userId);
+    const row = db.prepare(`SELECT * FROM ${TABLE[entity]} WHERE id = ? AND user_id = ?`).get(id, userId);
     return row ? { entity, key: id, deleted: false, payload: rowToPayload(entity, row) } : null;
   };
 
   const upsert = (entity, rec) => {
     if (!rec || typeof rec.id !== 'string' || !rec.id) return;
     const ts = Number(rec.updatedAt) > 0 ? Number(rec.updatedAt) : now;
-    const existing = db.prepare(`SELECT * FROM ${entity} WHERE id = ? AND user_id = ?`).get(rec.id, userId);
+    const table = TABLE[entity];
+    const existing = db.prepare(`SELECT * FROM ${table} WHERE id = ? AND user_id = ?`).get(rec.id, userId);
     if (existing && existing.updated_at > ts) {
       // Server copy is newer — keep it and force it back to the sender,
       // otherwise the sender diverges permanently.
@@ -264,6 +319,14 @@ export function applyChanges(db, userId, dirty) {
       let v = clientKey && Object.prototype.hasOwnProperty.call(rec, clientKey) ? rec[clientKey] : prev[col];
       if (col === 'important' || col === 'urgent' || col === 'completed') {
         v = v ? 1 : 0;
+      } else if (col === 'at') {
+        // Epoch column of the plan-stability log: never store a string.
+        v = Number(v) || 0;
+      } else if (col === 'subject_id' && v === null) {
+        // The subject link is optional and a client clears it by sending null.
+        // Older databases created the column NOT NULL, so normalize instead of
+        // failing the whole push over one nullable link.
+        v = '';
       } else if (col === 'kind') {
         v = v === 'plan' ? 'plan' : 'real';
       } else if (col === 'count_in_stats') {
@@ -279,7 +342,7 @@ export function applyChanges(db, userId, dirty) {
       } else if (v === undefined) {
         // Absent on a NEW record: nullable columns stay NULL so a later
         // partial update that omits them does not invent a value.
-        v = col === 'description' || col === 'icon' || col === 'due_date' || col === 'est_minutes' ? null : '';
+        v = col === 'description' || col === 'icon' || col === 'due_date' || col === 'est_minutes' || col === 'completed_at' ? null : '';
       }
       colVals[col] = v;
     }
@@ -287,7 +350,7 @@ export function applyChanges(db, userId, dirty) {
     const params = [rec.id, userId, ...COLS[entity].map((c) => colVals[c]), ts];
     const updates = [...COLS[entity].map((c) => `${c} = excluded.${c}`), 'updated_at = excluded.updated_at'];
     db.prepare(
-      `INSERT INTO ${entity} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})
+      `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})
        ON CONFLICT(id) DO UPDATE SET ${updates.join(', ')}`
     ).run(...params);
     logChange(
@@ -306,7 +369,8 @@ export function applyChanges(db, userId, dirty) {
     const entity = String(t.entity);
     if (!ENTITIES.includes(entity)) continue;
     const ts = Number(t.updatedAt) > 0 ? Number(t.updatedAt) : now;
-    const record = db.prepare(`SELECT updated_at FROM ${entity} WHERE id = ? AND user_id = ?`).get(t.key, userId);
+    const table = TABLE[entity];
+    const record = db.prepare(`SELECT updated_at FROM ${table} WHERE id = ? AND user_id = ?`).get(t.key, userId);
     if (record && record.updated_at > ts) {
       // The record was edited elsewhere after this deletion — keep it and
       // force it back to the sender so it does not diverge.
@@ -320,7 +384,7 @@ export function applyChanges(db, userId, dirty) {
        ON CONFLICT(user_id, entity, key) DO UPDATE SET updated_at = MAX(updated_at, excluded.updated_at)`
     ).run(userId, entity, t.key, ts);
     if (record) {
-      db.prepare(`DELETE FROM ${entity} WHERE id = ? AND user_id = ?`).run(t.key, userId);
+      db.prepare(`DELETE FROM ${table} WHERE id = ? AND user_id = ?`).run(t.key, userId);
     }
     // Log the deletion only when it is new information; re-pushed
     // tombstones (every sync sends the full local list) must not spam the log.

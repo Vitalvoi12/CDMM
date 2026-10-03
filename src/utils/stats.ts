@@ -1,13 +1,5 @@
-import type { CalendarEvent, DailyStatistics, WeeklyStatistics } from '../types';
-import {
-  minutesBetween,
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  endOfWeek,
-  dateKey,
-  addDays,
-} from './time';
+import type { CalendarEvent, DailyStatistics } from '../types';
+import { minutesBetween, startOfDay, endOfDay, dateKey } from './time';
 
 /**
  * Real events that count toward statistics. Events explicitly excluded via
@@ -43,16 +35,6 @@ export function getEventsForDate(events: CalendarEvent[], date: Date): CalendarE
       return s < dayEnd && en > dayStart;
     })
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-}
-
-export function getEventsForRange(events: CalendarEvent[], from: Date, to: Date): CalendarEvent[] {
-  const fromTime = startOfDay(from).getTime();
-  const toTime = endOfDay(to).getTime();
-  return events.filter((e) => {
-    const s = new Date(e.start).getTime();
-    const en = new Date(e.end).getTime();
-    return s < toTime && en > fromTime;
-  });
 }
 
 export function calculateDailyStats(
@@ -110,49 +92,6 @@ export function calculateDailyStats(
     subjectMinutes: subjMinutes,
     currentEvent,
     nextEvent,
-  };
-}
-
-export function calculateWeeklyStats(
-  events: CalendarEvent[],
-  weekDate: Date
-): WeeklyStatistics {
-  const weekStart = startOfWeek(weekDate);
-  const weekEnd = endOfWeek(weekDate);
-  let totalMinutes = 0;
-  const dailyMinutes: number[] = [];
-  const subjectMinutes: Record<string, number> = {};
-
-  for (let i = 0; i < 7; i++) {
-    const day = addDays(weekStart, i);
-    const dayEvents = getEventsForDate(events, day).filter(countsTowardStats);
-    let dayMins = 0;
-    dayEvents.forEach((e) => {
-      const mins = minutesBetween(e.start, e.end);
-      dayMins += mins;
-      totalMinutes += mins;
-      subjectMinutes[e.subjectId] = (subjectMinutes[e.subjectId] || 0) + mins;
-    });
-    dailyMinutes.push(dayMins);
-  }
-
-  const dailyAverage = Math.round(totalMinutes / 7);
-
-  let mostStudiedSubject: { subjectId: string; minutes: number } | null = null;
-  for (const [subjId, mins] of Object.entries(subjectMinutes)) {
-    if (!mostStudiedSubject || mins > mostStudiedSubject.minutes) {
-      mostStudiedSubject = { subjectId: subjId, minutes: mins };
-    }
-  }
-
-  return {
-    weekStart: dateKey(weekStart),
-    weekEnd: dateKey(weekEnd),
-    totalMinutes,
-    dailyMinutes,
-    dailyAverage,
-    subjectMinutes,
-    mostStudiedSubject,
   };
 }
 
@@ -229,61 +168,12 @@ export function buildHeatmapRange(
   return days;
 }
 
-export type HeatmapRangeMode = 'rolling' | 'year';
-
-export interface HeatmapRange {
-  mode: HeatmapRangeMode;
-  from: Date;
-  to: Date;
-  label: string;
-}
-
-/** Rolling 12-month window ending today (one year back → today, inclusive). */
-export function rollingHeatmapRange(today = new Date()): HeatmapRange {
-  const to = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const from = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-  return { mode: 'rolling', from, to, label: 'Last 12 months' };
-}
-
-/** Full calendar year, Jan 1 – Dec 31. */
-export function yearHeatmapRange(year: number): HeatmapRange {
-  return {
-    mode: 'year',
-    from: new Date(year, 0, 1),
-    to: new Date(year, 11, 31),
-    label: String(year),
-  };
-}
-
-/** Years having at least one event counted by statistics, newest first. */
-export function yearsWithStatsEvents(events: CalendarEvent[]): number[] {
-  const years = new Set<number>();
-  for (const e of events) {
-    if (!countsTowardStats(e)) continue;
-    const ms = new Date(e.start).getTime();
-    if (!Number.isFinite(ms)) continue;
-    years.add(new Date(ms).getFullYear());
-  }
-  return [...years].sort((a, b) => b - a);
-}
-
 /**
- * Calendar-year heatmap days (Jan 1 – Dec 31).
+ * Calendar-year study days (Jan 1 – Dec 31), for the year-wide streak the
+ * Focus Room shows.
  */
 export function buildYearHeatmap(events: CalendarEvent[], year: number): StudyHeatmapDay[] {
   return buildHeatmapRange(events, new Date(year, 0, 1), new Date(year, 11, 31));
-}
-
-/**
- * Monochrome intensity level for the heatmap. Fixed thresholds keep the scale
- * meaningful across users: 0 / <=30 / <=60 / <=120 / >120 minutes.
- */
-export function heatmapLevel(totalMinutes: number): 0 | 1 | 2 | 3 | 4 {
-  if (totalMinutes <= 0) return 0;
-  if (totalMinutes <= 30) return 1;
-  if (totalMinutes <= 60) return 2;
-  if (totalMinutes <= 120) return 3;
-  return 4;
 }
 
 export function calculateYearStats(heatmap: StudyHeatmapDay[]): YearStudyStats {

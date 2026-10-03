@@ -55,6 +55,35 @@ export interface CalendarEvent {
   updatedAt: number;
 }
 
+/**
+ * One recorded change of an event's slot in the calendar.
+ *
+ * Written only for changes that move an event in time (a different start, end
+ * or duration) — never for content edits such as a new task inside the block,
+ * a retitle or a colour change. Feeds the "plan stability" statistics: the
+ * fewer of these a period collects, the closer the calendar stayed to the
+ * schedule it was built with.
+ *
+ * The title/subject/kind are snapshots taken at the moment of the change, so
+ * an entry stays readable even after the event itself is deleted.
+ */
+export interface EventTimeEdit {
+  id: string;
+  /** Event whose time changed. */
+  eventId: string;
+  /** ms epoch of the change itself — this is the date the edit counts under. */
+  at: number;
+  fromStart: string;
+  fromEnd: string;
+  toStart: string;
+  toEnd: string;
+  title: string;
+  subjectId: string;
+  kind: 'real' | 'plan';
+  /** Last local modification, ms epoch. Used for last-write-wins sync. */
+  updatedAt: number;
+}
+
 export interface StudySession {
   id: string;
   subjectId: string;
@@ -98,6 +127,18 @@ export interface TodoTask {
    */
   estMinutes?: number;
   completed: boolean;
+  /**
+   * Subject the task belongs to, or absent when it is not tied to one.
+   * Purely for grouping (subject statistics); the quadrants ignore it.
+   */
+  subjectId?: string;
+  /**
+   * ISO time the task was last ticked off. Stamped by the repository on the
+   * completed false → true transition and cleared when it is reopened, so
+   * deadline statistics never depend on a later title or urgency edit.
+   * Absent while the task is open.
+   */
+  completedAt?: string;
   createdAt: string;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;

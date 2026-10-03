@@ -1,10 +1,10 @@
 import {
-  eventRepo, subjectRepo, todoRepo, tombstoneRepo, settingsRepo,
+  eventRepo, subjectRepo, todoRepo, tombstoneRepo, settingsRepo, eventEditRepo,
   takeDirtySnapshot, clearDirtySnapshot, isSettingsDirty, clearSettingsDirty,
   subscribeRepoChanges,
   type SyncEntity,
 } from './repositories';
-import type { CalendarEvent, Subject, TodoTask, UserSettings } from '../types';
+import type { CalendarEvent, Subject, TodoTask, UserSettings, EventTimeEdit } from '../types';
 import { getToken, getCursor, setCursor, apiFetch } from './auth';
 
 export interface ServerChange {
@@ -20,6 +20,7 @@ export interface ServerState {
   subjects: Subject[];
   events: CalendarEvent[];
   todos: TodoTask[];
+  eventEdits?: EventTimeEdit[];
   tombstones: { entity: string; key: string }[];
   settings: { data: UserSettings; updatedAt: number } | null;
   cursor: number;
@@ -77,6 +78,8 @@ function dirtyTodo(rec: TodoTask) {
     description: rec.description ?? null,
     dueDate: rec.dueDate ?? null,
     estMinutes: rec.estMinutes ?? null,
+    subjectId: rec.subjectId ?? null,
+    completedAt: rec.completedAt ?? null,
   } as unknown as TodoTask & { updatedAt: number };
 }
 
@@ -85,6 +88,7 @@ function collectFullDirty() {
     subjects: subjectRepo.getAll().map(withTs),
     events: eventRepo.getAll().map(withTs),
     todos: todoRepo.getAll().map(dirtyTodo),
+    eventEdits: eventEditRepo.getAll().map(withTs),
     tombstones: tombstoneRepo.getAll().map((t) => ({ ...t })),
     settings: { data: settingsRepo.get(), updatedAt: settingsRepo.getWithMeta().updatedAt || 0 },
   };
@@ -96,6 +100,7 @@ function collectDirty() {
     subjects: [] as Array<Subject & { updatedAt: number }>,
     events: [] as Array<CalendarEvent & { updatedAt: number }>,
     todos: [] as Array<TodoTask & { updatedAt: number }>,
+    eventEdits: [] as Array<EventTimeEdit & { updatedAt: number }>,
     tombstones: tombstoneRepo.getAll().map((t) => ({ ...t })),
     settings: undefined as { data: UserSettings; updatedAt: number } | undefined,
   };
@@ -111,6 +116,10 @@ function collectDirty() {
     const rec = todoRepo.getById(id);
     if (rec) dirty.todos.push(dirtyTodo(rec));
   }
+  for (const id of ids.eventEdits) {
+    const rec = eventEditRepo.getById(id);
+    if (rec) dirty.eventEdits.push(withTs(rec));
+  }
   if (isSettingsDirty()) {
     const meta = settingsRepo.getWithMeta();
     dirty.settings = { data: meta.data, updatedAt: meta.updatedAt || 0 };
@@ -121,11 +130,12 @@ function collectDirty() {
 function applyChange(change: ServerChange): boolean {
   const entity = change.entity;
   if (change.deleted) {
-    if (entity !== 'subjects' && entity !== 'events' && entity !== 'todos') return false;
+    if (entity !== 'subjects' && entity !== 'events' && entity !== 'todos' && entity !== 'eventEdits') return false;
     const removed =
       entity === 'subjects' ? subjectRepo.removeLocal(change.key)
       : entity === 'events' ? eventRepo.removeLocal(change.key)
-      : todoRepo.removeLocal(change.key);
+      : entity === 'todos' ? todoRepo.removeLocal(change.key)
+      : eventEditRepo.removeLocal(change.key);
     if (removed) {
       // Remember the remote deletion so a stale local copy never comes back.
       const t = tombstoneRepo.getAll().find((x) => x.entity === entity && x.key === change.key);
@@ -140,6 +150,7 @@ function applyChange(change: ServerChange): boolean {
   if (entity === 'subjects') return subjectRepo.applyRemote(change.payload as Subject);
   if (entity === 'events') return eventRepo.applyRemote(change.payload as CalendarEvent);
   if (entity === 'todos') return todoRepo.applyRemote(change.payload as TodoTask);
+  if (entity === 'eventEdits') return eventEditRepo.applyRemote(change.payload as EventTimeEdit);
   if (entity === 'settings' && change.payload) {
     const data = change.payload.data as UserSettings;
     const updatedAt = Number(change.payload.updatedAt) || 0;
@@ -165,6 +176,9 @@ function applyState(state: ServerState): boolean {
   }
   for (const t of state.todos) {
     if (!dirtyIds.has(t.id)) changed = todoRepo.applyRemote(t) || changed;
+  }
+  for (const ed of state.eventEdits || []) {
+    if (!dirtyIds.has(ed.id)) changed = eventEditRepo.applyRemote(ed) || changed;
   }
   for (const tomb of state.tombstones) {
     const entity = tomb.entity as SyncEntity;
@@ -253,7 +267,7 @@ async function runCycle(): Promise<boolean> {
   const { ids, dirty } = collectDirty();
   const hasDirty =
     dirty.subjects.length > 0 || dirty.events.length > 0 || dirty.todos.length > 0 ||
-    dirty.tombstones.length > 0 || dirty.settings !== undefined;
+    dirty.eventEdits.length > 0 || dirty.tombstones.length > 0 || dirty.settings !== undefined;
   let cursor = getCursor();
   let guard = 0;
   let changed = false;
