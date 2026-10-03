@@ -471,27 +471,26 @@ export interface PlanStabilityEvent {
   eventId: string;
   title: string;
   subjectId: string;
-  kind: 'real' | 'plan';
-  changes: number;
-  /** Net drift of the start time over the period, in minutes. */
-  startShiftMinutes: number;
-  /** Net change of the block's length over the period, in minutes. */
-  durationShiftMinutes: number;
+  /** Planned time this block gave up, in minutes. */
+  lostMinutes: number;
   lastAt: number;
 }
 
+export interface PlanStabilitySubject {
+  subjectId: string;
+  lostMinutes: number;
+}
+
 export interface PlanStability {
-  /** Changes that moved a planned block in time during the period. */
-  timeChanges: number;
-  /** Distinct planned blocks that were moved at least once. */
-  changedEvents: number;
-  /** Planned blocks that held a slot in the period — the denominator. */
-  scheduledEvents: number;
-  /** Share of those whose time ended up different from where it started. */
-  changedShare: number;
-  /** 100 = nothing moved, 0 = everything moved. Derived from changedShare only. */
+  /** Planned minutes the period started with, before any correction. */
+  plannedMinutes: number;
+  /** Planned minutes the corrections gave up. */
+  lostMinutes: number;
+  /** 100 = the plan kept its length, 0 = every planned minute was cut away. */
   stability: number;
+  /** Blocks that lost the most planned time, heaviest first. */
   top: PlanStabilityEvent[];
+  bySubject: PlanStabilitySubject[];
   /** Oldest tracked change, to explain how far back the log reaches. */
   trackedSince: number | null;
 }
@@ -503,15 +502,24 @@ function overlapsPeriod(e: CalendarEvent, from: Date, to: Date): boolean {
   return s < endOfDay(to).getTime() && en > startOfDay(from).getTime();
 }
 
+function durationMinutes(start: string, end: string): number {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  return Number.isFinite(ms) ? Math.max(0, Math.round(ms / 60000)) : 0;
+}
+
 /**
- * How much the schedule had to be corrected inside the period.
+ * How much of the plan survived its own corrections.
  *
- * Only planned blocks count, and only their time: moving a block to another
- * day or hour, stretching it, or anything else that changes the span it
- * occupies. Swapping the tasks inside a block, retitling it or re-colouring it
- * leaves its timestamps alone and therefore never lowers this number — and a
- * finished focus session is not part of the plan at all, so correcting one is
- * never counted here.
+ * Stability is measured in planned TIME: every correction that makes a block
+ * shorter takes minutes out of the plan, and those losses are summed per
+ * subject and then across all subjects. A block that is merely moved to another
+ * hour loses nothing, and a block that is made longer never counts against
+ * stability — which is why nothing here is measured in clicks.
+ *
+ * Only planned blocks count, and only ones included in statistics — swapping
+ * the tasks inside a block, retitling it, re-colouring it or excluding it from
+ * stats leaves the plan's length untouched, so none of that shows up here. A
+ * finished focus session is not part of the plan at all.
  */
 export function calculatePlanStability(
   edits: EventTimeEdit[],
@@ -521,59 +529,80 @@ export function calculatePlanStability(
 ): PlanStability {
   const start = startOfDay(from).getTime();
   const end = endOfDay(to).getTime();
-  const inPeriod = edits.filter((e) => e.kind === 'plan' && e.at >= start && e.at <= end);
+  const live = new Map(events.map((e) => [e.id, e]));
+  const inPeriod = edits.filter((ed) => {
+    if (ed.kind !== 'plan' || ed.countInStats === false) return false;
+    if (ed.at < start || ed.at > end) return false;
+    // A block excluded from stats after the fact stops counting too.
+    const now = live.get(ed.eventId);
+    return !now || now.countInStats !== false;
+  });
   const trackedSince = edits.length > 0 ? Math.min(...edits.map((e) => e.at)) : null;
 
   const scheduled = new Set<string>();
   for (const e of events) {
-    if ((e.kind ?? 'real') === 'plan' && overlapsPeriod(e, from, to)) scheduled.add(e.id);
+    if ((e.kind ?? 'real') === 'plan' && e.countInStats !== false && overlapsPeriod(e, from, to)) {
+      scheduled.add(e.id);
+    }
   }
   // A block that was rescheduled and then deleted still belongs to the period.
   for (const ed of inPeriod) scheduled.add(ed.eventId);
 
   const byEvent = new Map<string, PlanStabilityEvent>();
+  /** A block's length before its FIRST recorded change — its original plan. */
+  const originalMinutes = new Map<string, number>();
+  let lostMinutes = 0;
+  const lostBySubject = new Map<string, number>();
+
   for (const ed of inPeriod) {
+    const before = durationMinutes(ed.fromStart, ed.fromEnd);
+    const after = durationMinutes(ed.toStart, ed.toEnd);
+    const loss = Math.max(0, before - after);
+    if (!originalMinutes.has(ed.eventId)) originalMinutes.set(ed.eventId, before);
+    if (loss <= 0) continue;
+
     const row =
       byEvent.get(ed.eventId) ||
       ({
         eventId: ed.eventId,
         title: ed.title,
         subjectId: ed.subjectId,
-        kind: ed.kind,
-        changes: 0,
-        startShiftMinutes: 0,
-        durationShiftMinutes: 0,
+        lostMinutes: 0,
         lastAt: 0,
       } satisfies PlanStabilityEvent);
-    row.changes += 1;
+    row.lostMinutes += loss;
     row.lastAt = Math.max(row.lastAt, ed.at);
-    // Moving and stretching are tracked apart: a block that only grew from
-    // 14:00–15:00 to 14:00–16:00 never shifted its start, and reporting that as
-    // "back where it started" would hide the very change being measured.
-    row.startShiftMinutes += Math.round(
-      (new Date(ed.toStart).getTime() - new Date(ed.fromStart).getTime()) / 60000
-    );
-    row.durationShiftMinutes +=
-      Math.round(
-        (new Date(ed.toEnd).getTime() - new Date(ed.toStart).getTime()) / 60000
-      ) -
-      Math.round(
-        (new Date(ed.fromEnd).getTime() - new Date(ed.fromStart).getTime()) / 60000
-      );
     byEvent.set(ed.eventId, row);
+
+    lostMinutes += loss;
+    lostBySubject.set(ed.subjectId, (lostBySubject.get(ed.subjectId) || 0) + loss);
   }
 
-  const changedEvents = byEvent.size;
-  const scheduledEvents = scheduled.size;
-  const changedShare = scheduledEvents > 0 ? changedEvents / scheduledEvents : 0;
+  // The plan the period started with: every scheduled block at its original
+  // length where we know it, otherwise at the length it still has today.
+  let plannedMinutes = 0;
+  for (const id of scheduled) {
+    const event = live.get(id);
+    const original = originalMinutes.get(id);
+    if (original !== undefined) plannedMinutes += original;
+    else if (event) plannedMinutes += durationMinutes(event.start, event.end);
+  }
+
+  const stability =
+    plannedMinutes > 0
+      ? Math.max(0, Math.min(100, Math.round((1 - lostMinutes / plannedMinutes) * 100)))
+      : lostMinutes > 0
+        ? 0
+        : 100;
 
   return {
-    timeChanges: inPeriod.length,
-    changedEvents,
-    scheduledEvents,
-    changedShare,
-    stability: Math.round((1 - changedShare) * 100),
-    top: [...byEvent.values()].sort((a, b) => b.changes - a.changes || b.lastAt - a.lastAt),
+    plannedMinutes,
+    lostMinutes,
+    stability,
+    bySubject: [...lostBySubject.entries()]
+      .map(([subjectId, minutes]) => ({ subjectId, lostMinutes: minutes }))
+      .sort((a, b) => b.lostMinutes - a.lostMinutes),
+    top: [...byEvent.values()].sort((a, b) => b.lostMinutes - a.lostMinutes || b.lastAt - a.lastAt),
     trackedSince,
   };
 }

@@ -72,6 +72,7 @@ export function openDb(dir) {
       title TEXT NOT NULL DEFAULT '',
       subject_id TEXT NOT NULL DEFAULT '',
       kind TEXT NOT NULL DEFAULT 'real',
+      count_in_stats INTEGER NOT NULL DEFAULT 1,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_event_edits_user ON event_edits(user_id);
@@ -141,6 +142,13 @@ export function openDb(dir) {
   // Migration for per-event checklist tasks (JSON array, NULL = none).
   try {
     db.exec('ALTER TABLE events ADD COLUMN checklist TEXT');
+  } catch {
+    // column already exists — ignore
+  }
+  // Migration for the plan-stability log: the event's stats flag at the time
+  // of the change, so excluded blocks can be filtered out later.
+  try {
+    db.exec('ALTER TABLE event_edits ADD COLUMN count_in_stats INTEGER NOT NULL DEFAULT 1');
   } catch {
     // column already exists — ignore
   }
@@ -223,7 +231,8 @@ function rowToPayload(entity, row) {
       fromStart: row.from_start, fromEnd: row.from_end,
       toStart: row.to_start, toEnd: row.to_end,
       title: row.title, subjectId: row.subject_id,
-      kind: row.kind === 'plan' ? 'plan' : 'real', updatedAt: row.updated_at,
+      kind: row.kind === 'plan' ? 'plan' : 'real',
+      countInStats: row.count_in_stats === 0 ? false : true, updatedAt: row.updated_at,
     };
   }
   if (entity === 'events') {
@@ -245,7 +254,7 @@ const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
   events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'subject_id', 'completed_at', 'completed', 'created_at'],
-  eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind'],
+  eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind', 'count_in_stats'],
 };
 
 const FROM_CLIENT = {

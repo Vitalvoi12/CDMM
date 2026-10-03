@@ -80,6 +80,12 @@ export interface EventTimeEdit {
   title: string;
   subjectId: string;
   kind: 'real' | 'plan';
+  /**
+   * The event's "count in stats" flag at the moment of the change. Snapshotted
+   * like the rest, so a block that was later excluded stops counting towards
+   * plan stability even after it has been deleted.
+   */
+  countInStats?: boolean;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;
 }

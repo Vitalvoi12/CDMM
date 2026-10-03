@@ -468,10 +468,12 @@ class TodoRepository {
  * calendar actually changed.
  *
  * Finished focus sessions are skipped on purpose: they are what actually
- * happened, not a plan, so correcting one is not a replan.
+ * happened, not a plan, so correcting one is not a replan. Blocks excluded
+ * from statistics are skipped for the same reason — they are not part of the
+ * plan this metric describes.
  */
 function recordTimeChange(prev: CalendarEvent, next: CalendarEvent): void {
-  if (next.kind !== 'plan') return;
+  if (next.kind !== 'plan' || next.countInStats === false) return;
   const fromStart = new Date(prev.start).getTime();
   const fromEnd = new Date(prev.end).getTime();
   const toStart = new Date(next.start).getTime();
@@ -487,7 +489,8 @@ function recordTimeChange(prev: CalendarEvent, next: CalendarEvent): void {
     toEnd: next.end,
     title: next.title,
     subjectId: next.subjectId,
-    kind: next.kind === 'plan' ? 'plan' : 'real',
+    kind: 'plan',
+    countInStats: true,
   });
 }
 
