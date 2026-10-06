@@ -25,7 +25,7 @@ interface MultiDayViewProps {
       halves, 'real'/'plan' renders each day as a single full-width column. */
   mode?: EventFilter;
   /** Running study session — rendered transiently in the Real column of today's date. */
-  activeSession?: { subjectId: string; start: string; pausedAt?: string | null } | null;
+  activeSession?: { subjectId: string; start: string } | null;
   /** Mobile swipe navigation (wired by the parent only on mobile). */
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
@@ -670,7 +670,6 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                             hourHeight={HOUR_HEIGHT}
                             subject={subjectMap[activeSession.subjectId]}
                             isMobile={isMobile}
-                            pausedAt={activeSession.pausedAt}
                           />
                         )}
                       </div>
@@ -687,7 +686,6 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                               hourHeight={HOUR_HEIGHT}
                               subject={subjectMap[activeSession.subjectId]}
                               isMobile={isMobile}
-                              pausedAt={activeSession.pausedAt}
                             />
                           )}
                         </div>

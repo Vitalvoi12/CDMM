@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useEscapeOverlay } from '../../services/overlays';
 
 export type RecurrenceScope = 'single' | 'following';
 
@@ -15,16 +16,11 @@ interface RecurrenceScopeDialogProps {
 export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick, onCancel }: RecurrenceScopeDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
+  useEscapeOverlay(onCancel);
+
   useEffect(() => {
     dialogRef.current?.focus({ preventScroll: true });
   }, []);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      onCancel();
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
@@ -36,7 +32,6 @@ export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick
         aria-label={mode === 'edit' ? 'Edit recurring event' : 'Delete recurring event'}
         className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
       >
         <h2 className="font-headline-md text-headline-md text-on-surface mb-2">
           {mode === 'edit' ? 'Edit recurring event' : 'Delete recurring event'}

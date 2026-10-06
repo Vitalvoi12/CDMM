@@ -2,14 +2,20 @@ import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
+import { requestSessionStart } from '../../services/liveSession';
+import { hasOpenOverlay } from '../../services/overlays';
 
 export function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // Section shortcuts: C → calendar, T → todo, F → focus room. Physical keys
+  // Section shortcuts: C → calendar, T → todo, F → start a session. Physical keys
   // (e.code) so they work on any layout; skipped while typing or with a modal
   // open so they never hijack a form or dismiss an editor.
+  //
+  // F no longer navigates anywhere: with the Focus Room tab gone, the sidebar
+  // panel is the single place a session is started, so the shortcut asks that
+  // panel to open its subject picker instead.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -23,10 +29,12 @@ export function AppShell() {
       ) {
         return;
       }
-      if (document.querySelector('.fixed.inset-0')) return;
+      // Single-letter shortcuts must not fire behind a dialog. Asks the overlay
+      // stack rather than guessing at markup with a DOM query.
+      if (hasOpenOverlay()) return;
       if (e.code === 'KeyC') navigate('/');
       else if (e.code === 'KeyT') navigate('/todo');
-      else if (e.code === 'KeyF') navigate('/study');
+      else if (e.code === 'KeyF') requestSessionStart();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);

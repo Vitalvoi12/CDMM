@@ -37,6 +37,46 @@ export function getEventsForDate(events: CalendarEvent[], date: Date): CalendarE
     .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 }
 
+/**
+ * The running study session, as the event it will become once it is finished.
+ *
+ * A live session has no stored record yet — `eventRepo` only sees it on Finish —
+ * so any total built purely from the day's events silently misses it. This
+ * builds a transient real event from the session, clipped to the boundaries of
+ * `date`: a session started at 23:30 contributes only its half hour to
+ * yesterday and the rest to today, exactly like the stored event will once the
+ * session ends.
+ *
+ * Returns null when the session does not touch this day at all (viewing a past
+ * or future date, or a zero-length span), so callers can leave their list
+ * untouched.
+ */
+export function liveEventForDate(
+  session: { subjectId: string; start: string } | null | undefined,
+  date: Date,
+  now: number = Date.now()
+): CalendarEvent | null {
+  if (!session) return null;
+  const sessionStart = new Date(session.start).getTime();
+  if (!Number.isFinite(sessionStart)) return null;
+
+  const start = Math.max(sessionStart, startOfDay(date).getTime());
+  const end = Math.min(now, endOfDay(date).getTime());
+  if (end <= start) return null;
+
+  return {
+    id: '__live__',
+    uid: '__live__@cdmm',
+    subjectId: session.subjectId,
+    title: session.subjectId,
+    start: new Date(start).toISOString(),
+    end: new Date(end).toISOString(),
+    kind: 'real',
+    countInStats: true,
+    updatedAt: 0,
+  };
+}
+
 export function calculateDailyStats(
   events: CalendarEvent[],
   date: Date,

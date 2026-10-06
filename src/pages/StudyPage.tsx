@@ -6,22 +6,22 @@ import { checkpoint } from '../services/history';
 import { buildYearHeatmap, calculateYearStats, getEventsForDate, calculateDailyStats } from '../utils/stats';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { FocusRoom } from '../components/study/FocusRoom';
+import { SessionStartEditor } from '../components/study/SessionStartEditor';
 import { TodaySessions } from '../components/study/TodaySessions';
 import type { CalendarEvent, Subject } from '../types';
 
 export function StudyPage() {
   const {
     isActive,
-    isPaused,
     subjectId,
     startTime,
     elapsed,
     startSession,
-    pause,
-    resume,
+    setStartTime,
     stopSession,
   } = useActiveSession();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
+  const [showStartEditor, setShowStartEditor] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
   // Subjects live in state (not a bare getAll() during render) so the object
   // identity is stable between refreshes — the session-save callback below
@@ -81,12 +81,7 @@ export function StudyPage() {
     [startSession]
   );
 
-  const handleQuickStart = useCallback(
-    (id: string) => {
-      startSession(id);
-    },
-    [startSession]
-  );
+  
 
   // Today list: ALL real sessions of today that count toward statistics —
   // including future ones. No planned events, no stats-excluded events.
@@ -117,18 +112,14 @@ export function StudyPage() {
       <div className="flex flex-col xl:flex-row w-full h-full relative min-h-0 overflow-y-auto">
         <FocusRoom
           isActive={isActive}
-          isPaused={isPaused}
           subjectName={subject?.name || ''}
           startTime={startTime || null}
           elapsed={elapsed}
-          subjects={subjects}
           dailyMinutes={todayTotalMinutes}
           streakDays={currentStreakDays}
+          onEditStart={isActive ? () => setShowStartEditor(true) : undefined}
           onStop={isActive ? saveSession : undefined}
-          onPause={isActive && !isPaused ? pause : undefined}
-          onResume={isActive && isPaused ? resume : undefined}
           onStart={!isActive ? handleStart : undefined}
-          onQuickStart={!isActive ? handleQuickStart : undefined}
         />
 
         <TodaySessions
@@ -149,6 +140,18 @@ export function StudyPage() {
           subjects={subjects}
           onSelect={handleSubjectSelected}
           onClose={() => setShowSubjectPicker(false)}
+        />
+      )}
+
+      {showStartEditor && (
+        <SessionStartEditor
+          startTime={startTime}
+          elapsed={elapsed}
+          onApply={(ms) => {
+            setStartTime(ms);
+            setShowStartEditor(false);
+          }}
+          onCancel={() => setShowStartEditor(false)}
         />
       )}
     </div>

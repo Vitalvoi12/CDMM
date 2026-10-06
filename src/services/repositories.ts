@@ -668,12 +668,13 @@ function sanitizeSession(raw: unknown): SyncedSession | null {
   const subjectId = str(r.subjectId);
   const start = str(r.start);
   if (!subjectId || !start || Number.isNaN(new Date(start).getTime())) return null;
+  // `pausedAt` / `bankedMs` from a record written before pause was removed are
+  // deliberately dropped: a legacy paused session simply resumes counting from
+  // its original start, which is the honest reading of the data that survives.
   return {
     id: str(r.id) || `${subjectId}:${start}`,
     subjectId,
     start,
-    pausedAt: str(r.pausedAt),
-    bankedMs: num(r.bankedMs),
     updatedAt: num(r.updatedAt),
   };
 }

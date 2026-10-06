@@ -15,7 +15,7 @@ interface TimelineProps {
   subjects: Subject[];
   date: Date;
   /** Running study session — rendered transiently in the Real column. */
-  activeSession?: { subjectId: string; start: string; pausedAt?: string | null } | null;
+  activeSession?: { subjectId: string; start: string } | null;
   onEventClick?: (event: CalendarEvent) => void;
   /** `source: 'touch'` lets the parent skip editor-open / undo snapshots
       (a touch drag must not pop the editor and be rolled back by Cancel). */
@@ -533,7 +533,6 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
                   hourHeight={HOUR_HEIGHT}
                   subject={subjectMap[activeSession.subjectId]}
                   isMobile={isMobile}
-                  pausedAt={activeSession.pausedAt}
                 />
               )}
             </div>
@@ -550,7 +549,6 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
                     hourHeight={HOUR_HEIGHT}
                     subject={subjectMap[activeSession.subjectId]}
                     isMobile={isMobile}
-                    pausedAt={activeSession.pausedAt}
                   />
                 )}
               </div>

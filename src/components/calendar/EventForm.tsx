@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, EventChecklistItem, Subject } from '../../types';
 import { genId } from '../../services/repositories';
+import { useEscapeOverlay } from '../../services/overlays';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
 
@@ -97,9 +98,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
     return '';
   }
 
+  useEscapeOverlay(onCancel);
+
   useEffect(() => {
-    // Move focus inside the dialog so Enter/Escape/Delete work right away,
-    // even if the user hasn't clicked any field yet.
+    // Move focus inside the dialog so Enter/Delete work right away, even if
+    // the user hasn't clicked any field yet. Escape is the overlay stack's job.
     dialogRef.current?.focus({ preventScroll: true });
   }, []);
 
@@ -192,11 +195,10 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
     });
   };
 
+  // Escape is handled centrally by the overlay stack, so this only has Enter
+  // and Delete. See services/overlays.ts.
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      onCancel();
-    } else if (e.key === 'Enter' && (!(e.target instanceof HTMLTextAreaElement) || e.ctrlKey || e.metaKey)) {
+    if (e.key === 'Enter' && (!(e.target instanceof HTMLTextAreaElement) || e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       e.stopPropagation();
       formRef.current?.requestSubmit();
@@ -390,16 +392,12 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 
                       onChange={(e) => updateTaskText(t.id, e.target.value)}
                       onKeyDown={(e) => {
                         // Enter grows the list instead of submitting the form.
+                        // Escape needs no case: the overlay stack closes the
+                        // dialog from wherever the caret is.
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           e.stopPropagation();
                           addTask();
-                        } else if (e.key === 'Escape') {
-                          // First Esc just drops focus back to the dialog —
-                          // the next one closes it via the dialog handler.
-                          e.preventDefault();
-                          e.stopPropagation();
-                          dialogRef.current?.focus();
                         }
                       }}
                       placeholder={isLast ? 'New task — type and press +' : 'Task'}

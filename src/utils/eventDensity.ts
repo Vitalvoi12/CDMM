@@ -136,3 +136,47 @@ export function eventResizeZone(height: number, isMobile = false): ResizeZone {
   if (height >= grab * 2.2) return { height: grab, offset: 0 };
   return { height: grab, offset: -Math.round(grab / 2) };
 }
+
+/** Geometry of one mini block in a month cell — the timeline block at cell scale. */
+export const MONTH_BLOCK = {
+  /** Painted height, also the style on the block itself. */
+  height: 18,
+  /** Space between blocks in the cell's column. */
+  gap: 3,
+  /** Height of the "+N more" line. */
+  more: 15,
+} as const;
+
+export interface MonthSlots {
+  /** How many blocks to paint. */
+  shown: number;
+  /** How many events the "+N more" line stands for — 0 when it cannot fit. */
+  hidden: number;
+}
+
+/**
+ * How many mini blocks a month cell can paint before it falls back to a
+ * "+N more" line.
+ *
+ * The cell's rows are all the same height (grid `1fr`), so the caller measures
+ * the grid once and passes the space left under the day number as `listPx`.
+ * The "+N more" line is only paid for when something is actually cut off —
+ * otherwise a day with two events would burn a slot on a line never drawn —
+ * and it is reported as `hidden: 0` when even one block plus the line do not
+ * fit, so the caller never paints a line that the cell would clip in half.
+ *
+ * `shown` is never 0 for a busy day: at least one block is drawn (clipped by
+ * the cell if need be) rather than hiding the day's work behind nothing.
+ */
+export function monthSlots(listPx: number, count: number): MonthSlots {
+  if (count <= 0) return { shown: 0, hidden: 0 };
+  // n blocks paint `n*height + (n-1)*gap`, i.e. `n*pitch - gap`.
+  const pitch = MONTH_BLOCK.height + MONTH_BLOCK.gap;
+  const full = Math.floor((listPx + MONTH_BLOCK.gap) / pitch);
+  if (count <= full) return { shown: count, hidden: 0 };
+
+  const shown = Math.max(1, Math.floor((listPx - MONTH_BLOCK.more) / pitch));
+  const blocksPx = shown * MONTH_BLOCK.height + (shown - 1) * MONTH_BLOCK.gap;
+  const lineFits = blocksPx + MONTH_BLOCK.gap + MONTH_BLOCK.more <= listPx;
+  return { shown, hidden: lineFits ? count - shown : 0 };
+}

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { Subject } from '../../types';
 import { SUBJECT_COLORS as COLORS, SUBJECT_COLOR_GROUPS as COLOR_GROUPS } from '../../utils/color';
+import { useEscapeOverlay } from '../../services/overlays';
 
 interface SubjectFormProps {
   subject: Subject | null;
@@ -20,13 +21,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
     }
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onCancel]);
+  useEscapeOverlay(onCancel);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>

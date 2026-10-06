@@ -177,12 +177,16 @@ export interface TodoTask {
 export interface SyncedSession {
   id: string;
   subjectId: string;
-  /** Wall-clock start. Never moved, so the calendar block stays where it is. */
+  /**
+   * Wall-clock start, and the only clock the focus time is derived from:
+   * elapsed = now - start, unconditionally.
+   *
+   * Movable while the session runs, to count work that began before tracking
+   * did. There is no pause: a session either counts or it is finished, so a
+   * forgotten start is corrected by moving `start` rather than by banking
+   * paused minutes.
+   */
   start: string;
-  /** ISO time the user hit pause, or null while running. */
-  pausedAt: string | null;
-  /** Focus ms banked before the current pause/resume stretch. */
-  bankedMs: number;
   /**
    * Timestamp of the last mutation. The session is a field inside the single
    * synced settings record, so it needs its own clock for last-write-wins —

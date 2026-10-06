@@ -15,7 +15,7 @@ import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { eventRepo, subjectRepo, tombstoneRepo, genId } from '../services/repositories';
-import { getEventsForDate, calculateDailyStats } from '../utils/stats';
+import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
 import { expandRecurrence } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
@@ -34,7 +34,9 @@ const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[]
 const FILTERS: { id: EventFilter; label: string; title: string }[] = [
   { id: 'real', label: 'Real', title: 'Show real sessions only' },
   { id: 'plan', label: 'Plan', title: 'Show planned events only' },
-  { id: 'all', label: 'All', title: 'Show real & plan side by side' },
+  // On timelines 'all' splits a day into Real|Plan columns; the month grid has
+  // no room to split, so it lists both kinds in one column by start time.
+  { id: 'all', label: 'All', title: 'Show real & plan together' },
 ];
 
 function loadEventFilter(): EventFilter {
@@ -96,7 +98,7 @@ export function CalendarPage() {
   const location = useLocation();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
-  const { startSession, isActive, pausedAt, subjectId, startTime } = useActiveSession();
+  const { startSession, isActive, subjectId, startTime, elapsed } = useActiveSession();
   const navigate = useNavigate();
 
   // Deep link from the Statistics heatmap: jump to the tapped day.
@@ -129,8 +131,9 @@ export function CalendarPage() {
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
   const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks'>('stats');
-  // Which event kinds the timelines show. 'all' splits days into Real|Plan
-  // halves; 'real'/'plan' renders a single full-width column. Persisted.
+  // Which event kinds the calendars show. 'all' splits timeline days into
+  // Real|Plan halves and lists the month cells in one column; 'real'/'plan'
+  // renders a single full-width column. Persisted.
   const [eventFilter, setEventFilterState] = useState<EventFilter>(loadEventFilter);
   const setEventFilter = useCallback((f: EventFilter) => {
     setEventFilterState(f);
@@ -197,12 +200,26 @@ export function CalendarPage() {
   // Comes from the synced session record, so the running block shows up on
   // every signed-in device — including one that only ever opens the calendar.
   const activeSession = useMemo(
-    () => (isActive && subjectId && startTime ? { subjectId, start: startTime, pausedAt } : null),
-    [isActive, subjectId, startTime, pausedAt]
+    () => (isActive && subjectId && startTime ? { subjectId, start: startTime } : null),
+    [isActive, subjectId, startTime]
   );
+
+  // The day's statistics must include the running session: it has no stored
+  // event yet (Finish writes it), so stats built from `dayEvents` alone would
+  // stand still while the clock runs. Built separately because the timeline
+  // renders the live session itself via LiveEventBlock — adding it to
+  // `dayEvents` would draw the same block twice.
+  const statsEvents = useMemo(() => {
+    // The live end comes from the hook's own clock (start + elapsed), so the
+    // total ticks with the timer instead of going stale until the next render.
+    const now = activeSession ? new Date(activeSession.start).getTime() + elapsed : Date.now();
+    const live = liveEventForDate(activeSession, currentDate, now);
+    return live ? [...dayEvents, live] : dayEvents;
+  }, [dayEvents, currentDate, activeSession, elapsed]);
+
   const stats = useMemo(
-    () => calculateDailyStats(events, currentDate),
-    [events, currentDate]
+    () => calculateDailyStats(statsEvents, currentDate),
+    [statsEvents, currentDate]
   );
 
   const refreshEvents = useCallback(() => {
@@ -653,7 +670,7 @@ export function CalendarPage() {
         onToday={goToToday}
         view={view}
         center={!isMobile ? renderViewSegmented() : undefined}
-        right={!isMobile && view !== 'month' && view !== 'year' ? renderEventFilter() : undefined}
+        right={!isMobile && view !== 'year' ? renderEventFilter() : undefined}
       />
       {viewSettingsOpen && (
         <ViewSettingsSheet
@@ -688,7 +705,7 @@ export function CalendarPage() {
           ) : dayPanel === 'stats' ? (
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40">
               <StatsSidebar
-                events={dayEvents}
+                events={statsEvents}
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
               />
@@ -733,7 +750,7 @@ export function CalendarPage() {
               </div>
               {asidePanel === 'stats' ? (
                 <StatsSidebar
-                  events={dayEvents}
+                  events={statsEvents}
                   subjects={subjects}
                   totalMinutes={stats.totalMinutes}
                 />
@@ -758,7 +775,9 @@ export function CalendarPage() {
           date={currentDate}
           events={events}
           subjects={subjects}
+          mode={eventFilter}
           onDateSelect={handleDaySelect}
+          onEventClick={handleEventClick}
           liveSession={activeSession}
         />
       )}

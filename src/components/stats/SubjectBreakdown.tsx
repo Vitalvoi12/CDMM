@@ -16,22 +16,26 @@ interface SubjectBreakdownProps {
 
 const METRICS: { id: SubjectMetric; label: string }[] = [
   { id: 'time', label: 'Time' },
-  { id: 'sessions', label: 'Sessions' },
   { id: 'share', label: 'Share' },
 ];
 
 const METRIC_HINT: Record<SubjectMetric, string> = {
-  time: 'Studied time per subject',
-  sessions: 'Focus sessions per subject',
+  time: 'Studied time per subject, as a percentage of that subject’s own plan',
   share: 'Share of the studied time',
 };
 
 /**
  * The headline block: what the period was actually spent on.
  *
- * One component serves all three metrics — only the number in the value column
- * and the unit of the bar change — so the three views stay recognisably the
+ * One component serves both metrics — only the number in the value column
+ * and the unit of the bar change — so the two views stay recognisably the
  * same object instead of three separate designs.
+ *
+ * The Time view answers "did I study what I planned for this subject": its
+ * percentage is real time over THIS subject's plan, not over the period's
+ * total, so an unprepared-for subject and a heavily planned one are judged
+ * against their own plans. Share keeps the old meaning — each subject's slice
+ * of everything studied in the period.
  */
 export function SubjectBreakdown({
   rows,
@@ -65,14 +69,14 @@ export function SubjectBreakdown({
   // Each metric puts a different pair in the two columns, but never the same
   // number twice: SHARE leads with the percentage and falls back to the time.
   const value = (row: SubjectRow) => {
-    if (metric === 'sessions') return `${row.sessions} session${row.sessions === 1 ? '' : 's'}`;
     if (metric === 'share') return `${Math.round(row.timeShare)}%`;
     return formatDurationLong(row.minutes);
   };
   const secondary = (row: SubjectRow) => {
-    if (metric === 'sessions') return `${Math.round(row.sessionShare)}%`;
     if (metric === 'share') return formatDurationLong(row.minutes);
-    return `${Math.round(row.timeShare)}%`;
+    // No plan for this subject → the percentage would be meaningless, say so.
+    if (row.planShare === null) return '—';
+    return `${Math.round(row.planShare)}%`;
   };
 
   return (
@@ -102,11 +106,6 @@ export function SubjectBreakdown({
               {totalSessions === 1 ? '' : 's'}
             </p>
           </div>
-        )}
-        {metric === 'sessions' && (
-          <p className="px-5 pt-5 font-body-sm text-body-sm text-on-surface-variant">
-            {totalSessions} session{totalSessions === 1 ? '' : 's'} · {formatDuration(totalMinutes)} total
-          </p>
         )}
 
         <div className="p-5 flex flex-col gap-5">
@@ -157,6 +156,11 @@ export function SubjectBreakdown({
             {formatDuration(hover.row.minutes)} · {hover.row.sessions} session
             {hover.row.sessions === 1 ? '' : 's'}
           </p>
+          {hover.row.planMinutes > 0 && (
+            <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
+              {formatDuration(hover.row.planMinutes)} planned
+            </p>
+          )}
         </Tooltip>
       )}
     </Section>

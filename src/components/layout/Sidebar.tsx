@@ -5,9 +5,10 @@ import { useSyncRefresh } from '../../hooks/useServerSync';
 import { hasTodoDueToday } from '../todo/TodoRows';
 import { LiveSessionCard } from './LiveSessionCard';
 
+// No FOCUS ROOM: on a PC the live session is driven from the panel at the
+// bottom of this sidebar, so a tab for it would be a second place to look.
 const navItems = [
   { path: '/', label: 'CALENDAR', icon: 'calendar_today', shortcut: 'C' },
-  { path: '/study', label: 'FOCUS ROOM', icon: 'timer', shortcut: 'F' },
   { path: '/todo', label: 'TODO', icon: 'checklist', shortcut: 'T' },
   { path: '/statistics', label: 'STATISTICS', icon: 'bar_chart', shortcut: '' },
   { path: '/subjects', label: 'SUBJECTS', icon: 'layers', shortcut: '' },

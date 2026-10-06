@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { TodoTask } from '../../types';
 import { FullTodoRow } from './TodoRows';
+import { useEscapeOverlay } from '../../services/overlays';
 
 interface QuadrantDialogProps {
   title: string;
@@ -18,19 +19,16 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
   const active = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
   const completed = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
 
+  useEscapeOverlay(onClose);
+
   useEffect(() => {
     closeRef.current?.focus();
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
     return () => {
       document.body.style.overflow = prevOverflow;
-      document.removeEventListener('keydown', onKey);
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div

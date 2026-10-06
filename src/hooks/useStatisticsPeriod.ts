@@ -13,10 +13,10 @@ import {
   toISODate,
   type PeriodPreset,
 } from '../utils/analytics';
-import { addDays, startOfDay } from '../utils/time';
+import { addDays, endOfDay, startOfDay } from '../utils/time';
 import type { Subject } from '../types';
 
-export type SubjectMetric = 'time' | 'sessions' | 'share';
+export type SubjectMetric = 'time' | 'share';
 
 export interface SubjectRow {
   subjectId: string;
@@ -26,8 +26,15 @@ export interface SubjectRow {
   sessions: number;
   /** Share of the period's studied time, 0-100. */
   timeShare: number;
-  /** Share of the period's sessions, 0-100. */
-  sessionShare: number;
+  /** Planned minutes this subject was given over the period. */
+  planMinutes: number;
+  /**
+   * How much of this subject's own plan was actually studied: real / planned,
+   * 0-100 (uncapped — studying past the plan shows over 100). Null when the
+   * subject has no plan in the period, so the reader sees "—" instead of a
+   * percentage that would mean nothing.
+   */
+  planShare: number | null;
   /** Length of the largest bar in the current metric, 0-100. */
   barWidth: number;
 }
@@ -38,7 +45,8 @@ export interface SubjectRow {
  * One period selection feeds every block, so switching the range in the header
  * recomputes subjects, focus time, rhythm, consistency, tasks and plan
  * stability together — they can never drift out of sync with each other.
- * Everything is derived from real focus sessions; planned blocks never count.
+ * Studied time is always derived from real focus sessions; planned blocks are
+ * read only where a metric explicitly compares against the plan.
  */
 export function useStatisticsPeriod() {
   const [preset, setPreset] = useState<PeriodPreset>('30d');
@@ -78,6 +86,36 @@ export function useStatisticsPeriod() {
     [inPeriod]
   );
 
+  /**
+   * Planned minutes per subject over the period — the denominator of the plan
+   * percentage in the Time view.
+   *
+   * Only planned blocks count, and only while they are both inside the period
+   * and opted into statistics: an excluded block was never part of the plan
+   * this metric describes. `slices` cannot answer this because it is built
+   * from real focus sessions only (plans are filtered out before slicing).
+   */
+  const planBySubject = useMemo(() => {
+    const acc = new Map<string, number>();
+    // `period.to` is the midnight of the last day — the range has to be closed
+    // with endOfDay or the final day's plan would be dropped.
+    const fromMs = period.from.getTime();
+    const toMs = endOfDay(period.to).getTime();
+    for (const e of eventRepo.getAll()) {
+      if ((e.kind ?? 'real') !== 'plan' || e.countInStats === false) continue;
+      const s = new Date(e.start).getTime();
+      const en = new Date(e.end).getTime();
+      if (!Number.isFinite(s) || !Number.isFinite(en) || en <= s) continue;
+      // Clip to the period: a block that runs past either edge contributes
+      // only the minutes that actually fall inside it.
+      const start = Math.max(s, fromMs);
+      const end = Math.min(en, toMs);
+      if (end <= start) continue;
+      acc.set(e.subjectId, (acc.get(e.subjectId) || 0) + Math.round((end - start) / 60000));
+    }
+    return acc;
+  }, [period]);
+
   const subjectRows = useMemo<SubjectRow[]>(() => {
     const acc = new Map<string, { minutes: number; sessions: number }>();
     for (const s of inPeriod) {
@@ -95,6 +133,7 @@ export function useStatisticsPeriod() {
     const rows = [...ids].map((subjectId) => {
       const subject = subjectMap[subjectId];
       const v = acc.get(subjectId) || { minutes: 0, sessions: 0 };
+      const plan = planBySubject.get(subjectId) || 0;
       return {
         subjectId,
         name: subject?.name || 'No subject',
@@ -102,26 +141,21 @@ export function useStatisticsPeriod() {
         minutes: v.minutes,
         sessions: v.sessions,
         timeShare: totalMinutes > 0 ? (v.minutes / totalMinutes) * 100 : 0,
-        sessionShare: totalSessions > 0 ? (v.sessions / totalSessions) * 100 : 0,
+        planMinutes: plan,
+        planShare: plan > 0 ? (v.minutes / plan) * 100 : null,
         barWidth: 0,
       };
     });
-    // Sort by the metric on screen: sessions make a 10-minute and a 3-hour
-    // block look alike, time does not, so the order has to follow the switch.
-    const byMetric = (a: SubjectRow, b: SubjectRow) =>
-      metric === 'sessions'
-        ? b.sessions - a.sessions || b.minutes - a.minutes
-        : b.minutes - a.minutes || b.sessions - a.sessions;
-    rows.sort(byMetric);
-    const peak = Math.max(
-      1,
-      ...rows.map((r) => (metric === 'sessions' ? r.sessions : r.minutes))
-    );
+    // Both remaining metrics describe time, so the order follows it. Rows
+    // share the peak bar of the time column — the plan percentage is a label,
+    // not a length.
+    rows.sort((a, b) => b.minutes - a.minutes || b.sessions - a.sessions);
+    const peak = Math.max(1, ...rows.map((r) => r.minutes));
     for (const r of rows) {
-      r.barWidth = ((metric === 'sessions' ? r.sessions : r.minutes) / peak) * 100;
+      r.barWidth = (r.minutes / peak) * 100;
     }
     return rows;
-  }, [inPeriod, subjects, subjectMap, metric, totalMinutes, totalSessions]);
+  }, [inPeriod, subjects, subjectMap, planBySubject, totalMinutes]);
 
   const days = useMemo(() => buildDaySeries(slices, period.from, period.to), [slices, period]);
   const bucketSize = useMemo(

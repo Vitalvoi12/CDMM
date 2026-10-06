@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import type { CalendarView, EventFilter } from '../../types';
+import { useEscapeOverlay } from '../../services/overlays';
 
 interface ViewSettingsSheetProps {
   view: CalendarView;
@@ -45,13 +45,7 @@ export function ViewSettingsSheet({
   onEventFilterChange,
   onClose,
 }: ViewSettingsSheetProps) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  useEscapeOverlay(onClose);
 
   return (
     <div className="fixed inset-0 z-[100] lg:hidden animate-fade-in" onClick={onClose}>

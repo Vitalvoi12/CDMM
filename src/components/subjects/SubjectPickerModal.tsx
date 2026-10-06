@@ -1,4 +1,6 @@
+import { useEffect, useRef } from 'react';
 import type { Subject } from '../../types';
+import { useEscapeOverlay } from '../../services/overlays';
 
 interface SubjectPickerModalProps {
   subjects: Subject[];
@@ -7,10 +9,24 @@ interface SubjectPickerModalProps {
 }
 
 export function SubjectPickerModal({ subjects, onSelect, onClose }: SubjectPickerModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEscapeOverlay(onClose);
+
+  // Focus inside so the list is reachable by keyboard from the first keypress.
+  useEffect(() => {
+    dialogRef.current?.focus({ preventScroll: true });
+  }, []);
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim animate-fade-in" onClick={onClose}>
       <div
-        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-sm mx-4 animate-pop-in"
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Select subject"
+        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-sm mx-4 animate-pop-in focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-headline-md text-headline-md max-lg:!text-[12px] max-lg:mb-3 text-on-surface mb-5">Select Subject</h2>

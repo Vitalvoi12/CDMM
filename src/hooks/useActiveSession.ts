@@ -14,11 +14,10 @@ import type { CalendarEvent, SyncedSession } from '../types';
 const POLL_RUNNING_MS = 10_000;
 const POLL_IDLE_MS = 20_000;
 
-/** Focus ms of a session, excluding whatever was spent paused. */
+/** Focus ms of a session: the whole stretch from its start, always running. */
 export function sessionElapsedMs(session: SyncedSession | null, now: number = Date.now()): number {
   if (!session) return 0;
-  if (session.pausedAt) return session.bankedMs;
-  return session.bankedMs + (now - new Date(session.start).getTime());
+  return Math.max(0, now - new Date(session.start).getTime());
 }
 
 /** Same record, only if it actually changed — keeps effects from re-running. */
@@ -105,45 +104,39 @@ export function useActiveSession() {
         id: genId(),
         subjectId,
         start: new Date().toISOString(),
-        pausedAt: null,
-        bankedMs: 0,
         updatedAt: 0,
       }));
     },
     [mutate]
   );
 
-  const pause = useCallback(() => {
-    mutate((prev) => {
-      if (!prev || prev.pausedAt) return prev;
-      const now = Date.now();
-      return {
-        ...prev,
-        pausedAt: new Date(now).toISOString(),
-        bankedMs: prev.bankedMs + (now - new Date(prev.start).getTime()),
-      };
-    });
-  }, [mutate]);
-
-  const resume = useCallback(() => {
-    mutate((prev) => {
-      if (!prev || !prev.pausedAt) return prev;
-      // Shift the origin forward by the paused stretch: everything downstream
-      // (planned end, live block, saved event) keeps working off `start`.
-      const pausedMs = Date.now() - new Date(prev.pausedAt).getTime();
-      return {
-        ...prev,
-        start: new Date(new Date(prev.start).getTime() + pausedMs).toISOString(),
-        pausedAt: null,
-      };
-    });
-  }, [mutate]);
+  /**
+   * Move the wall-clock start of the running session.
+   *
+   * Everything downstream is derived from `start` — the ticking elapsed, the
+   * live block in the calendar, the end written on Finish — so moving the start
+   * back by X grows all of them by X: the forgotten work gets counted and the
+   * block stretches backwards instead of the end jumping forward.
+   *
+   * A future start would run the timer backwards, so it is clamped to now.
+   */
+  const setStartTime = useCallback(
+    (newStartMs: number) => {
+      mutate((prev) => {
+        if (!prev) return prev;
+        const nextStartMs = Math.min(newStartMs, Date.now());
+        if (nextStartMs === new Date(prev.start).getTime()) return prev;
+        return { ...prev, start: new Date(nextStartMs).toISOString() };
+      });
+    },
+    [mutate]
+  );
 
   /**
    * Close the session and return the event to persist.
    *
-   * The end is `start + elapsed`, NOT "now" — a paused session must not record
-   * the paused minutes as focus time. The event reuses the session id, so a
+   * The end is `start + elapsed`, kept in step with the timer so a moved start
+   * carries into the saved event. The event reuses the session id, so a
    * simultaneous Finish on two devices writes the same row instead of two.
    */
   const stopSession = useCallback((): CalendarEvent | null => {
@@ -168,16 +161,13 @@ export function useActiveSession() {
 
   return {
     isActive: session !== null,
-    isPaused: session?.pausedAt != null,
-    /** ISO pause time, or null while running. */
-    pausedAt: session?.pausedAt ?? null,
     subjectId: session?.subjectId || null,
     startTime: session?.start || null,
-    /** Focus ms, ticking every second, paused time excluded. */
+    /** Focus ms, ticking every second. */
     elapsed: session ? elapsed : 0,
     startSession,
-    pause,
-    resume,
+    /** Move the session's origin, e.g. to count work that began before tracking. */
+    setStartTime,
     stopSession,
   };
 }

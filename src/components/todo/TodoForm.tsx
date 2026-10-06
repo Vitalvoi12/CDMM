@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TodoTask } from '../../types';
 import { subjectRepo } from '../../services/repositories';
+import { useEscapeOverlay } from '../../services/overlays';
 import { formatDuration } from '../../utils/time';
 import { Toggle } from '../common/Toggle';
 
@@ -41,10 +42,12 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const dialogRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  useEscapeOverlay(onCancel);
+
   useEffect(() => {
     if (task) {
-      // Edit mode: focus the dialog itself so Enter/Escape/Delete work
-      // right away; click into a field to edit text.
+      // Edit mode: focus the dialog itself so Enter/Delete work right away;
+      // click into a field to edit text. Escape is the overlay stack's job.
       dialogRef.current?.focus({ preventScroll: true });
     } else {
       titleRef.current?.focus();
@@ -73,11 +76,10 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
     });
   };
 
+  // Escape is handled centrally by the overlay stack, so this only has Enter
+  // and Delete. See services/overlays.ts.
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      onCancel();
-    } else if (e.key === 'Enter' && (!(e.target instanceof HTMLTextAreaElement) || e.ctrlKey || e.metaKey)) {
+    if (e.key === 'Enter' && (!(e.target instanceof HTMLTextAreaElement) || e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       e.stopPropagation();
       formRef.current?.requestSubmit();

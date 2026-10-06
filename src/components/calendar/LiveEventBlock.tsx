@@ -11,8 +11,6 @@ interface LiveEventBlockProps {
   hourHeight: number;
   subject?: Subject;
   isMobile?: boolean;
-  /** ISO pause time: the block stops growing and dims while the session rests. */
-  pausedAt?: string | null;
 }
 
 /**
@@ -24,7 +22,7 @@ interface LiveEventBlockProps {
  * Driven entirely by the synced session record, so a session started on one
  * device renders here on all of them.
  */
-export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject, isMobile = false, pausedAt = null }: LiveEventBlockProps) {
+export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject, isMobile = false }: LiveEventBlockProps) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -38,10 +36,7 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject,
   const dayStartMinutes = startHour * 60;
   const dayEndMinutes = endHour * 60;
 
-  // A paused session freezes: its bottom edge stays where it was left.
-  const endMs = pausedAt ? new Date(pausedAt).getTime() : now;
-  if (Number.isNaN(endMs)) return null;
-  const endDate = new Date(endMs);
+  const endDate = new Date(now);
   const endMins = minutesOfDay(endDate);
 
   if (endMins <= dayStartMinutes || endMins > dayEndMinutes) return null;
@@ -58,7 +53,6 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject,
   const height = bottom - top;
   if (height <= 1) return null;
 
-  const paused = pausedAt != null;
   const colorBar = subject?.color || 'var(--color-on-surface-variant)';
   const shellRadius = `${Math.max(2, Math.min(isMobile ? 5 : 7, height / 6))}px`;
   // Laid out exactly like a saved event so the running block does not jump to
@@ -73,8 +67,7 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject,
         height: `${height}px`,
         borderTopLeftRadius: shellRadius,
         borderTopRightRadius: shellRadius,
-        backgroundColor: `color-mix(in srgb, ${colorBar} ${paused ? 22 : 42}%, var(--color-surface-dim))`,
-        opacity: paused ? 0.7 : 1,
+        backgroundColor: `color-mix(in srgb, ${colorBar} 42%, var(--color-surface-dim))`,
       }}
     >
       <div
@@ -93,7 +86,7 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject,
         </span>
         {layout.showTime && (
           <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums truncate max-w-full mt-0.5">
-            {paused ? `paused ${formatClock(startMs)}` : `${formatClock(startMs)} – now`}
+            {formatClock(startMs)} – now
           </span>
         )}
       </div>
