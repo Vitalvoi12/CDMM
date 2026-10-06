@@ -139,7 +139,19 @@ export function isSettingsDirty(): boolean {
   return load<boolean>(STORAGE_KEYS.settingsDirty, false);
 }
 
+/**
+ * Bumped on every dirty settings write. A sync cycle remembers the value it
+ * pushed and clears the dirty flag only if it is unchanged, so a session
+ * started or ended while a push was in flight is not silently marked synced.
+ */
+let settingsRevision = 0;
+
+export function getSettingsRevision(): number {
+  return settingsRevision;
+}
+
 export function markSettingsDirty(): void {
+  settingsRevision++;
   save(STORAGE_KEYS.settingsDirty, true);
 }
 
@@ -721,15 +733,19 @@ class SettingsRepository {
 
   update(data: Partial<UserSettings>): UserSettings {
     if (data.theme) this.settings.theme = data.theme;
-    this.write(Date.now(), true);
+    this.write(Math.max(Date.now(), this.updatedAt + 1), true);
     return this.get();
   }
 
   /** Start / mutate / clear the live session. Stamps the session LWW clock. */
   setActiveSession(session: SyncedSession | null, at: number = Date.now()): void {
-    this.settings.activeSession = session ? { ...session, updatedAt: at } : null;
-    this.settings.activeSessionAt = at;
-    this.write(Date.now(), true);
+    // Stamps must beat whatever this device has already seen, even when its
+    // clock runs behind the one that wrote it (phone vs PC) — otherwise the
+    // other devices would ignore the change as stale.
+    const stamp = Math.max(at, num(this.settings.activeSessionAt) + 1);
+    this.settings.activeSession = session ? { ...session, updatedAt: stamp } : null;
+    this.settings.activeSessionAt = stamp;
+    this.write(Math.max(Date.now(), this.updatedAt + 1), true);
   }
 
   /**

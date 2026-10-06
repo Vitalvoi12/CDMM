@@ -423,13 +423,38 @@ export function applyChanges(db, userId, dirty) {
 
   if (dirty?.settings && typeof dirty.settings.data !== 'undefined') {
     const ts = Number(dirty.settings.updatedAt) > 0 ? Number(dirty.settings.updatedAt) : now;
-    const existing = db.prepare('SELECT updated_at FROM settings WHERE user_id = ?').get(userId);
-    if (!existing || existing.updated_at <= ts) {
+    const parse = (d) => {
+      if (typeof d !== 'string') return d && typeof d === 'object' ? d : {};
+      try { return JSON.parse(d) || {}; } catch { return {}; }
+    };
+    const incoming = parse(dirty.settings.data);
+    const existing = db.prepare('SELECT data, updated_at FROM settings WHERE user_id = ?').get(userId);
+    // Merge per field, like the client: the live session has its own clock
+    // (`activeSessionAt`), so a theme change from a device with a stale session
+    // can't undo a session another device just ended, and a device whose clock
+    // runs behind can't have its Finish dropped by the record-level stamp.
+    const current = existing ? parse(existing.data) : null;
+    const merged = { ...(current || {}), ...incoming };
+    let mergedTs = ts;
+    if (current) {
+      const curAt = Number(current.activeSessionAt) || 0;
+      const inAt = Number(incoming.activeSessionAt) || 0;
+      if (curAt > inAt) {
+        merged.activeSession = current.activeSession ?? null;
+        merged.activeSessionAt = curAt;
+      }
+      if (existing.updated_at > ts) {
+        merged.theme = current.theme ?? merged.theme;
+        mergedTs = existing.updated_at;
+      }
+    }
+    const mergedJson = JSON.stringify(merged);
+    if (!existing || existing.data !== mergedJson || existing.updated_at !== mergedTs) {
       db.prepare(
         `INSERT INTO settings (user_id, data, updated_at) VALUES (?, ?, ?)
          ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
-      ).run(userId, typeof dirty.settings.data === 'string' ? dirty.settings.data : JSON.stringify(dirty.settings.data), ts);
-      logChange(db, userId, 'settings', 'settings', false, { data: dirty.settings.data, updatedAt: ts }, now);
+      ).run(userId, mergedJson, mergedTs);
+      logChange(db, userId, 'settings', 'settings', false, { data: merged, updatedAt: mergedTs }, now);
     }
   }
 

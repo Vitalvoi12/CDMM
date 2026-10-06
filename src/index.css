@@ -458,3 +458,12 @@ html[data-theme='dark'] {
     user-select: text;
   }
 }
+
+/* No pinch or double-tap zoom anywhere (iOS PWA included). Scrolling stays
+ * on; children that set their own touch-action (calendar: pan-y) still
+ * intersect with this one. */
+html, body {
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+}
+

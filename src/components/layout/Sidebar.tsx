@@ -10,7 +10,7 @@ import { LiveSessionCard } from './LiveSessionCard';
 const navItems = [
   { path: '/', label: 'CALENDAR', icon: 'calendar_today', shortcut: 'C' },
   { path: '/todo', label: 'TODO', icon: 'checklist', shortcut: 'T' },
-  { path: '/statistics', label: 'STATISTICS', icon: 'bar_chart', shortcut: '' },
+  { path: '/statistics', label: 'STATISTICS', icon: 'bar_chart', shortcut: 'S' },
   { path: '/subjects', label: 'SUBJECTS', icon: 'layers', shortcut: '' },
 ];
 

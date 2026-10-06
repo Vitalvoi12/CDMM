@@ -2,14 +2,16 @@ import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
-import { requestSessionStart } from '../../services/liveSession';
+import { requestSessionStart, requestSessionStartEdit } from '../../services/liveSession';
+import { settingsRepo } from '../../services/repositories';
 import { hasOpenOverlay } from '../../services/overlays';
 
 export function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // Section shortcuts: C → calendar, T → todo, F → start a session. Physical keys
+  // Section shortcuts: C → change the live session's start (calendar when none runs),
+  // S → statistics, T → todo, F → start a session. Physical keys
   // (e.code) so they work on any layout; skipped while typing or with a modal
   // open so they never hijack a form or dismiss an editor.
   //
@@ -32,7 +34,10 @@ export function AppShell() {
       // Single-letter shortcuts must not fire behind a dialog. Asks the overlay
       // stack rather than guessing at markup with a DOM query.
       if (hasOpenOverlay()) return;
-      if (e.code === 'KeyC') navigate('/');
+      if (e.code === 'KeyC') {
+        if (settingsRepo.get().activeSession) requestSessionStartEdit();
+        else navigate('/');
+      } else if (e.code === 'KeyS') navigate('/statistics');
       else if (e.code === 'KeyT') navigate('/todo');
       else if (e.code === 'KeyF') requestSessionStart();
     };

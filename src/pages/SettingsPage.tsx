@@ -59,13 +59,13 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
   }, []);
 
   return (
-    <div className="flex flex-col w-full h-full relative overflow-anchor-none max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
-      <div className="grid grid-cols-12 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10 lg:items-start relative">
-        <div className="col-span-12 lg:col-span-1 lg:sticky lg:top-[96px] lg:self-start mb-10 lg:mb-0 overflow-anchor-none">
-          <h2 className="font-headline-lg text-[30px] leading-[36px] text-on-surface mb-10">Settings</h2>
+    <div className="flex flex-col w-full h-full relative overflow-anchor-none max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-hidden">
+      <div className="grid grid-cols-12 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10 lg:items-start relative max-lg:flex max-lg:flex-col max-lg:flex-1 max-lg:min-h-0">
+        <div className="col-span-12 lg:col-span-1 lg:sticky lg:top-[96px] lg:self-start mb-10 max-lg:mb-3 lg:mb-0 overflow-anchor-none max-lg:flex-shrink-0">
+          <h2 className="font-headline-lg text-[30px] leading-[36px] text-on-surface mb-10 max-lg:mb-3">Settings</h2>
           <SettingsNav active={activeSection} onChange={setActiveSection} />
         </div>
-        <div className="col-span-12 lg:col-span-1 lg:mt-12 overflow-anchor-none">
+        <div className="col-span-12 lg:col-span-1 lg:mt-12 overflow-anchor-none max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain">
           {activeSection === 'account' && (
             <div className="mb-20 flex flex-col gap-6">
               <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface">Account</h1>

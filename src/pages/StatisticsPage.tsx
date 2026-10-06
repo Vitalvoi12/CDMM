@@ -45,15 +45,15 @@ export function StatisticsPage() {
   const averageMinutes = buckets.length > 0 ? totalMinutes / buckets.length : 0;
 
   return (
-    <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
-      <div className="mb-8 animate-fade-up">
-        <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Statistics</h1>
+    <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-hidden">
+      <div className="mb-8 max-lg:mb-3 animate-fade-up flex-shrink-0">
+        <h1 className="font-headline-lg text-headline-lg max-lg:!text-[21px] max-lg:!leading-[27px] text-on-surface mb-1">Statistics</h1>
         <p className="font-body-lg text-body-lg text-on-surface-variant">
           {totalMinutes > 0
             ? `${formatDurationLong(totalMinutes)} of focus time · ${totalSessions} session${totalSessions === 1 ? '' : 's'} · ${period.label}`
             : period.label}
         </p>
-        <div className="mt-6">
+        <div className="mt-6 max-lg:hidden">
           <PeriodSelect
             preset={preset}
             onChange={setPreset}
@@ -64,6 +64,16 @@ export function StatisticsPage() {
         </div>
       </div>
 
+      <div className="flex flex-col flex-1 min-h-0 max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain">
+      <div className="mb-6 lg:hidden">
+        <PeriodSelect
+          preset={preset}
+          onChange={setPreset}
+          customFrom={customFrom}
+          customTo={customTo}
+          onCustomChange={setCustom}
+        />
+      </div>
       <SubjectBreakdown
         rows={subjectRows}
         metric={metric}
@@ -89,6 +99,7 @@ export function StatisticsPage() {
       <TaskStatsPanel stats={tasks} subjectMap={subjectMap} periodLabel={period.label} />
 
       <PlanStabilityPanel stats={stability} subjectMap={subjectMap} periodLabel={period.label} />
+      </div>
     </div>
   );
 }

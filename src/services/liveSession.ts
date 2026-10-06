@@ -11,6 +11,7 @@
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
+const editListeners = new Set<Listener>();
 
 /** Ask whatever is mounted to open the start-session flow. */
 export function requestSessionStart(): void {
@@ -27,5 +28,23 @@ export function subscribeSessionStart(fn: Listener): () => void {
   listeners.add(fn);
   return () => {
     listeners.delete(fn);
+  };
+}
+
+/** Ask whatever is mounted to open the "change session start" editor. */
+export function requestSessionStartEdit(): void {
+  for (const fn of editListeners) {
+    try {
+      fn();
+    } catch {
+      // ignore listener errors
+    }
+  }
+}
+
+export function subscribeSessionStartEdit(fn: Listener): () => void {
+  editListeners.add(fn);
+  return () => {
+    editListeners.delete(fn);
   };
 }

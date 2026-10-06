@@ -59,6 +59,7 @@ export function StudyPage() {
     if (!event) return;
     checkpoint('Stop session');
     eventRepo.create({
+      id: event.id,
       subjectId: event.subjectId,
       title: subject?.name || event.title,
       start: event.start,

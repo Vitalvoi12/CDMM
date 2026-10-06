@@ -149,17 +149,17 @@ export function TodoPage() {
   const quadrant = openQuadrant ? QUADRANTS.find((q) => q.key === openQuadrant)! : null;
 
   return (
-    <div className="flex flex-col w-full flex-1 min-h-0 relative max-lg:overflow-y-auto">
-      <div className="mb-8 flex-shrink-0">
+    <div className="flex flex-col w-full flex-1 min-h-0 relative max-lg:overflow-hidden">
+      <div className="mb-8 max-lg:mb-3 flex-shrink-0">
         <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Todo</h1>
         <p className="font-body-lg text-body-lg text-on-surface-variant">
           {todos.filter((t) => !t.completed).length} open tasks
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-lg:auto-rows-max max-lg:content-start max-lg:overflow-y-auto max-lg:overscroll-contain">
         {QUADRANTS.map((q) => (
-          <div key={q.key} className="min-h-0 flex">
+          <div key={q.key} className="min-h-0 max-lg:min-h-fit flex">
             <div className="flex-1 min-w-0">
           <QuadrantCard
             ref={(el) => {

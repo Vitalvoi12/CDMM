@@ -38,6 +38,8 @@ const HOUR_HEIGHT_DESKTOP = 96;
  *  window height. */
 const MIN_HOUR_HEIGHT = 24;
 const MOBILE_SCALE = 2.5;
+/** Phones: a fixed, readable hour height — the day scrolls instead of squeezing to fit. */
+const MOBILE_HOUR_HEIGHT = 56;
 const SNAP = 15;
 const LONG_PRESS_MS = 400;
 const TOUCH_MOVE_THRESHOLD = 8;
@@ -90,7 +92,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const availPx = useAvailableHeight(gridAnchorRef);
   const BOTTOM_PAD = 51;
   const baseHourHeight = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
-  const HOUR_HEIGHT = availPx > 0
+  const HOUR_HEIGHT = isMobile ? MOBILE_HOUR_HEIGHT : availPx > 0
     ? Math.max(MIN_HOUR_HEIGHT, (availPx - BOTTOM_PAD) / TOTAL_HOURS)
     : baseHourHeight;
   const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
@@ -477,7 +479,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     // touchcancel and silently kill the swipe). The swipe then works from any
     // empty spot of the grid — Real half, Plan half, hour gutter — not just
     // from wherever the browser happened to deliver a full touchstart/end pair.
-    <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
+    <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto max-lg:overflow-visible [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
       <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: `${BOTTOM_PAD}px` }}>
         <div className={`flex items-center mb-2 pl-4 ${single ? 'justify-center' : 'justify-between'}`}>
           {single ? (

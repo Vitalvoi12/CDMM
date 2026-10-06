@@ -38,6 +38,8 @@ const HOUR_HEIGHT_DESKTOP = 48;
  *  No upper bound — the grid must reach the bottom of the screen at any
  *  window height. */
 const MIN_HOUR_HEIGHT = 24;
+/** Phones: a fixed, readable hour height — the grid scrolls instead of squeezing to fit. */
+const MOBILE_HOUR_HEIGHT = 56;
 const MOBILE_SCALE = 2.5;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SNAP = 15;
@@ -78,7 +80,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   // in HOUR_HEIGHT.
   const gridAnchorRef = useRef<HTMLDivElement>(null);
   const availPx = useAvailableHeight(gridAnchorRef);
-  const HOUR_HEIGHT = availPx > 0 ? Math.max(MIN_HOUR_HEIGHT, availPx / TOTAL_HOURS) : baseHourHeight;
+  const HOUR_HEIGHT = isMobile ? MOBILE_HOUR_HEIGHT : availPx > 0 ? Math.max(MIN_HOUR_HEIGHT, availPx / TOTAL_HOURS) : baseHourHeight;
   const MINUTES_PER_PIXEL = 60 / HOUR_HEIGHT;
   const subjectMap = useMemo(() => {
     const m: Record<string, Subject> = {};

@@ -1,7 +1,7 @@
 import {
   eventRepo, subjectRepo, todoRepo, tombstoneRepo, settingsRepo, eventEditRepo,
   takeDirtySnapshot, clearDirtySnapshot, isSettingsDirty, clearSettingsDirty,
-  subscribeRepoChanges,
+  subscribeRepoChanges, getSettingsRevision,
   type SyncEntity,
 } from './repositories';
 import type { CalendarEvent, Subject, TodoTask, UserSettings, EventTimeEdit } from '../types';
@@ -250,13 +250,26 @@ export async function initialSync(): Promise<void> {
 
 /** In-flight cycle, shared by concurrent callers (timer + background sync). */
 let inFlight: Promise<boolean> | null = null;
+let rerun: Promise<boolean> | null = null;
 
 /** One push/pull cycle against the cursor. Returns true when anything changed locally. */
 export async function syncOnce(): Promise<boolean> {
   if (!getToken()) return false;
   // Two callers at once (the 15s session poll and the 90s background tick)
   // would race on the cursor and on clearing the dirty set. Share one cycle.
-  if (inFlight) return inFlight;
+  if (inFlight) {
+    // The running cycle already took its snapshot of local changes, so a write
+    // made meanwhile (session start/stop) needs one more cycle right after it.
+    if (!rerun) {
+      rerun = inFlight
+        .catch(() => false)
+        .then(() => {
+          rerun = null;
+          return syncOnce();
+        });
+    }
+    return rerun;
+  }
   inFlight = runCycle().finally(() => {
     inFlight = null;
   });
@@ -264,6 +277,7 @@ export async function syncOnce(): Promise<boolean> {
 }
 
 async function runCycle(): Promise<boolean> {
+  const settingsRev = getSettingsRevision();
   const { ids, dirty } = collectDirty();
   const hasDirty =
     dirty.subjects.length > 0 || dirty.events.length > 0 || dirty.todos.length > 0 ||
@@ -291,7 +305,7 @@ async function runCycle(): Promise<boolean> {
 
   if (hasDirty) {
     clearDirtySnapshot(ids);
-    if (dirty.settings !== undefined) clearSettingsDirty();
+    if (dirty.settings !== undefined && settingsRev === getSettingsRevision()) clearSettingsDirty();
     // Tombstones are resent every cycle; nothing to clear for them.
   }
   if (changed) notifySync();

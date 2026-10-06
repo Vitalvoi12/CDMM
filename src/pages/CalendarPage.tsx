@@ -670,6 +670,13 @@ export function CalendarPage() {
     },
   });
 
+  const swipeHandlers = {
+    onTouchStart: panelSwipe.onTouchStart,
+    onTouchMove: panelSwipe.onTouchMove,
+    onTouchEnd: panelSwipe.onTouchEnd,
+    onTouchCancel: panelSwipe.onTouchCancel,
+  };
+
   return (
     <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
       <DateHeader
@@ -791,6 +798,7 @@ export function CalendarPage() {
       )}
 
       {view === 'month' && (
+        <div className="flex flex-col flex-1 min-h-0 [touch-action:pan-y]" {...swipeHandlers}>
         <MonthView
           key={`month-${currentDate.getFullYear()}-${currentDate.getMonth()}`}
           date={currentDate}
@@ -801,10 +809,13 @@ export function CalendarPage() {
           onEventClick={handleEventClick}
           liveSession={activeSession}
         />
+        </div>
       )}
 
       {view === 'year' && (
-        <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} onDateSelect={handleDaySelect} />
+        <div className="flex flex-col flex-1 min-h-0 [touch-action:pan-y]" {...swipeHandlers}>
+          <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} onDateSelect={handleDaySelect} />
+        </div>
       )}
 
       {/* Portalled to body: the page-enter animation transforms an ancestor,

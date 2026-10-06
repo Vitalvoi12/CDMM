@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useActiveSession } from '../../hooks/useActiveSession';
 import { eventRepo, subjectRepo } from '../../services/repositories';
 import { checkpoint } from '../../services/history';
-import { subscribeSessionStart } from '../../services/liveSession';
+import { subscribeSessionStart, subscribeSessionStartEdit } from '../../services/liveSession';
 import { formatTimerDuration, timeFromDate } from '../../utils/time';
 import { SubjectPickerModal } from '../subjects/SubjectPickerModal';
 import { SessionStartEditor } from '../study/SessionStartEditor';
@@ -30,6 +30,12 @@ export function LiveSessionCard() {
     return subscribeSessionStart(() => setShowPicker(true));
   }, [isActive]);
 
+  // C opens the start editor while a session runs.
+  useEffect(() => {
+    if (!isActive) return;
+    return subscribeSessionStartEdit(() => setShowStartEditor(true));
+  }, [isActive]);
+
   /**
    * Close the session and persist it as a real event — the same write the
    * Focus Room did, kept here so finishing works from the sidebar alone.
@@ -39,6 +45,7 @@ export function LiveSessionCard() {
     if (!event) return;
     checkpoint('Stop session');
     eventRepo.create({
+      id: event.id,
       subjectId: event.subjectId,
       title: subject?.name || event.title,
       start: event.start,
