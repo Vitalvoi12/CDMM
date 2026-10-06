@@ -2,8 +2,9 @@ import { useMemo, useRef } from 'react';
 import type { CalendarEvent, EventFilter, Subject } from '../../types';
 import { getMonthGrid, formatDayOfMonth, isSameDay, timeFromDate } from '../../utils/time';
 import { getEventsForDate } from '../../utils/stats';
-import { MONTH_BLOCK, monthSlots } from '../../utils/eventDensity';
+import { monthBlock, monthSlots } from '../../utils/eventDensity';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
 
 interface MonthViewProps {
@@ -23,6 +24,14 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /** Day-number padding (8+8) + number row (13) + margin above the list (4). */
 const CELL_HEAD_PX = 38;
+/**
+ * Same head on a phone, where the cell padding is halved (p-1 = 3.2px a side
+ * at the app's 0.2rem spacing step) and the number row is the 13px the label
+ * scale sets. Kept as its own constant because `monthSlots` is fed by it: a
+ * head measured from the desktop padding would hand the cells a list height
+ * ~14px taller than they really have and paint a block the cell then clips.
+ */
+const CELL_HEAD_PX_MOBILE = 23;
 /** The LIVE chip under today's number. */
 const LIVE_PX = 18;
 /** Row height assumed on the very first paint, before the measure lands. */
@@ -55,13 +64,15 @@ export function MonthView({
   // Stretch the week rows to fill all free vertical space inside <main>.
   const gridAnchorRef = useRef<HTMLDivElement>(null);
   const availPx = useAvailableHeight(gridAnchorRef);
+  const isMobile = useIsMobile();
+  const block = monthBlock(isMobile);
 
   // Rows are equal height (grid `1fr`), so a single measurement of the grid
   // tells how much of every cell is left for blocks — no per-cell measuring.
   const listPx = useMemo(() => {
     const rowPx = availPx > 0 ? (availPx - (weeks - 1)) / weeks : FALLBACK_ROW_PX;
-    return Math.max(0, rowPx - CELL_HEAD_PX);
-  }, [availPx, weeks]);
+    return Math.max(0, rowPx - (isMobile ? CELL_HEAD_PX_MOBILE : CELL_HEAD_PX));
+  }, [availPx, weeks, isMobile]);
 
   const now = new Date();
   const showLive = mode !== 'plan';
@@ -92,7 +103,7 @@ export function MonthView({
           );
           const today = isSameDay(d, now);
           const live = today && liveSession && showLive;
-          const { shown, hidden } = monthSlots(listPx - (live ? LIVE_PX : 0), dayEvents.length);
+          const { shown, hidden } = monthSlots(listPx - (live ? LIVE_PX : 0), dayEvents.length, isMobile);
           const dateLabel = d.toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'long',
@@ -116,7 +127,7 @@ export function MonthView({
                   onDateSelect(d);
                 }
               }}
-              className={`@container min-h-[58px] p-2 text-left overflow-hidden cursor-pointer transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              className={`@container min-h-[58px] ${isMobile ? 'p-1' : 'p-2'} text-left overflow-hidden cursor-pointer transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 today ? 'bg-surface-container' : 'bg-surface-container-low/30'
               }`}
             >
@@ -136,22 +147,24 @@ export function MonthView({
               </span>
               {live && (
                 <div className="mt-1 flex items-center gap-1 px-1 py-0.5 rounded bg-error/10 text-[8px] text-on-surface truncate">
-                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: liveSubject?.color || 'var(--color-error)' }} />
+                  <div className={`${isMobile ? 'w-1' : 'w-1.5'} h-1.5 rounded-full flex-shrink-0 animate-pulse`} style={{ backgroundColor: liveSubject?.color || 'var(--color-error)' }} />
                   <span className="truncate">{liveSubject?.name || 'Studying'} · live</span>
                 </div>
               )}
               {dayEvents.length > 0 && (
-                <div className="mt-1 flex flex-col min-h-0" style={{ gap: `${MONTH_BLOCK.gap}px` }}>
+                <div className="mt-1 flex flex-col min-h-0" style={{ gap: `${block.gap}px` }}>
                   {dayEvents.slice(0, shown).map((ev) => (
                     <MonthEventBlock
                       key={ev.id}
                       event={ev}
                       subject={subjectMap[ev.subjectId]}
                       onClick={onEventClick}
+                      isMobile={isMobile}
+                      height={block.height}
                     />
                   ))}
                   {hidden > 0 && (
-                    <span className="font-label-sm text-label-sm leading-none text-on-surface-variant truncate">
+                    <span className={`font-label-sm text-label-sm leading-none text-on-surface-variant truncate ${isMobile ? '!text-[8px]' : ''}`}>
                       +{hidden} more
                     </span>
                   )}
@@ -173,15 +186,23 @@ export function MonthView({
  * Wide cells (≥7rem — the point where a time stamp still leaves room for the
  * name) show the start time; narrower ones drop it and keep it in the tooltip,
  * so nothing turns into an ellipsis soup on a tablet.
+ *
+ * On a phone the block drops to the `monthBlock` mobile scale (12px, 8px name),
+ * which fits roughly a third more events into a row than the desktop block.
  */
 function MonthEventBlock({
   event,
   subject,
   onClick,
+  isMobile = false,
+  height,
 }: {
   event: CalendarEvent;
   subject?: Subject;
   onClick?: (event: CalendarEvent) => void;
+  isMobile?: boolean;
+  /** Painted height — comes from `monthBlock` so it matches the slot maths. */
+  height: number;
 }) {
   const plan = event.kind === 'plan';
   const color = subject?.color || 'var(--color-on-surface-variant)';
@@ -201,10 +222,19 @@ function MonthEventBlock({
       type="button"
       onClick={onClick ? (e) => { e.stopPropagation(); onClick(event); } : undefined}
       title={title}
-      className="relative flex items-center gap-1.5 w-full rounded-[4px] pl-2 pr-1 overflow-hidden text-left cursor-pointer transition-[filter] hover:brightness-110 ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 focus-visible:ring-2 focus-visible:ring-primary"
-      style={{ height: `${MONTH_BLOCK.height}px`, backgroundColor: bg }}
+      // No stroke: the block used to carry an inset black ring plus a
+      // white/20 outline, which together read as a 1px border and boxed every
+      // event into its cell. The fill alone is enough at cell scale.
+      // The focus ring stays — it is the keyboard affordance, not decoration.
+      className={`relative flex items-center w-full rounded-[4px] overflow-hidden text-left cursor-pointer transition-[filter] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-primary ${
+        isMobile ? 'gap-1 pl-1 pr-0.5' : 'gap-1.5 pl-2 pr-1'
+      }`}
+      style={{ height: `${height}px`, backgroundColor: bg }}
     >
-      <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[4px]" style={{ backgroundColor: spine }} />
+      <span
+        className={`absolute left-0 top-0 bottom-0 rounded-l-[4px] ${isMobile ? 'w-[2px]' : 'w-[3px]'}`}
+        style={{ backgroundColor: spine }}
+      />
       <span
         className="hidden @min-[7rem]:inline font-body-sm text-body-sm leading-none tabular-nums shrink-0 text-on-surface-variant opacity-80"
         style={fgStyle}
@@ -212,7 +242,7 @@ function MonthEventBlock({
         {timeFromDate(event.start)}
       </span>
       <span
-        className="font-body-sm text-body-sm leading-none font-medium truncate min-w-0 text-on-surface"
+        className={`font-body-sm text-body-sm leading-none font-medium truncate min-w-0 text-on-surface ${isMobile ? '!text-[8px]' : ''}`}
         style={fgStyle}
       >
         {name}

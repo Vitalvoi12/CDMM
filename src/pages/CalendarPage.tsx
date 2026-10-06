@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useEffect } from 'react';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DateHeader } from '../components/calendar/DateHeader';
@@ -9,11 +9,11 @@ import { YearView } from '../components/calendar/YearView';
 import { StatsSidebar } from '../components/calendar/StatsSidebar';
 import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
 import { EventForm } from '../components/calendar/EventForm';
-import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
+import { useSwipeNav } from '../hooks/useSwipeNav';
 import { eventRepo, subjectRepo, tombstoneRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
 import { expandRecurrence } from '../utils/time';
@@ -96,9 +96,10 @@ export function CalendarPage() {
     useCalendarNavigation();
   const isMobile = useIsMobile();
   const location = useLocation();
-  const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
-  const { startSession, isActive, subjectId, startTime, elapsed } = useActiveSession();
+  const { isActive, subjectId, startTime, elapsed } = useActiveSession();
+  // When the last panel swipe was decided — see panelSwipe below.
+  const panelSwipeAtRef = useRef(0);
   const navigate = useNavigate();
 
   // Deep link from the Statistics heatmap: jump to the tapped day.
@@ -143,7 +144,7 @@ export function CalendarPage() {
       // storage unavailable — ignore
     }
   }, []);
-  const modalOpen = Boolean(editingEvent || creatingEvent || pendingRecurrence || showSubjectPicker);
+  const modalOpen = Boolean(editingEvent || creatingEvent || pendingRecurrence);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -181,12 +182,16 @@ export function CalendarPage() {
         else if (!isMobile) setAsidePanel((p) => (p === 'stats' ? 'tasks' : 'stats'));
         else setDayPanel((p) => (p === 'stats' ? 'tasks' : 'stats'));
       }
+      // Week stays desktop-only: the view is not in the mobile set, so an
+      // unguarded press would set it and immediately be bounced back to day.
       else if (!isMobile && key === 'w') setView('week');
-      else if (!isMobile && key === 'm') setView('month');
+      // Month is available on mobile too (the sheet's View row mirrors this),
+      // so the shortcut is not gated like week.
+      else if (key === 'm') setView('month');
       else if (key === 'r') setEventFilter('real');
       else if (key === 'p') setEventFilter('plan');
       else if (key === 'a') setEventFilter('all');
-      // N opens a new event, same defaults as the New Event button.
+      // N opens a new event, same defaults as the New event button.
       else if (key === 'n') {
         setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter });
       }
@@ -229,6 +234,10 @@ export function CalendarPage() {
   // Checkbox in the day task panel: toggles one checklist item on its event.
   const handleChecklistToggle = useCallback(
     (eventId: string, itemId: string, done: boolean) => {
+      // A completed swipe is followed by the browser's synthesized click on
+      // the element under the finger. If that is the checkbox being flicked
+      // over, it must not tick itself — the gesture was navigation.
+      if (Date.now() - panelSwipeAtRef.current < 400) return;
       const stored = eventRepo.getById(eventId);
       if (!stored || !stored.checklist) return;
       checkpoint(done ? 'Complete event task' : 'Reopen event task');
@@ -250,22 +259,14 @@ export function CalendarPage() {
     refreshEvents();
   }, [refreshEvents]);
 
+  // Month and year are reachable on mobile too: their grids are what fits a
+  // narrow screen, and a tap on a day drops into the day view. The week
+  // timeline stays desktop-only — seven columns cannot be read on a phone.
   useEffect(() => {
-    if (isMobile && view !== 'day' && view !== '3day') setView('day');
+    if (isMobile && view !== 'day' && view !== '3day' && view !== 'month' && view !== 'year') {
+      setView('day');
+    }
   }, [isMobile, view, setView]);
-
-  const handleStartStudying = useCallback(() => {
-    setShowSubjectPicker(true);
-  }, []);
-
-  const handleSubjectSelected = useCallback(
-    (subjectId: string) => {
-      setShowSubjectPicker(false);
-      startSession(subjectId);
-      navigate('/study');
-    },
-    [startSession, navigate]
-  );
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
     setEditingEvent(event);
@@ -647,19 +648,27 @@ export function CalendarPage() {
     </div>
   );
 
-  const renderSubjectPicker = () =>
-    showSubjectPicker && (
-      <SubjectPickerModal
-        subjects={subjects}
-        onSelect={handleSubjectSelected}
-        onClose={() => setShowSubjectPicker(false)}
-      />
-    );
-
   // Mobile swipe mapping (per request): swipe left → next period,
   // swipe right → previous period. Wired only on mobile timelines.
   const swipePrev = isMobile ? goToPrevious : undefined;
   const swipeNext = isMobile ? goToNext : undefined;
+
+  // Same navigation for the mobile Stat and Tasks panels, so a day change is
+  // one flick whichever tab is open. `pan-y` on their scroll containers is what
+  // lets this differ from a plain listener: without it the browser may claim a
+  // horizontal flick as a scroll and the gesture arrives as touchcancel.
+  //
+  // markGesture stamps the panel guard rather than the timeline's: a swipe ends
+  // with a synthesized click on whatever is under the finger, and here that can
+  // be a checkbox. The Stat panel has no controls, so it needs no guard.
+  const panelSwipe = useSwipeNav({
+    enabled: isMobile,
+    onSwipeLeft: swipeNext,
+    onSwipeRight: swipePrev,
+    markGesture: () => {
+      panelSwipeAtRef.current = Date.now();
+    },
+  });
 
   return (
     <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
@@ -703,7 +712,13 @@ export function CalendarPage() {
               />
             </div>
           ) : dayPanel === 'stats' ? (
-            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40 [touch-action:pan-y]"
+              onTouchStart={panelSwipe.onTouchStart}
+              onTouchMove={panelSwipe.onTouchMove}
+              onTouchEnd={panelSwipe.onTouchEnd}
+              onTouchCancel={panelSwipe.onTouchCancel}
+            >
               <StatsSidebar
                 events={statsEvents}
                 subjects={subjects}
@@ -711,7 +726,13 @@ export function CalendarPage() {
               />
             </div>
           ) : (
-            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40 [touch-action:pan-y]"
+              onTouchStart={panelSwipe.onTouchStart}
+              onTouchMove={panelSwipe.onTouchMove}
+              onTouchEnd={panelSwipe.onTouchEnd}
+              onTouchCancel={panelSwipe.onTouchCancel}
+            >
               <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
             </div>
           )
@@ -783,36 +804,46 @@ export function CalendarPage() {
       )}
 
       {view === 'year' && (
-        <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} events={events} subjects={subjects} />
+        <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} onDateSelect={handleDaySelect} />
       )}
 
       {/* Portalled to body: the page-enter animation transforms an ancestor,
           which would re-anchor `fixed` to it mid-animation and snap the bar
-          back to the viewport once the animation ends. */}
-      {view === 'day' &&
+          back to the viewport once the animation ends.
+
+          The mobile month and year views carry this bar for the tune button
+          alone — it is the only way back to another view from there, since the
+          day panel's own actions do not exist in either. */}
+      {(view === 'day' || (isMobile && (view === 'month' || view === 'year'))) &&
         createPortal(
-          <div className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10 max-lg:bg-background/95">
-            <button
-              onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
-              title="New event (Shortcut: N)"
-              className="px-6 py-3 bg-surface-container-high text-on-surface font-label-md text-label-md rounded-full hover:bg-surface-container-highest transition-colors uppercase tracking-[0.12em] flex items-center justify-center gap-2"
-            >
-              New Event
-            </button>
-            <button
-              onClick={handleStartStudying}
-              className="max-lg:flex-1 max-lg:justify-center lg:flex-none lg:px-6 bg-primary text-on-primary font-label-md text-label-md py-3 rounded-full hover:opacity-90 transition-opacity uppercase tracking-[0.12em] flex items-center justify-center gap-2"
-            >
-              Start studying
-            </button>
+          <div
+            className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 max-lg:justify-end max-lg:pointer-events-none lg:fixed lg:bottom-14 lg:right-8 lg:z-10"
+          >
+            {/* Desktop only. On a phone this bar is the tune button alone, so
+                the bar has no backing and lets taps through to the timeline
+                around it — see the container's pointer-events above. */}
+            {view === 'day' && (
+              <button
+                onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
+                title="New event (Shortcut: N)"
+                aria-label="New event"
+                className="hidden lg:flex items-center justify-center bg-surface-container-high text-on-surface rounded-full hover:bg-surface-container-highest transition-colors w-16 h-16"
+              >
+                <span className="material-symbols-outlined text-[26px] leading-none">add</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setViewSettingsOpen(true)}
               aria-label="View settings"
               title="View settings"
-              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-full border border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-outline transition-colors flex-shrink-0"
+              // Opaque: the bar itself has no backing on mobile, so this button
+              // sits straight on the timeline — a solid surface is what keeps it
+              // readable over whatever is behind it. w-12 (38px) rather than the
+              // old w-10 (32px), a step toward a comfortable touch target.
+              className="lg:hidden pointer-events-auto w-12 h-12 flex items-center justify-center rounded-full bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors flex-shrink-0"
             >
-              <span className="material-symbols-outlined text-[18px] leading-none">tune</span>
+              <span className="material-symbols-outlined text-[20px] leading-none">tune</span>
             </button>
           </div>,
           document.body
@@ -864,8 +895,6 @@ export function CalendarPage() {
             />
           );
         })()}
-
-      {renderSubjectPicker()}
     </div>
   );
 }

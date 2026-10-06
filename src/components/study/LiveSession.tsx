@@ -31,7 +31,7 @@ export function LiveSession({ isActive, subjectName, startTime, elapsed, subject
             onClick={onStart}
             className="bg-primary text-on-primary px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-full font-label-md text-label-md uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
           >
-            Start Session
+            Start
           </button>
           {subjects.length > 0 && (
             <div className="hidden lg:flex flex-wrap items-center justify-center gap-2.5 mt-8 max-lg:mt-5">

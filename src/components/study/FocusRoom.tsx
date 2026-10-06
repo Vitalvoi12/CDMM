@@ -137,7 +137,7 @@ export function FocusRoom({
                     onClick={onStart}
                     className="px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-full bg-primary text-on-primary font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 hover:-translate-y-0.5 hover:shadow-elev-2 transition-all whitespace-nowrap"
                   >
-                    Start studying
+                    Start
                   </button>
                 </div>
               </div>

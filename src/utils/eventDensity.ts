@@ -138,14 +138,41 @@ export function eventResizeZone(height: number, isMobile = false): ResizeZone {
 }
 
 /** Geometry of one mini block in a month cell — the timeline block at cell scale. */
-export const MONTH_BLOCK = {
+export interface MonthBlock {
   /** Painted height, also the style on the block itself. */
-  height: 18,
+  height: number;
   /** Space between blocks in the cell's column. */
-  gap: 3,
+  gap: number;
   /** Height of the "+N more" line. */
+  more: number;
+}
+
+export const MONTH_BLOCK: MonthBlock = {
+  height: 18,
+  gap: 3,
   more: 15,
-} as const;
+};
+
+/**
+ * Phone scale of the same block.
+ *
+ * A month row is ~55px tall on a phone against ~90px on the desktop, so the
+ * desktop block spends a third of the cell on a single event and a busy day
+ * shows barely two. Shrinking the block (and its "+N more" line) buys a third
+ * block into the same row, which matters more here than on the desktop where
+ * the row never runs out.
+ */
+export const MONTH_BLOCK_MOBILE: MonthBlock = {
+  height: 12,
+  gap: 2,
+  more: 11,
+};
+
+/** The block geometry for the current viewport — every reader must agree with
+ *  `monthSlots`, which derives the slot count from the very same numbers. */
+export function monthBlock(isMobile = false): MonthBlock {
+  return isMobile ? MONTH_BLOCK_MOBILE : MONTH_BLOCK;
+}
 
 export interface MonthSlots {
   /** How many blocks to paint. */
@@ -168,15 +195,16 @@ export interface MonthSlots {
  * `shown` is never 0 for a busy day: at least one block is drawn (clipped by
  * the cell if need be) rather than hiding the day's work behind nothing.
  */
-export function monthSlots(listPx: number, count: number): MonthSlots {
+export function monthSlots(listPx: number, count: number, isMobile = false): MonthSlots {
   if (count <= 0) return { shown: 0, hidden: 0 };
+  const { height, gap, more } = monthBlock(isMobile);
   // n blocks paint `n*height + (n-1)*gap`, i.e. `n*pitch - gap`.
-  const pitch = MONTH_BLOCK.height + MONTH_BLOCK.gap;
-  const full = Math.floor((listPx + MONTH_BLOCK.gap) / pitch);
+  const pitch = height + gap;
+  const full = Math.floor((listPx + gap) / pitch);
   if (count <= full) return { shown: count, hidden: 0 };
 
-  const shown = Math.max(1, Math.floor((listPx - MONTH_BLOCK.more) / pitch));
-  const blocksPx = shown * MONTH_BLOCK.height + (shown - 1) * MONTH_BLOCK.gap;
-  const lineFits = blocksPx + MONTH_BLOCK.gap + MONTH_BLOCK.more <= listPx;
+  const shown = Math.max(1, Math.floor((listPx - more) / pitch));
+  const blocksPx = shown * height + (shown - 1) * gap;
+  const lineFits = blocksPx + gap + more <= listPx;
   return { shown, hidden: lineFits ? count - shown : 0 };
 }

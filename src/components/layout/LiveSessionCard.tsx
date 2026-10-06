@@ -106,7 +106,7 @@ export function LiveSessionCard() {
             onClick={() => setShowPicker(true)}
             className="mt-1 w-full py-2 rounded-full bg-primary text-on-primary font-label-md text-label-md tracking-[0.12em] uppercase hover:opacity-90 transition-opacity"
           >
-            Start Session
+            Start
           </button>
         </>
       )}

@@ -11,6 +11,20 @@ interface ViewSettingsSheetProps {
   onClose: () => void;
 }
 
+/**
+ * Views the mobile layout can render. Week stays out — its seven day columns
+ * cannot be read on a phone. The month and year grids fit, and their days open
+ * the day view, so the phone gets the same overview-to-detail path as a PC.
+ */
+const MOBILE_VIEWS = ['day', '3day', 'month', 'year'] as const;
+
+const VIEW_LABELS: Record<(typeof MOBILE_VIEWS)[number], string> = {
+  day: 'Day',
+  '3day': '3D',
+  month: 'Month',
+  year: 'Year',
+};
+
 function pill(active: boolean): string {
   return `px-4 py-2 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
     active
@@ -71,9 +85,9 @@ export function ViewSettingsSheet({
         </div>
 
         <Section label="View">
-          {(['day', '3day'] as const).map((v) => (
+          {MOBILE_VIEWS.map((v) => (
             <button key={v} type="button" onClick={() => onViewChange(v)} className={pill(view === v)}>
-              {v === 'day' ? 'Day' : '3D'}
+              {VIEW_LABELS[v]}
             </button>
           ))}
         </Section>

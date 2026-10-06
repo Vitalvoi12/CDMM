@@ -26,13 +26,19 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
       className="relative bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 pt-5 px-5 pb-5 flex flex-col min-w-0 h-full min-h-0 overflow-hidden"
     >
       <div className="flex items-center justify-between gap-2 mb-4">
+        {/* flex-1: the row is full-width but this button was shrink-wrapped to
+            its text, so only the title itself was clickable and the space up to
+            the "+" did nothing. Growing it makes the whole header open the
+            full list; the "+" stays its own target on the right.
+            no-press: at this width the global press-scale would shrink the
+            entire header on every tap, so it opts out like the task rows do. */}
         <button
           ref={ref}
           type="button"
           onClick={onOpenQuadrant}
-          className="flex items-center gap-3 min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary group"
+          className="flex-1 flex items-center gap-3 min-w-0 rounded no-press focus:outline-none focus-visible:ring-2 focus-visible:ring-primary group"
         >
-          <h2 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-[0.14em] truncate">
+          <h2 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-[0.14em] truncate min-w-0">
             {title}
           </h2>
           <span className="font-label-sm text-label-sm text-on-surface-variant flex-shrink-0 tabular-nums">
