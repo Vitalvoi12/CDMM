@@ -116,7 +116,7 @@ export function CalendarPage() {
   const subjects = subjectRepo.getAll();
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [creatingEvent, setCreatingEvent] = useState<{ start: Date; kind: 'real' | 'plan' } | null>(null);
+  const [creatingEvent, setCreatingEvent] = useState<{ start: Date; end?: Date; kind: 'real' | 'plan' } | null>(null);
   const [pendingRecurrence, setPendingRecurrence] = useState<PendingRecurrence | null>(null);
   // Snapshot of the event before a drag/resize committed it, so the editor's
   // Cancel can roll the change back — and so a series-wide edit can measure
@@ -281,8 +281,8 @@ export function CalendarPage() {
   );
 
   const handleTimelineBackgroundClick = useCallback(
-    (start: Date, kind: 'real' | 'plan') => {
-      setCreatingEvent({ start, kind });
+    (start: Date, kind: 'real' | 'plan', end?: Date) => {
+      setCreatingEvent({ start, end, kind });
     },
     []
   );
@@ -865,6 +865,7 @@ export function CalendarPage() {
           event={null}
           defaultSubjectId={subjects[0]?.id || ''}
           defaultDate={creatingEvent.start}
+          defaultEnd={creatingEvent.end}
           defaultKind={creatingEvent.kind}
           subjects={subjects}
           onSave={handleEventSave}

@@ -14,6 +14,8 @@ interface EventFormProps {
   event: CalendarEvent | null;
   defaultSubjectId: string;
   defaultDate: Date;
+  /** End for a new event (drag-to-create); defaults to start + 1h. */
+  defaultEnd?: Date;
   defaultKind?: 'real' | 'plan';
   subjects: Subject[];
   onSave: (data: {
@@ -50,11 +52,13 @@ function combine(dateVal: string, timeVal: string): Date {
 /** Select value meaning "a free-form plan event, not tied to any subject". */
 const CUSTOM_SUBJECT = '__custom__';
 
-export function EventForm({ event, defaultSubjectId, defaultDate, defaultKind = 'plan', subjects, onSave, onDelete, onDuplicate, onCancel }: EventFormProps) {
+export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, defaultKind = 'plan', subjects, onSave, onDelete, onDuplicate, onCancel }: EventFormProps) {
   const initialStart = event ? new Date(event.start) : new Date(defaultDate);
   const initialEnd = event
     ? new Date(event.end)
-    : new Date(initialStart.getTime() + 60 * 60000);
+    : defaultEnd
+      ? new Date(defaultEnd)
+      : new Date(initialStart.getTime() + 60 * 60000);
 
   const initialKind = event?.kind || defaultKind;
   const [subjectSel, setSubjectSel] = useState<string>(() => {

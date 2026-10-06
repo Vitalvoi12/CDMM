@@ -5,10 +5,12 @@ import { bodyZoom } from '../../utils/zoom';
 import { TimelineEvent } from './TimelineEvent';
 import { LiveEventBlock } from './LiveEventBlock';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
+import { DraftEventBlock } from './DraftEventBlock';
 import { isToday } from '../../utils/time';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
+import { useDragToCreate, type DragCreateDraft } from '../../hooks/useDragToCreate';
 
 interface TimelineProps {
   events: CalendarEvent[];
@@ -21,7 +23,8 @@ interface TimelineProps {
       (a touch drag must not pop the editor and be rolled back by Cancel). */
   onEventMove?: (eventId: string, newStart: Date, newEnd: Date, source?: 'mouse' | 'touch') => void;
   onEventResize?: (eventId: string, newEnd: Date) => void;
-  onBackgroundClick?: (start: Date, kind: 'real' | 'plan') => void;
+  /** `end` is set when the slot was press-dragged rather than tapped. */
+  onBackgroundClick?: (start: Date, kind: 'real' | 'plan', end?: Date) => void;
   /** Which kinds to show: 'all' (default) renders Real|Plan side by side,
       'real'/'plan' renders a single full-width column. */
   mode?: EventFilter;
@@ -118,6 +121,28 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     markGesture: () => {
       lastDragEndRef.current = Date.now();
     },
+  });
+
+  // Press-and-drag on empty space creates an event over the dragged range.
+  const dragCreate = useDragToCreate({
+    enabled: !isMobile && !!onBackgroundClick,
+    minutesPerPixel: MINUTES_PER_PIXEL,
+    totalMinutes: TOTAL_HOURS * 60,
+    snap: SNAP,
+    markGesture: useCallback(() => {
+      lastDragEndRef.current = Date.now();
+    }, []),
+    onCreate: useCallback(
+      ({ kind, startMin, endMin }: DragCreateDraft) => {
+        const atMinutes = (m: number) => {
+          const d = new Date(date);
+          d.setHours(START_HOUR + Math.floor(m / 60), m % 60, 0, 0);
+          return d;
+        };
+        onBackgroundClick?.(atMinutes(startMin), kind, atMinutes(endMin));
+      },
+      [date, onBackgroundClick]
+    ),
   });
 
   useEffect(() => {
@@ -437,6 +462,21 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     [date, MINUTES_PER_PIXEL, onBackgroundClick]
   );
 
+  const renderDraft = (kind: 'real' | 'plan') => {
+    const d = dragCreate.draft;
+    if (!d || d.kind !== kind) return null;
+    return (
+      <DraftEventBlock
+        top={(d.startMin / 60) * HOUR_HEIGHT}
+        height={((d.endMin - d.startMin) / 60) * HOUR_HEIGHT}
+        startMinutes={START_HOUR * 60 + d.startMin}
+        endMinutes={START_HOUR * 60 + d.endMin}
+        isMobile={isMobile}
+        className="right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)]"
+      />
+    );
+  };
+
   const renderEventBlocks = (list: typeof eventBlocks) => {
     const lanes = layoutOverlapLanes(list.map((b) => b.event));
     return list.map(({ event, top, height }) => {
@@ -525,8 +565,9 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           {/* Single-kind mode: one full-width column, no split. The live
               session block is real — hidden in plan-only mode. */}
           {single ? (
-            <div className="absolute left-0 right-0 top-0 bottom-0 overflow-hidden" onClick={makeColumnTapHandler(singleKind)}>
+            <div className="absolute left-0 right-0 top-0 bottom-0 overflow-hidden" onClick={makeColumnTapHandler(singleKind)} onMouseDown={(e) => dragCreate.onMouseDown(singleKind, singleKind, e)}>
               {renderEventBlocks(singleKind === 'real' ? realBlocks : planBlocks)}
+              {renderDraft(singleKind)}
               {isToday(date) && activeSession && singleKind === 'real' && (
                 <LiveEventBlock
                   start={activeSession.start}
@@ -541,8 +582,9 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           ) : (
             <>
               {/* Left column: real events */}
-              <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('real')}>
+              <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('real')} onMouseDown={(e) => dragCreate.onMouseDown('real', 'real', e)}>
                 {renderEventBlocks(realBlocks)}
+                {renderDraft('real')}
                 {isToday(date) && activeSession && (
                   <LiveEventBlock
                     start={activeSession.start}
@@ -559,8 +601,9 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
               <div className="absolute left-1/2 top-0 bottom-0 w-px bg-outline-variant" />
 
               {/* Right column: plan events */}
-              <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('plan')}>
+              <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('plan')} onMouseDown={(e) => dragCreate.onMouseDown('plan', 'plan', e)}>
                 {renderEventBlocks(planBlocks)}
+                {renderDraft('plan')}
               </div>
             </>
           )}

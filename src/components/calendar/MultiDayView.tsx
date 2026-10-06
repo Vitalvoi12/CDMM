@@ -5,11 +5,13 @@ import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, f
 import { bodyZoom } from '../../utils/zoom';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { LiveEventBlock } from './LiveEventBlock';
+import { DraftEventBlock } from './DraftEventBlock';
 import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
 import { canResizeEvent, eventLayout, eventResizeZone } from '../../utils/eventDensity';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
+import { useDragToCreate, type DragCreateDraft } from '../../hooks/useDragToCreate';
 
 interface MultiDayViewProps {
   date: Date;
@@ -20,7 +22,8 @@ interface MultiDayViewProps {
   onEventMove?: (eventId: string, newStart: Date, newEnd: Date) => void;
   onEventResize?: (eventId: string, newEnd: Date) => void;
   onDateSelect?: (date: Date) => void;
-  onBackgroundClick?: (start: Date, kind: 'real' | 'plan') => void;
+  /** `end` is set when the slot was press-dragged rather than tapped. */
+  onBackgroundClick?: (start: Date, kind: 'real' | 'plan', end?: Date) => void;
   /** Which kinds to show: 'all' (default) splits each day into Real|Plan
       halves, 'real'/'plan' renders each day as a single full-width column. */
   mode?: EventFilter;
@@ -124,6 +127,31 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     const anchor = days >= 7 ? startOfWeek(date) : date;
     return Array.from({ length: days }, (_, i) => addDays(anchor, i));
   }, [date, days]);
+
+  // Press-and-drag on empty space creates an event over the dragged range.
+  // columnKey is the day index within dayList.
+  const dragCreate = useDragToCreate({
+    enabled: !isMobile && !!onBackgroundClick,
+    minutesPerPixel: MINUTES_PER_PIXEL,
+    totalMinutes: TOTAL_HOURS * 60,
+    snap: SNAP,
+    markGesture: useCallback(() => {
+      lastDragEndRef.current = Date.now();
+    }, []),
+    onCreate: useCallback(
+      ({ columnKey, kind, startMin, endMin }: DragCreateDraft) => {
+        const day = dayList[Number(columnKey)];
+        if (!day) return;
+        const atMinutes = (m: number) => {
+          const d = new Date(day);
+          d.setHours(START_HOUR + Math.floor(m / 60), m % 60, 0, 0);
+          return d;
+        };
+        onBackgroundClick?.(atMinutes(startMin), kind, atMinutes(endMin));
+      },
+      [dayList, onBackgroundClick]
+    ),
+  });
 
   const hourTicks = useMemo(() => {
     const ticks: number[] = [];
@@ -538,6 +566,20 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                 const visiblePlan = single ? (singleKind === 'plan' ? planEvents : []) : planEvents;
                 const isDropTarget = dragPos != null && dragPos.targetDayIdx === idx;
 
+                const renderDraft = (kind: 'real' | 'plan') => {
+                  const d = dragCreate.draft;
+                  if (!d || d.kind !== kind || d.columnKey !== String(idx)) return null;
+                  return (
+                    <DraftEventBlock
+                      top={(d.startMin / 60) * HOUR_HEIGHT}
+                      height={((d.endMin - d.startMin) / 60) * HOUR_HEIGHT}
+                      startMinutes={START_HOUR * 60 + d.startMin}
+                      endMinutes={START_HOUR * 60 + d.endMin}
+                      isMobile={isMobile}
+                    />
+                  );
+                };
+
                 const renderColumn = (list: typeof realEvents) => {
                   const lanes = layoutOverlapLanes(list);
                   return list.map((ev) => {
@@ -662,8 +704,9 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     {/* Single-kind mode: one full-width column, no split. The live
                         session block is real — hidden in plan-only mode. */}
                     {single ? (
-                      <div className={`absolute left-0 right-0 top-0 bottom-0 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, singleKind)}>
+                      <div className={`absolute left-0 right-0 top-0 bottom-0 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, singleKind)} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), singleKind, e)}>
                         {renderColumn(singleKind === 'real' ? visibleReal : visiblePlan)}
+                        {renderDraft(singleKind)}
                         {isSameDay(day, new Date()) && activeSession && singleKind === 'real' && (
                           <LiveEventBlock
                             start={activeSession.start}
@@ -678,8 +721,9 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     ) : (
                       <>
                         {/* Left column: real events */}
-                        <div className={`absolute left-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'real')}>
+                        <div className={`absolute left-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'real')} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), 'real', e)}>
                           {renderColumn(visibleReal)}
+                          {renderDraft('real')}
                           {isSameDay(day, new Date()) && activeSession && (
                             <LiveEventBlock
                               start={activeSession.start}
@@ -697,8 +741,9 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                             2px always covers at least one full pixel. */}
                         <div className="absolute left-1/2 top-0 bottom-0 w-[2px] -translate-x-1/2 bg-outline-variant/60" />
                         {/* Right column: plan events */}
-                        <div className={`absolute right-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'plan')}>
+                        <div className={`absolute right-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'plan')} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), 'plan', e)}>
                           {renderColumn(visiblePlan)}
+                          {renderDraft('plan')}
                         </div>
                       </>
                     )}
