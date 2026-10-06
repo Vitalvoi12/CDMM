@@ -467,3 +467,48 @@ html, body {
   overscroll-behavior: none;
 }
 
+
+/* Day numbers inside activity-calendar cells: the two darkest light-theme
+ * levels and the two lightest dark-theme levels flip to stay readable. */
+.heat-num-hi {
+  color: #fff;
+}
+html[data-theme='dark'] .heat-num-hi {
+  color: #0b0b0a;
+}
+
+/* Day notes editor (Tiptap): minimal typography for the markdown blocks. */
+.note-editor {
+  font-family: var(--font-body-md);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-on-surface);
+  min-height: 12rem;
+  overflow-wrap: anywhere;
+}
+.note-editor > * + * { margin-top: 0.6em; }
+.note-editor h1 { font-size: 1.4em; font-weight: 700; line-height: 1.25; }
+.note-editor h2 { font-size: 1.2em; font-weight: 600; line-height: 1.3; }
+.note-editor h3 { font-size: 1.05em; font-weight: 600; }
+.note-editor ul { list-style: disc; padding-left: 1.4em; }
+.note-editor ol { list-style: decimal; padding-left: 1.4em; }
+.note-editor li > p { margin: 0; }
+.note-editor ul[data-type='taskList'] { list-style: none; padding-left: 0.2em; }
+.note-editor ul[data-type='taskList'] li { display: flex; gap: 0.5em; align-items: flex-start; }
+.note-editor ul[data-type='taskList'] li > label { margin-top: 0.25em; user-select: none; }
+.note-editor ul[data-type='taskList'] li > div { flex: 1; min-width: 0; }
+.note-editor ul[data-type='taskList'] li[data-checked='true'] > div { text-decoration: line-through; color: var(--color-on-surface-variant); }
+.note-editor blockquote { border-left: 3px solid var(--color-outline-variant); padding-left: 0.9em; color: var(--color-on-surface-variant); }
+.note-editor code { background: var(--color-surface-container); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.9em; }
+.note-editor pre { background: var(--color-surface-container); border-radius: 8px; padding: 0.7em 0.9em; overflow-x: auto; }
+.note-editor pre code { background: none; padding: 0; }
+.note-editor a { text-decoration: underline; color: var(--color-secondary); }
+.note-editor hr { border: 0; border-top: 1px solid var(--color-outline-variant); }
+.note-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-on-surface-variant);
+  opacity: 0.6;
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

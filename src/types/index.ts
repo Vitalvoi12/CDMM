@@ -211,3 +211,14 @@ export type CalendarView = 'day' | '3day' | 'week' | 'month' | 'year';
 
 /** Timeline event-kind filter: 'all' renders Real|Plan side by side. */
 export type EventFilter = 'real' | 'plan' | 'all';
+
+/**
+ * Free-form markdown note for one calendar day. `id` is the local date key
+ * ("YYYY-MM-DD"), so there is at most one note per day. A cleared note is kept
+ * as empty content rather than deleted, so the clearing syncs like any edit.
+ */
+export interface DayNote {
+  id: string;
+  content: string;
+  updatedAt: number;
+}

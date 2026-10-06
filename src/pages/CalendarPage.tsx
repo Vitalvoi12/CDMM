@@ -8,20 +8,25 @@ import { MonthView } from '../components/calendar/MonthView';
 import { YearView } from '../components/calendar/YearView';
 import { StatsSidebar } from '../components/calendar/StatsSidebar';
 import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
+import { DayNotesPanel } from '../components/calendar/DayNotesPanel';
 import { EventForm } from '../components/calendar/EventForm';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { useSwipeNav } from '../hooks/useSwipeNav';
+import { useButtonSwipe } from '../hooks/useViewSwipe';
 import { eventRepo, subjectRepo, tombstoneRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
-import { expandRecurrence } from '../utils/time';
+import { expandRecurrence, dateKey } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
 import { ViewSettingsSheet } from '../components/calendar/ViewSettingsSheet';
 import { checkpoint } from '../services/history';
 import type { CalendarEvent, EventChecklistItem, EventFilter } from '../types';
+
+/** Mobile day panels in tab order (the vertical swipe walks this list). */
+const DAY_PANELS = ['timeline', 'stats', 'tasks', 'notes'] as const;
 
 const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[] = [
   { id: 'day', label: 'Day' },
@@ -127,11 +132,11 @@ export function CalendarPage() {
     end: string;
     recurrenceId?: string | null;
   } | null>(null);
-  const [dayPanel, setDayPanel] = useState<'timeline' | 'stats' | 'tasks'>('timeline');
+  const [dayPanel, setDayPanel] = useState<(typeof DAY_PANELS)[number]>('timeline');
   // Mobile view-settings sheet (tune icon next to Today).
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
-  const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks'>('stats');
+  const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks' | 'notes'>('stats');
   // Which event kinds the calendars show. 'all' splits timeline days into
   // Real|Plan halves and lists the month cells in one column; 'real'/'plan'
   // renders a single full-width column. Persisted.
@@ -175,12 +180,12 @@ export function CalendarPage() {
       const digit = /^Digit[0-9]$/.test(e.code) ? e.code.slice(5) : '';
       const key = letter || digit || e.key.toLowerCase();
       if (!isMobile && key === '3') setView('3day');
-      // D: first jump to the day view, then toggle the side panel Stat/Tasks.
-      // On mobile it toggles the Stat/Tasks tabs (from the timeline it lands on Stat).
+      // D: first jump to the day view, then cycle the side panel Stat → Tasks → Notes.
+      // On mobile it cycles the same tabs (from the timeline it lands on Stat).
       else if (key === 'd') {
         if (!isMobile && view !== 'day') setView('day');
-        else if (!isMobile) setAsidePanel((p) => (p === 'stats' ? 'tasks' : 'stats'));
-        else setDayPanel((p) => (p === 'stats' ? 'tasks' : 'stats'));
+        else if (!isMobile) setAsidePanel((p) => (p === 'stats' ? 'tasks' : p === 'tasks' ? 'notes' : 'stats'));
+        else setDayPanel((p) => (p === 'stats' ? 'tasks' : p === 'tasks' ? 'notes' : 'stats'));
       }
       // Week stays desktop-only: the view is not in the mobile set, so an
       // unguarded press would set it and immediately be bounced back to day.
@@ -670,6 +675,19 @@ export function CalendarPage() {
     },
   });
 
+  // Swipes that start on the view-settings button (mobile day view only):
+  // up/down walk the day panels in tab order (up → next, down → previous),
+  // left/right go to the next/previous day, like the timeline swipe.
+  const buttonSwipe = useButtonSwipe({
+    enabled: isMobile && view === 'day',
+    onSwipeUp: () =>
+      setDayPanel((p) => DAY_PANELS[Math.min(DAY_PANELS.length - 1, DAY_PANELS.indexOf(p) + 1)]),
+    onSwipeDown: () =>
+      setDayPanel((p) => DAY_PANELS[Math.max(0, DAY_PANELS.indexOf(p) - 1)]),
+    onSwipeLeft: goToNext,
+    onSwipeRight: goToPrevious,
+  });
+
   const swipeHandlers = {
     onTouchStart: panelSwipe.onTouchStart,
     onTouchMove: panelSwipe.onTouchMove,
@@ -702,7 +720,8 @@ export function CalendarPage() {
 
       {view === 'day' &&
         (isMobile ? (
-          dayPanel === 'timeline' ? (
+          <div className="flex-1 min-h-0 flex flex-col">
+          {dayPanel === 'timeline' ? (
             <div className="flex-1 min-h-0 overflow-y-auto">
               <Timeline
                 events={dayEvents}
@@ -732,6 +751,10 @@ export function CalendarPage() {
                 totalMinutes={stats.totalMinutes}
               />
             </div>
+          ) : dayPanel === 'notes' ? (
+            <div className="flex-1 min-h-0 flex flex-col pb-40">
+              <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} />
+            </div>
           ) : (
             <div
               className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40 [touch-action:pan-y]"
@@ -742,7 +765,8 @@ export function CalendarPage() {
             >
               <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
             </div>
-          )
+          )}
+          </div>
         ) : (
           <div className="grid grid-cols-12 gap-16 flex-1 min-h-0 lg:pb-4">
             <Timeline
@@ -761,18 +785,18 @@ export function CalendarPage() {
                 filling card must end above it at any zoom level. */}
             <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1 pb-32">
               <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low self-start flex-shrink-0" role="group" aria-label="Side panel">
-                {(['stats', 'tasks'] as const).map((p) => (
+                {(['stats', 'tasks', 'notes'] as const).map((p) => (
                   <button
                     key={p}
                     onClick={() => setAsidePanel(p)}
-                    title="Toggle Stat/Tasks (Shortcut: D)"
+                    title="Switch Stat/Tasks/Notes (Shortcut: D)"
                     className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
                       asidePanel === p
                         ? 'bg-secondary-container text-on-secondary-container'
                         : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
-                    {p === 'stats' ? 'Stat' : 'Tasks'}
+                    {p === 'stats' ? 'Stat' : p === 'tasks' ? 'Tasks' : 'Notes'}
                   </button>
                 ))}
               </div>
@@ -782,8 +806,10 @@ export function CalendarPage() {
                   subjects={subjects}
                   totalMinutes={stats.totalMinutes}
                 />
-              ) : (
+              ) : asidePanel === 'tasks' ? (
                 <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
+              ) : (
+                <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} />
               )}
             </aside>
           </div>
@@ -822,13 +848,13 @@ export function CalendarPage() {
           which would re-anchor `fixed` to it mid-animation and snap the bar
           back to the viewport once the animation ends.
 
-          The mobile month and year views carry this bar for the tune button
-          alone — it is the only way back to another view from there, since the
-          day panel's own actions do not exist in either. */}
-      {(view === 'day' || (isMobile && (view === 'month' || view === 'year'))) &&
+          On mobile every view carries this bar for the tune button alone — it
+          is the only way back to another view from there, since the day
+          panel's own actions do not exist outside the day view. */}
+      {(view === 'day' || isMobile) &&
         createPortal(
           <div
-            className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 max-lg:justify-end max-lg:pointer-events-none lg:fixed lg:bottom-14 lg:right-8 lg:z-10"
+            className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 max-lg:justify-center max-lg:pointer-events-none lg:fixed lg:bottom-14 lg:right-8 lg:z-10"
           >
             {/* Desktop only. On a phone this bar is the tune button alone, so
                 the bar has no backing and lets taps through to the timeline
@@ -845,16 +871,19 @@ export function CalendarPage() {
             )}
             <button
               type="button"
-              onClick={() => setViewSettingsOpen(true)}
+              {...buttonSwipe.handlers}
+              onClick={() => {
+                if (!buttonSwipe.wasSwipe()) setViewSettingsOpen(true);
+              }}
               aria-label="View settings"
               title="View settings"
               // Opaque: the bar itself has no backing on mobile, so this button
               // sits straight on the timeline — a solid surface is what keeps it
               // readable over whatever is behind it. w-12 (38px) rather than the
               // old w-10 (32px), a step toward a comfortable touch target.
-              className="lg:hidden pointer-events-auto w-12 h-12 flex items-center justify-center rounded-full bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors flex-shrink-0"
+              className="lg:hidden pointer-events-auto [touch-action:none] w-16 h-16 flex items-center justify-center rounded-full bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors flex-shrink-0"
             >
-              <span className="material-symbols-outlined text-[20px] leading-none">tune</span>
+              <span className="material-symbols-outlined text-[26px] leading-none">tune</span>
             </button>
           </div>,
           document.body

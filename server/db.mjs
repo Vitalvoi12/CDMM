@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 // Entity names as they travel on the wire (the client mirrors them).
-const ENTITIES = ['subjects', 'events', 'todos', 'eventEdits'];
+const ENTITIES = ['subjects', 'events', 'todos', 'eventEdits', 'dayNotes'];
 
 /** Wire entity name -> SQL table. Only the plan-stability log differs. */
 const TABLE = {
@@ -12,7 +12,14 @@ const TABLE = {
   events: 'events',
   todos: 'todos',
   eventEdits: 'event_edits',
+  dayNotes: 'day_notes',
 };
+
+/**
+ * Upsert conflict target. Day notes are keyed by calendar date (the id is
+ * "YYYY-MM-DD"), which is shared by every account, so their key is per user.
+ */
+const CONFLICT_TARGET = { day_notes: 'user_id, id' };
 
 export function openDb(dir) {
   mkdirSync(dir, { recursive: true });
@@ -94,6 +101,13 @@ export function openDb(dir) {
       updated_at INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_todos_user ON todos(user_id);
+    CREATE TABLE IF NOT EXISTS day_notes (
+      id TEXT NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL DEFAULT '',
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, id)
+    );
     CREATE TABLE IF NOT EXISTS tombstones (
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       entity TEXT NOT NULL,
@@ -222,6 +236,7 @@ export function getState(db, userId) {
     events: db.prepare('SELECT * FROM events WHERE user_id = ?').all(userId).map((r) => rowToPayload('events', r)),
     todos: db.prepare('SELECT * FROM todos WHERE user_id = ?').all(userId).map((r) => rowToPayload('todos', r)),
     eventEdits: db.prepare('SELECT * FROM event_edits WHERE user_id = ?').all(userId).map((r) => rowToPayload('eventEdits', r)),
+    dayNotes: db.prepare('SELECT * FROM day_notes WHERE user_id = ?').all(userId).map((r) => rowToPayload('dayNotes', r)),
     tombstones: db.prepare('SELECT entity, key FROM tombstones WHERE user_id = ?').all(userId),
     settings,
     cursor: db.prepare('SELECT COALESCE(MAX(seq), 0) AS c FROM change_log WHERE user_id = ?').get(userId).c,
@@ -239,6 +254,9 @@ export function importSnapshot(db, userId, data) {
 function rowToPayload(entity, row) {
   if (entity === 'subjects') {
     return { id: row.id, name: row.name, color: row.color, icon: row.icon, progress: row.progress, updatedAt: row.updated_at };
+  }
+  if (entity === 'dayNotes') {
+    return { id: row.id, content: row.content, updatedAt: row.updated_at };
   }
   if (entity === 'eventEdits') {
     return {
@@ -270,6 +288,7 @@ const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
   events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'created_at'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'subject_id', 'completed_at', 'completed', 'created_at'],
+  dayNotes: ['content'],
   eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind', 'count_in_stats', 'deleted'],
 };
 
@@ -281,7 +300,7 @@ const FROM_CLIENT = {
   important: 'important', urgent: 'urgent', dueDate: 'due_date', estMinutes: 'est_minutes',
   completedAt: 'completed_at', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
-  eventId: 'event_id', at: 'at', deleted: 'deleted',
+  content: 'content', eventId: 'event_id', at: 'at', deleted: 'deleted',
   fromStart: 'from_start', fromEnd: 'from_end', toStart: 'to_start', toEnd: 'to_end',
 };
 
@@ -379,7 +398,7 @@ export function applyChanges(db, userId, dirty) {
     const updates = [...COLS[entity].map((c) => `${c} = excluded.${c}`), 'updated_at = excluded.updated_at'];
     db.prepare(
       `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})
-       ON CONFLICT(id) DO UPDATE SET ${updates.join(', ')}`
+       ON CONFLICT(${CONFLICT_TARGET[table] || 'id'}) DO UPDATE SET ${updates.join(', ')}`
     ).run(...params);
     logChange(
       db, userId, entity, rec.id, false,

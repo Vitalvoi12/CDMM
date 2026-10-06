@@ -4,8 +4,8 @@ import { useEscapeOverlay } from '../../services/overlays';
 interface ViewSettingsSheetProps {
   view: CalendarView;
   onViewChange: (view: CalendarView) => void;
-  dayPanel: 'timeline' | 'stats' | 'tasks';
-  onDayPanelChange: (panel: 'timeline' | 'stats' | 'tasks') => void;
+  dayPanel: 'timeline' | 'stats' | 'tasks' | 'notes';
+  onDayPanelChange: (panel: 'timeline' | 'stats' | 'tasks' | 'notes') => void;
   eventFilter: EventFilter;
   onEventFilterChange: (filter: EventFilter) => void;
   onClose: () => void;
@@ -94,9 +94,9 @@ export function ViewSettingsSheet({
 
         {view === 'day' && (
           <Section label="Panel">
-            {(['timeline', 'stats', 'tasks'] as const).map((p) => (
+            {(['timeline', 'stats', 'tasks', 'notes'] as const).map((p) => (
               <button key={p} type="button" onClick={() => onDayPanelChange(p)} className={pill(dayPanel === p)}>
-                {p === 'timeline' ? 'Day' : p === 'stats' ? 'Stat' : 'Tasks'}
+                {p === 'timeline' ? 'Day' : p === 'stats' ? 'Stat' : p === 'tasks' ? 'Tasks' : 'Notes'}
               </button>
             ))}
           </Section>

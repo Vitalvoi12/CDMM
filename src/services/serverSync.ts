@@ -1,10 +1,10 @@
 import {
-  eventRepo, subjectRepo, todoRepo, tombstoneRepo, settingsRepo, eventEditRepo,
+  eventRepo, subjectRepo, todoRepo, tombstoneRepo, settingsRepo, eventEditRepo, dayNoteRepo,
   takeDirtySnapshot, clearDirtySnapshot, isSettingsDirty, clearSettingsDirty,
   subscribeRepoChanges, getSettingsRevision,
   type SyncEntity,
 } from './repositories';
-import type { CalendarEvent, Subject, TodoTask, UserSettings, EventTimeEdit } from '../types';
+import type { CalendarEvent, Subject, TodoTask, UserSettings, EventTimeEdit, DayNote } from '../types';
 import { getToken, getCursor, setCursor, apiFetch } from './auth';
 
 export interface ServerChange {
@@ -21,6 +21,7 @@ export interface ServerState {
   events: CalendarEvent[];
   todos: TodoTask[];
   eventEdits?: EventTimeEdit[];
+  dayNotes?: DayNote[];
   tombstones: { entity: string; key: string }[];
   settings: { data: UserSettings; updatedAt: number } | null;
   cursor: number;
@@ -89,6 +90,7 @@ function collectFullDirty() {
     events: eventRepo.getAll().map(withTs),
     todos: todoRepo.getAll().map(dirtyTodo),
     eventEdits: eventEditRepo.getAll().map(withTs),
+    dayNotes: dayNoteRepo.getAll().map(withTs),
     tombstones: tombstoneRepo.getAll().map((t) => ({ ...t })),
     settings: { data: settingsRepo.get(), updatedAt: settingsRepo.getWithMeta().updatedAt || 0 },
   };
@@ -101,6 +103,7 @@ function collectDirty() {
     events: [] as Array<CalendarEvent & { updatedAt: number }>,
     todos: [] as Array<TodoTask & { updatedAt: number }>,
     eventEdits: [] as Array<EventTimeEdit & { updatedAt: number }>,
+    dayNotes: [] as Array<DayNote & { updatedAt: number }>,
     tombstones: tombstoneRepo.getAll().map((t) => ({ ...t })),
     settings: undefined as { data: UserSettings; updatedAt: number } | undefined,
   };
@@ -119,6 +122,10 @@ function collectDirty() {
   for (const id of ids.eventEdits) {
     const rec = eventEditRepo.getById(id);
     if (rec) dirty.eventEdits.push(withTs(rec));
+  }
+  for (const id of ids.dayNotes) {
+    const rec = dayNoteRepo.getAll().find((n) => n.id === id);
+    if (rec) dirty.dayNotes.push(withTs(rec));
   }
   if (isSettingsDirty()) {
     const meta = settingsRepo.getWithMeta();
@@ -151,6 +158,7 @@ function applyChange(change: ServerChange): boolean {
   if (entity === 'events') return eventRepo.applyRemote(change.payload as CalendarEvent);
   if (entity === 'todos') return todoRepo.applyRemote(change.payload as TodoTask);
   if (entity === 'eventEdits') return eventEditRepo.applyRemote(change.payload as EventTimeEdit);
+  if (entity === 'dayNotes') return dayNoteRepo.applyRemote(change.payload as DayNote);
   if (entity === 'settings' && change.payload) {
     const data = change.payload.data as UserSettings;
     const updatedAt = Number(change.payload.updatedAt) || 0;
@@ -167,6 +175,8 @@ function applyState(state: ServerState): boolean {
   for (const list of [dirty.subjects, dirty.events, dirty.todos]) {
     for (const id of list) dirtyIds.add(id);
   }
+  // Note ids are dates, which cannot collide with the uuids above.
+  const dirtyNoteIds = new Set(dirty.dayNotes);
   let changed = false;
   for (const s of state.subjects) {
     if (!dirtyIds.has(s.id)) changed = subjectRepo.applyRemote(s) || changed;
@@ -179,6 +189,9 @@ function applyState(state: ServerState): boolean {
   }
   for (const ed of state.eventEdits || []) {
     if (!dirtyIds.has(ed.id)) changed = eventEditRepo.applyRemote(ed) || changed;
+  }
+  for (const n of state.dayNotes || []) {
+    if (!dirtyNoteIds.has(n.id)) changed = dayNoteRepo.applyRemote(n) || changed;
   }
   for (const tomb of state.tombstones) {
     const entity = tomb.entity as SyncEntity;
@@ -281,7 +294,7 @@ async function runCycle(): Promise<boolean> {
   const { ids, dirty } = collectDirty();
   const hasDirty =
     dirty.subjects.length > 0 || dirty.events.length > 0 || dirty.todos.length > 0 ||
-    dirty.eventEdits.length > 0 || dirty.tombstones.length > 0 || dirty.settings !== undefined;
+    dirty.eventEdits.length > 0 || dirty.dayNotes.length > 0 || dirty.tombstones.length > 0 || dirty.settings !== undefined;
   let cursor = getCursor();
   let guard = 0;
   let changed = false;

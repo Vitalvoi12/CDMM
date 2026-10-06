@@ -1,9 +1,9 @@
 import type {
-  Subject, CalendarEvent, UserSettings, TodoTask, ThemeMode, SyncedSession, EventTimeEdit,
+  Subject, CalendarEvent, UserSettings, TodoTask, ThemeMode, SyncedSession, EventTimeEdit, DayNote,
 } from '../types';
 import { PLAN_FIX_WINDOW_MS } from '../utils/analytics';
 
-export type SyncEntity = 'subjects' | 'events' | 'todos' | 'eventEdits';
+export type SyncEntity = 'subjects' | 'events' | 'todos' | 'eventEdits' | 'dayNotes';
 
 export interface Tombstone {
   entity: SyncEntity;
@@ -18,6 +18,7 @@ const STORAGE_KEYS = {
   tombstones: 'cdmm.tombstones',
   todos: 'cdmm.todos',
   eventEdits: 'cdmm.eventEdits',
+  dayNotes: 'cdmm.dayNotes',
   dirty: 'cdmm.dirty',
   settingsDirty: 'cdmm.settingsDirty',
 } as const;
@@ -110,15 +111,19 @@ function unmarkDirty(entries: string[]): void {
 }
 
 export function takeDirtySnapshot(): {
-  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[];
+  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[]; dayNotes: string[];
 } {
   const out = {
-    subjects: [] as string[], events: [] as string[], todos: [] as string[], eventEdits: [] as string[],
+    subjects: [] as string[], events: [] as string[], todos: [] as string[],
+    eventEdits: [] as string[], dayNotes: [] as string[],
   };
   for (const e of loadDirty()) {
     const [entity, ...rest] = e.split(':');
     const key = rest.join(':');
-    if (entity === 'subjects' || entity === 'events' || entity === 'todos' || entity === 'eventEdits') {
+    if (
+      entity === 'subjects' || entity === 'events' || entity === 'todos' ||
+      entity === 'eventEdits' || entity === 'dayNotes'
+    ) {
       (out[entity] as string[]).push(key);
     }
   }
@@ -126,10 +131,10 @@ export function takeDirtySnapshot(): {
 }
 
 export function clearDirtySnapshot(keys: {
-  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[];
+  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[]; dayNotes: string[];
 }): void {
   const entries: string[] = [];
-  for (const entity of ['subjects', 'events', 'todos', 'eventEdits'] as const) {
+  for (const entity of ['subjects', 'events', 'todos', 'eventEdits', 'dayNotes'] as const) {
     for (const k of keys[entity]) entries.push(`${entity}:${k}`);
   }
   unmarkDirty(entries);
@@ -800,6 +805,64 @@ class SettingsRepository {
 }
 
 /**
+ * One markdown note per calendar day (id = "YYYY-MM-DD"). Notes are never
+ * deleted: clearing one stores empty content, which keeps the edit syncing
+ * through plain last-write-wins without tombstones.
+ */
+class DayNoteRepository {
+  private notes: DayNote[] = load<DayNote[]>(STORAGE_KEYS.dayNotes, []);
+
+  getAll(): DayNote[] {
+    return [...this.notes];
+  }
+
+  /** The note's markdown, or '' when the day has none. */
+  getContent(date: string): string {
+    return this.notes.find((n) => n.id === date)?.content ?? '';
+  }
+
+  hasNote(date: string): boolean {
+    return this.getContent(date).trim() !== '';
+  }
+
+  /** Save a day's note. No-op when nothing changed. */
+  set(date: string, content: string): void {
+    const idx = this.notes.findIndex((n) => n.id === date);
+    if (idx === -1) {
+      if (content.trim() === '') return;
+      this.notes.push({ id: date, content, updatedAt: Date.now() });
+    } else {
+      if (this.notes[idx].content === content) return;
+      this.notes[idx] = { id: date, content, updatedAt: Date.now() };
+    }
+    save(STORAGE_KEYS.dayNotes, this.notes);
+    markDirty('dayNotes', date);
+    emitRepoChange();
+  }
+
+  /** Apply a remote record (LWW). Never marks dirty. */
+  applyRemote(rec: DayNote): boolean {
+    const idx = this.notes.findIndex((n) => n.id === rec.id);
+    if (idx === -1) {
+      this.notes.push(rec);
+      save(STORAGE_KEYS.dayNotes, this.notes);
+      return true;
+    }
+    if ((rec.updatedAt || 0) > (this.notes[idx].updatedAt || 0)) {
+      this.notes[idx] = rec;
+      save(STORAGE_KEYS.dayNotes, this.notes);
+      return true;
+    }
+    return false;
+  }
+
+  replaceAll(notes: DayNote[]): void {
+    this.notes = notes;
+    save(STORAGE_KEYS.dayNotes, this.notes);
+  }
+}
+
+/**
  * Tombstones: (entity, key) pairs deleted locally, so the deletion
  * propagates to other devices instead of resurrecting the record.
  */
@@ -840,6 +903,7 @@ export const settingsRepo = new SettingsRepository();
 export const tombstoneRepo = new TombstoneRepository();
 export const todoRepo = new TodoRepository();
 export const eventEditRepo = new EventEditRepository();
+export const dayNoteRepo = new DayNoteRepository();
 
 /** Wipe all local data (logout / account switch). */
 export function clearAllLocalData(): void {
@@ -847,6 +911,7 @@ export function clearAllLocalData(): void {
   eventRepo.replaceAll([]);
   todoRepo.replaceAll([]);
   eventEditRepo.replaceAll([]);
+  dayNoteRepo.replaceAll([]);
   tombstoneRepo.replaceAll([]);
   persistDirty(new Set());
   save(STORAGE_KEYS.settingsDirty, false);
