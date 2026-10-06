@@ -157,7 +157,7 @@ export function TodoPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-lg:auto-rows-max max-lg:content-start max-lg:overflow-y-auto max-lg:overscroll-contain">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-lg:auto-rows-max max-lg:content-start max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-24">
         {QUADRANTS.map((q) => (
           <div key={q.key} className="min-h-0 max-lg:min-h-fit flex">
             <div className="flex-1 min-w-0">

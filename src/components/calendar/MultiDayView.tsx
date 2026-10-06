@@ -509,7 +509,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
       {/* Page chrome stays fixed; only this area scrolls (short screens,
           horizontal overflow). Sticky day headers keep working inside it. */}
       <div className="flex-1 min-h-0 overflow-auto [touch-action:pan-y]">
-      <div className="min-w-[448px] max-lg:min-w-0 flex flex-col">
+      {/* max-lg:pb-40: scroll room below 24:00 so the last hour clears the floating button. */}
+      <div className="min-w-[448px] max-lg:min-w-0 max-lg:pb-40 flex flex-col">
         {/* Header row: corner cell + clickable day headers. Single compact
             line ("MON 14") — the old stacked layout with the static
             Real/Plan filler cost ~70px of vertical space. */}

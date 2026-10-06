@@ -94,6 +94,9 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const gridAnchorRef = useRef<HTMLDivElement>(null);
   const availPx = useAvailableHeight(gridAnchorRef);
   const BOTTOM_PAD = 51;
+  // Mobile: scroll room below 24:00, so the last hour clears the floating
+  // view-settings button and bottom nav instead of ending under them.
+  const MOBILE_BOTTOM_PAD = 160;
   const baseHourHeight = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
   const HOUR_HEIGHT = isMobile ? MOBILE_HOUR_HEIGHT : availPx > 0
     ? Math.max(MIN_HOUR_HEIGHT, (availPx - BOTTOM_PAD) / TOTAL_HOURS)
@@ -520,7 +523,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     // empty spot of the grid — Real half, Plan half, hour gutter — not just
     // from wherever the browser happened to deliver a full touchstart/end pair.
     <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto max-lg:overflow-visible [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
-      <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: `${BOTTOM_PAD}px` }}>
+      <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: isMobile ? `${MOBILE_BOTTOM_PAD}px` : `${BOTTOM_PAD}px` }}>
         <div className={`flex items-center mb-2 pl-4 ${single ? 'justify-center' : 'justify-between'}`}>
           {single ? (
             <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">{singleKind === 'real' ? 'Real' : 'Plan'}</span>

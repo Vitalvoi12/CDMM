@@ -854,7 +854,7 @@ export function CalendarPage() {
       {(view === 'day' || isMobile) &&
         createPortal(
           <div
-            className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-24 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 max-lg:justify-center max-lg:pointer-events-none lg:fixed lg:bottom-14 lg:right-8 lg:z-10"
+            className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-28 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 max-lg:justify-center max-lg:pointer-events-none lg:fixed lg:bottom-14 lg:right-8 lg:z-10"
           >
             {/* Desktop only. On a phone this bar is the tune button alone, so
                 the bar has no backing and lets taps through to the timeline
@@ -881,7 +881,7 @@ export function CalendarPage() {
               // sits straight on the timeline — a solid surface is what keeps it
               // readable over whatever is behind it. w-12 (38px) rather than the
               // old w-10 (32px), a step toward a comfortable touch target.
-              className="lg:hidden pointer-events-auto [touch-action:none] w-16 h-16 flex items-center justify-center rounded-full bg-surface-container-lowest border border-outline-variant text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors flex-shrink-0"
+              className="lg:hidden pointer-events-auto [touch-action:none] w-full h-14 flex items-center justify-center rounded-full bg-[#E9826A] text-[#0B0B0A] active:brightness-95 transition-[filter] flex-shrink-0"
             >
               <span className="material-symbols-outlined text-[26px] leading-none">tune</span>
             </button>
