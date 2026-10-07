@@ -42,7 +42,7 @@ const HOUR_HEIGHT_DESKTOP = 48;
  *  window height. */
 const MIN_HOUR_HEIGHT = 24;
 /** Phones: a fixed, readable hour height — the grid scrolls instead of squeezing to fit. */
-const MOBILE_HOUR_HEIGHT = 56;
+const MOBILE_HOUR_HEIGHT = 40;
 const MOBILE_SCALE = 2.5;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SNAP = 15;
