@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CalendarEvent, EventFilter, Subject } from '../../types';
 import { getMonthGrid, formatDayOfMonth, isSameDay, timeFromDate } from '../../utils/time';
 import { getEventsForDate } from '../../utils/stats';
@@ -37,6 +37,47 @@ const LIVE_PX = 18;
 /** Row height assumed on the very first paint, before the measure lands. */
 const FALLBACK_ROW_PX = 96;
 
+/** Breathing room between the last row's visible part and the button. */
+const BUTTON_GAP_PX = 6;
+
+/**
+ * How far the floating view-settings button (mobile only, portalled to body)
+ * reaches up into the grid. Measured rather than derived from its classes:
+ * the bottom nav grows with the safe-area inset while the button is pinned to
+ * the viewport, so the overlap differs from phone to phone.
+ */
+function useButtonClearance(
+  gridRef: React.RefObject<HTMLDivElement | null>,
+  enabled: boolean,
+  availPx: number
+): number {
+  const [clear, setClear] = useState(0);
+  useEffect(() => {
+    if (!enabled) {
+      setClear(0);
+      return;
+    }
+    const compute = () => {
+      const grid = gridRef.current;
+      const btn = document.querySelector<HTMLElement>('[aria-label="View settings"]');
+      if (!grid || !btn) return;
+      // The grid's bottom edge is fixed by `availPx` (it fills <main>), so
+      // growing the last row never moves it — no measure/resize loop.
+      const gridBottom = grid.getBoundingClientRect().top + availPx;
+      const next = Math.max(0, Math.ceil(gridBottom - btn.getBoundingClientRect().top + BUTTON_GAP_PX));
+      setClear((prev) => (prev === next ? prev : next));
+    };
+    compute();
+    const raf = requestAnimationFrame(compute);
+    window.addEventListener('resize', compute);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', compute);
+    };
+  }, [gridRef, enabled, availPx]);
+  return clear;
+}
+
 /**
  * The month grid: one cell per day, its events listed underneath the day
  * number as mini blocks — the timeline block's dress at cell scale.
@@ -67,12 +108,16 @@ export function MonthView({
   const isMobile = useIsMobile();
   const block = monthBlock(isMobile);
 
-  // Rows are equal height (grid `1fr`), so a single measurement of the grid
-  // tells how much of every cell is left for blocks — no per-cell measuring.
-  const listPx = useMemo(() => {
-    const rowPx = availPx > 0 ? (availPx - (weeks - 1)) / weeks : FALLBACK_ROW_PX;
-    return Math.max(0, rowPx - (isMobile ? CELL_HEAD_PX_MOBILE : CELL_HEAD_PX));
-  }, [availPx, weeks, isMobile]);
+  // On a phone the floating view-settings button sits over the bottom of the
+  // grid. The last row grows by that overlap, so its visible part above the
+  // button is as tall as every other row and no event hides underneath.
+  const clearPx = useButtonClearance(gridAnchorRef, isMobile, availPx);
+
+  // Rows are equal height (bar the last row's clearance), so a single
+  // measurement of the grid tells how much of every cell is left for blocks —
+  // no per-cell measuring.
+  const rowPx = availPx > 0 ? (availPx - clearPx - (weeks - 1)) / weeks : FALLBACK_ROW_PX;
+  const listPx = Math.max(0, rowPx - (isMobile ? CELL_HEAD_PX_MOBILE : CELL_HEAD_PX));
 
   const now = new Date();
   const showLive = mode !== 'plan';
@@ -90,7 +135,10 @@ export function MonthView({
         ref={gridAnchorRef}
         className="flex-1 grid grid-cols-7 gap-px min-h-0"
         style={{
-          gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))`,
+          gridTemplateRows:
+            clearPx > 0
+              ? `repeat(${weeks - 1}, minmax(0, 1fr)) ${rowPx + clearPx}px`
+              : `repeat(${weeks}, minmax(0, 1fr))`,
           minHeight: availPx > 0 ? `${availPx}px` : undefined,
         }}
       >

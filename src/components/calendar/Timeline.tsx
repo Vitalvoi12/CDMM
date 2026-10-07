@@ -42,7 +42,7 @@ const HOUR_HEIGHT_DESKTOP = 96;
 const MIN_HOUR_HEIGHT = 24;
 const MOBILE_SCALE = 2.5;
 /** Phones: a fixed, readable hour height — the day scrolls instead of squeezing to fit. */
-const MOBILE_HOUR_HEIGHT = 56;
+const MOBILE_HOUR_HEIGHT = 40;
 const SNAP = 15;
 const LONG_PRESS_MS = 400;
 const TOUCH_MOVE_THRESHOLD = 8;

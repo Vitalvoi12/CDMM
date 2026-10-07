@@ -697,15 +697,15 @@ export function CalendarPage() {
 
   // Swipes that start on the view-settings button (mobile day view only):
   // up/down walk the day panels in tab order (up → next, down → previous),
-  // left/right go to the next/previous day, like the timeline swipe.
+  // left/right go to the previous/next day (opposite of the timeline swipe).
   const buttonSwipe = useButtonSwipe({
     enabled: isMobile && view === 'day',
     onSwipeUp: () =>
       setDayPanel((p) => DAY_PANELS[Math.min(DAY_PANELS.length - 1, DAY_PANELS.indexOf(p) + 1)]),
     onSwipeDown: () =>
       setDayPanel((p) => DAY_PANELS[Math.max(0, DAY_PANELS.indexOf(p) - 1)]),
-    onSwipeLeft: goToNext,
-    onSwipeRight: goToPrevious,
+    onSwipeLeft: goToPrevious,
+    onSwipeRight: goToNext,
   });
 
   const swipeHandlers = {
