@@ -469,6 +469,18 @@ html, body {
   overscroll-behavior: none;
 }
 
+/* Typed so the spring panes' edge fades (below) can animate. */
+@property --fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 /* Every mobile page scrolls inside its own overflow-y-auto pane, where the
  * root rule above doesn't reach (touch-action stops at the nearest scroller)
  * and overflow-x computes to auto — so iOS let the pane's content drag
@@ -480,6 +492,35 @@ html, body {
     overflow-x: hidden;
     touch-action: pan-y;
     overscroll-behavior: none;
+  }
+
+  /* Spring panes (useOverscrollSpring): content fades out over the last
+   * 28px at each edge instead of being cut at a hard line (which read as a
+   * stray border under the header and above the nav). The hook sets
+   * .at-top / .at-bottom, so an edge only fades while there is more to
+   * scroll to — the first and last items are never dimmed. */
+  .overscroll-spring {
+    --fade-top: 28px;
+    --fade-bottom: 28px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 var(--fade-top), #000 calc(100% - var(--fade-bottom)), transparent);
+    transition: --fade-top 200ms ease, --fade-bottom 200ms ease;
+  }
+  .overscroll-spring.at-top {
+    --fade-top: 0px;
+  }
+  .overscroll-spring.at-bottom {
+    --fade-bottom: 0px;
+  }
+
+  /* ...and they get the browser's own edge bounce back (iOS rubber-band,
+   * Android stretch), overriding `none` above. `contain` still stops it
+   * chaining to the page. Native bounce rides with the scroll and fling on
+   * the compositor, so it has no pause at the edge; a pane whose content
+   * fits doesn't bounce natively, and the hook springs that one itself.
+   * Same selector shape as the rule above so this one wins. */
+  .overscroll-spring:is(.overflow-y-auto, .overflow-y-scroll, .max-lg\:overflow-y-auto) {
+    overscroll-behavior-y: contain;
   }
 }
 

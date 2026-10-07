@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { todoRepo, tombstoneRepo } from '../services/repositories';
 import { useSyncRefresh } from '../hooks/useServerSync';
+import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { checkpoint } from '../services/history';
 import { dateKey } from '../utils/time';
 import type { TodoTask } from '../types';
@@ -18,6 +19,7 @@ const QUADRANTS = [
 type QuadrantKey = (typeof QUADRANTS)[number]['key'];
 
 export function TodoPage() {
+  const springRef = useOverscrollSpring<HTMLDivElement>();
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const [openQuadrant, setOpenQuadrant] = useState<QuadrantKey | null>(null);
   const [formState, setFormState] = useState<{
@@ -161,7 +163,7 @@ export function TodoPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-lg:auto-rows-max max-lg:content-start max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-24">
+      <div ref={springRef} className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-lg:auto-rows-max max-lg:content-start max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-24">
         {QUADRANTS.map((q) => (
           <div key={q.key} className="min-h-0 max-lg:min-h-fit flex">
             <div className="flex-1 min-w-0">

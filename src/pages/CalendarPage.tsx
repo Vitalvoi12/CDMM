@@ -9,6 +9,7 @@ import { YearView } from '../components/calendar/YearView';
 import { StatsSidebar } from '../components/calendar/StatsSidebar';
 import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
 import { DayNotesPanel } from '../components/calendar/DayNotesPanel';
+import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { EventForm } from '../components/calendar/EventForm';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
@@ -98,6 +99,7 @@ function followingIdsOf(target: CalendarEvent, targetStartMs: number): string[] 
 }
 
 export function CalendarPage() {
+  const springRef = useOverscrollSpring<HTMLDivElement>();
   const { currentDate, setCurrentDate, view, setView, goToToday, goToPrevious, goToNext } =
     useCalendarNavigation();
   const isMobile = useIsMobile();
@@ -740,7 +742,7 @@ export function CalendarPage() {
         (isMobile ? (
           <div className="flex-1 min-h-0 flex flex-col">
           {dayPanel === 'timeline' ? (
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div ref={springRef} className="flex-1 min-h-0 overflow-y-auto">
               <Timeline
                 events={dayEvents}
                 subjects={subjects}

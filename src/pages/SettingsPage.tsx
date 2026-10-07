@@ -4,6 +4,7 @@ import { getUsername, getToken, logoutRemote, clearSession } from '../services/a
 import { clearAllLocalData } from '../services/repositories';
 import { syncOnce } from '../services/serverSync';
 import { useTheme } from '../hooks/useTheme';
+import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { SettingsNav } from '../components/settings/SettingsNav';
 import type { ThemeMode } from '../types';
 import { ensurePushSubscription, notificationPermission, pushEndpoint, requestNotificationPermission, sendTestPush, showNotification, type NotifyPermission } from '../services/notifications';
@@ -18,6 +19,7 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onLogout }: SettingsPageProps) {
+  const springRef = useOverscrollSpring<HTMLDivElement>();
   const [searchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState(
     searchParams.get('section') ?? 'general'
@@ -85,7 +87,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           <h2 className="font-headline-lg text-[30px] leading-[36px] text-on-surface mb-10 max-lg:mb-3">Settings</h2>
           <SettingsNav active={activeSection} onChange={setActiveSection} />
         </div>
-        <div className="col-span-12 lg:col-span-1 overflow-anchor-none flex-1 min-h-0 overflow-y-auto overscroll-contain lg:h-full">
+        <div ref={springRef} className="col-span-12 lg:col-span-1 overflow-anchor-none flex-1 min-h-0 overflow-y-auto overscroll-contain lg:h-full">
           {activeSection === 'account' && (
             <div className="mb-20 flex flex-col gap-6">
               <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">Account</h1>

@@ -1,6 +1,7 @@
 import { useCallback, useReducer } from 'react';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { useStatisticsPeriod } from '../hooks/useStatisticsPeriod';
+import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { formatDurationLong } from '../utils/time';
 import { PeriodSelect } from '../components/stats/PeriodSelect';
 import { SubjectBreakdown } from '../components/stats/SubjectBreakdown';
@@ -15,6 +16,7 @@ import { PlanStabilityPanel } from '../components/stats/PlanStabilityPanel';
  * stability always describe the same window.
  */
 export function StatisticsPage() {
+  const springRef = useOverscrollSpring<HTMLDivElement>();
   const [, forceRefresh] = useReducer((x: number) => x + 1, 0);
   const refresh = useCallback(() => forceRefresh(), []);
   useSyncRefresh(refresh);
@@ -59,7 +61,7 @@ export function StatisticsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col flex-1 min-h-0 max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain">
+      <div ref={springRef} className="flex flex-col flex-1 min-h-0 max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-8">
       <div className="mb-6 lg:hidden">
         <PeriodSelect
           preset={preset}

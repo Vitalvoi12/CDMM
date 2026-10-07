@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react';
 import { subjectRepo, tombstoneRepo } from '../services/repositories';
 import { useSyncRefresh } from '../hooks/useServerSync';
+import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import type { Subject } from '../types';
 import { SubjectGrid } from '../components/subjects/SubjectGrid';
 import { SubjectForm } from '../components/subjects/SubjectForm';
 
 export function SubjectsPage() {
+  const springRef = useOverscrollSpring<HTMLDivElement>();
   const [subjects, setSubjects] = useState<Subject[]>(subjectRepo.getAll());
   const [showForm, setShowForm] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
@@ -68,7 +70,7 @@ export function SubjectsPage() {
         </button>
       </div>
 
-      <div className="flex flex-col flex-1 min-h-0 max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain">
+      <div ref={springRef} className="flex flex-col flex-1 min-h-0 max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-8">
         <SubjectGrid subjects={subjects} onEdit={handleEdit} />
       </div>
 
