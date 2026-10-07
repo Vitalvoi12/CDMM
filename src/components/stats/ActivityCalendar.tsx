@@ -112,7 +112,7 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
         key={cell.date}
         type="button"
         aria-label={`${cell.date}: ${cell.minutes} minutes`}
-        className={`relative aspect-square w-full rounded-[7px] flex items-center justify-center transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${heatmapCellClass(level)} ${
+        className={`relative aspect-square w-full ${big ? 'rounded-[7px]' : 'rounded-[4px]'} flex items-center justify-center transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${heatmapCellClass(level)} ${
           level === 0 ? 'border border-outline-variant/60' : ''
         } ${isToday ? 'ring-2 ring-on-surface' : isPicked ? 'ring-2 ring-primary' : ''}`}
         {...tileProps(cell)}
@@ -151,25 +151,27 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
           })}
         </div>
       ) : (
+        // Months side by side, as many per row as fit; a single month keeps
+        // a readable width instead of stretching across the panel.
         <div
-          className={`grid gap-x-8 gap-y-6 ${span > 6 ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3' : span > 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}
+          className={`grid gap-x-4 gap-y-4 ${span > 1 ? 'grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))]' : 'grid-cols-1 max-w-[20rem]'}`}
         >
           {months.map((month) => (
-            <div key={month.key} className="min-w-0 max-w-[20rem]">
-              <div className="flex items-baseline justify-between gap-2 mb-2">
+            <div key={month.key} className="min-w-0">
+              <div className="flex items-baseline justify-between gap-2 mb-1.5">
                 <p className="font-label-md text-label-md text-on-surface truncate">{month.title}</p>
                 <p className="font-label-sm text-label-sm text-on-surface-variant tabular-nums flex-shrink-0">
                   {month.minutes > 0 ? formatDurationLong(month.minutes) : ''}
                 </p>
               </div>
-              <div className="grid grid-cols-7 gap-1 mb-1">
+              <div className="grid grid-cols-7 gap-[3px] mb-1">
                 {WEEKDAY_INITIALS.map((w, i) => (
                   <span key={i} className="text-center font-label-sm text-[10px] leading-none text-on-surface-variant">
                     {w}
                   </span>
                 ))}
               </div>
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 gap-[3px]">
                 {month.cells.map((cell, i) => {
                   if (!cell) return <span key={`e-${i}`} className="aspect-square" />;
                   // Outside the selected period: faded and not interactive.
@@ -177,7 +179,7 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
                     return (
                       <span
                         key={cell.date}
-                        className="aspect-square rounded-[7px] flex items-center justify-center bg-heatmap-0 opacity-30"
+                        className="aspect-square rounded-[4px] flex items-center justify-center bg-heatmap-0 opacity-30"
                       >
                         <span className="text-[10px] leading-none tabular-nums text-on-surface-variant">{cell.day}</span>
                       </span>
