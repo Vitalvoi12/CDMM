@@ -698,8 +698,41 @@ export function CalendarPage() {
   // Swipes that start on the view-settings button (mobile day view only):
   // up/down walk the day panels in tab order (up → next, down → previous),
   // left/right go to the previous/next day (opposite of the timeline swipe).
+  // The handle's drag feedback is written straight to the DOM: it changes
+  // every touchmove, and a re-render per move would be wasted work.
+  const handleBarRef = useRef<HTMLSpanElement>(null);
+  const handleIconRef = useRef<HTMLSpanElement>(null);
+  const onHandleDrag = useCallback((offset: { dx: number; dy: number } | null) => {
+    const bar = handleBarRef.current;
+    const icon = handleIconRef.current;
+    if (!bar || !icon) return;
+    if (!offset) {
+      bar.style.transition = '';
+      bar.style.transform = '';
+      bar.style.opacity = '';
+      bar.style.width = '';
+      icon.style.opacity = '';
+      return;
+    }
+    // Only the dominant axis moves, matching how the swipe resolves. The
+    // offset is rubber-banded so the bar strains toward the finger but stays
+    // put near home (at most ~12px).
+    const horizontal = Math.abs(offset.dx) > Math.abs(offset.dy);
+    const d = horizontal ? offset.dx : offset.dy;
+    const pull = Math.sign(d) * 12 * (1 - Math.exp(-Math.abs(d) / 50));
+    // Past the swipe threshold (40px) the bar grows and firms up: letting go
+    // here will do something.
+    const armed = Math.abs(d) >= 40;
+    bar.style.transition = 'width 150ms, opacity 150ms';
+    bar.style.transform = horizontal ? `translateX(${pull}px)` : `translateY(${pull}px)`;
+    bar.style.opacity = armed ? '0.9' : '0.55';
+    bar.style.width = armed ? '72px' : '';
+    icon.style.opacity = armed ? '0' : '1';
+  }, []);
+
   const buttonSwipe = useButtonSwipe({
     enabled: isMobile && view === 'day',
+    onDrag: onHandleDrag,
     onSwipeUp: () =>
       setDayPanel((p) => DAY_PANELS[Math.min(DAY_PANELS.length - 1, DAY_PANELS.indexOf(p) + 1)]),
     onSwipeDown: () =>
@@ -897,13 +930,22 @@ export function CalendarPage() {
               }}
               aria-label="View settings"
               title="View settings"
-              // Opaque: the bar itself has no backing on mobile, so this button
-              // sits straight on the timeline — a solid surface is what keeps it
-              // readable over whatever is behind it. w-12 (38px) rather than the
-              // old w-10 (32px), a step toward a comfortable touch target.
-              className="lg:hidden pointer-events-auto [touch-action:none] w-full h-14 flex items-center justify-center rounded-full bg-[#E9826A] text-[#0B0B0A] active:brightness-95 transition-[filter] flex-shrink-0"
+              // A grab handle: the visible bar is small, the touch area is the
+              // full width so swipes are easy to start. No backing — the bar
+              // sits straight on the timeline. The tune icon shows while a
+              // finger is down, hinting that a tap opens view settings.
+              className="group lg:hidden pointer-events-auto [touch-action:none] [-webkit-tap-highlight-color:transparent] w-full h-20 flex flex-col items-center justify-center gap-1.5 flex-shrink-0"
             >
-              <span className="material-symbols-outlined text-[26px] leading-none">tune</span>
+              <span
+                ref={handleIconRef}
+                className="material-symbols-outlined text-[20px] leading-none text-on-surface-variant opacity-0 group-active:opacity-100 transition-opacity"
+              >
+                tune
+              </span>
+              <span
+                ref={handleBarRef}
+                className="block w-16 h-[7px] rounded-full bg-on-surface-variant opacity-40 group-active:opacity-55 transition-[transform,width,opacity] duration-300 ease-[cubic-bezier(.34,1.56,.64,1)]"
+              />
             </button>
           </div>,
           document.body

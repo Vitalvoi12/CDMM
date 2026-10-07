@@ -8,6 +8,9 @@ interface ButtonSwipeOptions {
   onSwipeDown?: () => void;
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
+  /** Live finger offset from the touch start while dragging; null once the
+   *  touch ends. For visual feedback only — keep it to transforms. */
+  onDrag?: (offset: { dx: number; dy: number } | null) => void;
 }
 
 /**
@@ -22,7 +25,7 @@ interface ButtonSwipeOptions {
  * the button's own onClick.
  */
 export function useButtonSwipe(options: ButtonSwipeOptions) {
-  const { enabled = true, threshold = 40, onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight } = options;
+  const { enabled = true, threshold = 40, onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight, onDrag } = options;
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const swipedAtRef = useRef(0);
 
@@ -34,9 +37,16 @@ export function useButtonSwipe(options: ButtonSwipeOptions) {
     startRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   }, [enabled]);
 
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    const s = startRef.current;
+    if (!s || !onDrag) return;
+    onDrag({ dx: e.touches[0].clientX - s.x, dy: e.touches[0].clientY - s.y });
+  }, [onDrag]);
+
   const finish = useCallback((e: React.TouchEvent, touch: React.Touch | undefined) => {
     const s = startRef.current;
     startRef.current = null;
+    onDrag?.(null);
     if (!enabled || !s || !touch) return;
     const dx = touch.clientX - s.x;
     const dy = touch.clientY - s.y;
@@ -48,15 +58,16 @@ export function useButtonSwipe(options: ButtonSwipeOptions) {
     // Dominant axis wins; a diagonal drag still resolves to its larger side.
     if (ay >= ax) (dy < 0 ? onSwipeUp : onSwipeDown)?.();
     else (dx < 0 ? onSwipeLeft : onSwipeRight)?.();
-  }, [enabled, threshold, onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight]);
+  }, [enabled, threshold, onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight, onDrag]);
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => finish(e, e.changedTouches[0]), [finish]);
   const onTouchCancel = useCallback(() => {
     startRef.current = null;
-  }, []);
+    onDrag?.(null);
+  }, [onDrag]);
 
   /** True right after a swipe: the button's onClick should ignore it. */
   const wasSwipe = useCallback(() => Date.now() - swipedAtRef.current < 400, []);
 
-  return { handlers: { onTouchStart, onTouchEnd, onTouchCancel }, wasSwipe };
+  return { handlers: { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel }, wasSwipe };
 }
