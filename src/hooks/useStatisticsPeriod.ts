@@ -49,7 +49,7 @@ export interface SubjectRow {
  * read only where a metric explicitly compares against the plan.
  */
 export function useStatisticsPeriod() {
-  const [preset, setPreset] = useState<PeriodPreset>('30d');
+  const [preset, setPreset] = useState<PeriodPreset>('7d');
   const [metric, setMetric] = useState<SubjectMetric>('time');
   const [customFrom, setCustomFrom] = useState(() => toISODate(addDays(startOfDay(new Date()), -29)));
   const [customTo, setCustomTo] = useState(() => toISODate(new Date()));

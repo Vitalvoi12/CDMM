@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { Fragment, useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
@@ -301,7 +301,12 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       const activeTouch = ev.touches[0] ?? ev.changedTouches[0];
       if (!activeTouch) return;
       if (!current.active) {
+        // Event blocks allow native vertical panning, so a swipe that starts
+        // on one scrolls the page. Once the browser owns the gesture its moves
+        // are no longer cancelable — drop the pending long-press so a drag
+        // cannot start mid-scroll.
         if (
+          !ev.cancelable ||
           Math.abs(activeTouch.clientY - current.startY) > TOUCH_MOVE_THRESHOLD ||
           Math.abs(activeTouch.clientX - current.startX) > TOUCH_MOVE_THRESHOLD
         ) {
@@ -491,14 +496,28 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       if (resizeInfo?.eventId === event.id) {
         visualHeight = Math.max(height + resizeInfo.deltaY, 13);
       }
+      let liveStart = event.start;
+      let liveEnd = event.end;
+      if (dragOffset?.eventId === event.id) {
+        const mins = Math.round(dragOffset.deltaY * MINUTES_PER_PIXEL);
+        const { start, end } = shiftEventByMinutes(event.start, event.end, mins, START_HOUR, END_HOUR);
+        liveStart = start.toISOString();
+        liveEnd = end.toISOString();
+      } else if (resizeInfo?.eventId === event.id) {
+        const mins = Math.round(resizeInfo.deltaY * MINUTES_PER_PIXEL);
+        const end = shiftEventEndByMinutes(event.end, event.start, mins, END_HOUR, SNAP);
+        liveEnd = end.toISOString();
+      }
       return (
+        <Fragment key={event.id}>
         <TimelineEvent
-          key={event.id}
           event={event}
           top={visualTop}
           height={visualHeight}
           isMobile={isMobile}
           lane={lanes[event.id]}
+          displayStart={liveStart}
+          displayEnd={liveEnd}
           subject={subjectMap[event.subjectId]}
           onClick={(e) => {
             if (Date.now() - lastDragEndRef.current < 500) return;
@@ -509,6 +528,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           onDragStart={(e) => handleDragStart(event, e)}
           onResizeStart={(e) => handleResizeStart(event, e)}
         />
+        </Fragment>
       );
     });
   };

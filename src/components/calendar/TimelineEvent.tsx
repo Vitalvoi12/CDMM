@@ -13,11 +13,14 @@ interface TimelineEventProps {
   onDragStart?: (e: React.MouseEvent) => void;
   onResizeStart?: (e: React.MouseEvent) => void;
   isMobile?: boolean;
+  /** Live time range shown while dragging/resizing (ISO strings); defaults to the event's own. */
+  displayStart?: string;
+  displayEnd?: string;
   /** Horizontal lane for overlapping blocks (see layoutOverlapLanes). */
   lane?: { left: number; width: number; z: number };
 }
 
-export function TimelineEvent({ event, top, height, subject, onClick, onTouchStart, onDragStart, onResizeStart, isMobile = false, lane }: TimelineEventProps) {
+export function TimelineEvent({ event, top, height, subject, onClick, onTouchStart, onDragStart, onResizeStart, isMobile = false, lane, displayStart, displayEnd }: TimelineEventProps) {
   const plan = event.kind === 'plan';
   const excludedFromStats = event.countInStats === false;
   const statsTitle = excludedFromStats ? 'Excluded from statistics' : undefined;
@@ -64,7 +67,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   const shellStyle: React.CSSProperties = { ...baseStyle, ...laneStyle };
 
   const shellBase =
-    'absolute overflow-hidden cursor-pointer max-lg:[touch-action:none] max-lg:select-none group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20';
+    'absolute overflow-hidden cursor-pointer max-lg:[touch-action:pan-y] max-lg:select-none group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20';
   const shellClass = lane
     ? `${shellBase} w-auto`
     : `${shellBase} right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto`;
@@ -84,7 +87,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
     </div>
   ) : null;
 
-  const timeRange = `${timeFromDate(event.start)} - ${timeFromDate(event.end)}`;
+  const timeRange = `${timeFromDate(displayStart ?? event.start)} - ${timeFromDate(displayEnd ?? event.end)}`;
 
   return (
     <div

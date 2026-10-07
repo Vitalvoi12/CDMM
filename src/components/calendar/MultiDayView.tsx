@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef, useState, useEffect } from 'react';
+import { Fragment, useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { getEventsForDate } from '../../utils/stats';
 import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
@@ -306,7 +306,12 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
       const activeTouch = ev.touches[0] ?? ev.changedTouches[0];
       if (!activeTouch) return;
       if (!current.active) {
+        // Event blocks allow native vertical panning, so a swipe that starts
+        // on one scrolls the page. Once the browser owns the gesture its moves
+        // are no longer cancelable — drop the pending long-press so a drag
+        // cannot start mid-scroll.
         if (
+          !ev.cancelable ||
           Math.abs(activeTouch.clientY - current.startY) > TOUCH_MOVE_THRESHOLD ||
           Math.abs(activeTouch.clientX - current.startX) > TOUCH_MOVE_THRESHOLD
         ) {
@@ -620,11 +625,23 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     const resizable = canResizeEvent(visualHeight, isMobile);
                     const shellRadius = `${Math.max(2, Math.min(isMobile ? 5 : 7, visualHeight / 6))}px`;
                     const lane = lanes[ev.id];
+                    let liveStart = ev.start;
+                    let liveEnd = ev.end;
+                    if (dragPos?.eventId === ev.id) {
+                      const mins = Math.round(dragPos.deltaY * MINUTES_PER_PIXEL);
+                      const { start, end } = shiftEventByMinutes(ev.start, ev.end, mins, START_HOUR, END_HOUR);
+                      liveStart = start.toISOString();
+                      liveEnd = end.toISOString();
+                    } else if (resizePos?.eventId === ev.id) {
+                      const mins = Math.round(resizePos.deltaY * MINUTES_PER_PIXEL);
+                      const end = shiftEventEndByMinutes(ev.end, ev.start, mins, END_HOUR, SNAP);
+                      liveEnd = end.toISOString();
+                    }
                     return (
+                      <Fragment key={ev.id}>
                       <div
-                        key={ev.id}
                         data-event-id={ev.id}
-                        className={`absolute overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:none] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
+                        className={`absolute overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:pan-y] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
                         style={{
                           top: `${visualTop}px`,
                           height: `${visualHeight}px`,
@@ -668,7 +685,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                               className="font-body-sm text-body-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant block truncate"
                               style={planFg}
                             >
-                              {timeFromDate(ev.start)} - {timeFromDate(ev.end)}
+                              {timeFromDate(liveStart)} - {timeFromDate(liveEnd)}
                             </span>
                           )}
                         </div>
@@ -682,6 +699,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                           </div>
                         )}
                       </div>
+                      </Fragment>
                     );
                   });
                 };

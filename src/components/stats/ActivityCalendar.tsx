@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { formatDurationLong } from '../../utils/time';
+import { formatDurationLong, formatDuration } from '../../utils/time';
 import { heatmapCellClass, heatmapLevel, parseISODate, type StudyDay } from '../../utils/analytics';
 import { anchorOf, Tooltip } from './StatParts';
 
@@ -8,16 +8,26 @@ interface ActivityCalendarProps {
   days: StudyDay[];
 }
 
+const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+/** Day number text colour for a heat level (see `.heat-num-hi` in index.css). */
+function numClass(level: number): string {
+  return level >= 3 ? 'heat-num-hi' : 'text-on-surface-variant';
+}
+
+type Cell = { date: string; day: number; data: StudyDay | null };
+
 /**
- * The period as calendar months, one cell per day. A day with no session is an
- * outline; the rest fill up with the same five-step scale the rhythm heatmap
- * uses, so "how hard was that day" reads at a glance.
+ * The period as a calendar: a single row of big day tiles for a week, calendar
+ * months for anything longer. A day with no session is a faint tile; the rest
+ * fill up with the same five-step scale the rhythm heatmap uses. Days outside
+ * the selected period are faded, today is ringed, and a dot marks days that
+ * belong to a run of consecutive study days.
  */
 export function ActivityCalendar({ days }: ActivityCalendarProps) {
   const byDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
@@ -29,27 +39,51 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
   } | null>(null);
   const [picked, setPicked] = useState<StudyDay | null>(null);
 
+  const todayKey = useMemo(() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  // Days that sit in a streak of 2+ consecutive study days.
+  const streakDates = useMemo(() => {
+    const out = new Set<string>();
+    let run: string[] = [];
+    const flush = () => {
+      if (run.length >= 2) run.forEach((d) => out.add(d));
+      run = [];
+    };
+    for (const d of days) {
+      if (d.minutes > 0) run.push(d.date);
+      else flush();
+    }
+    flush();
+    return out;
+  }, [days]);
+
   const months = useMemo(() => {
     if (days.length === 0) return [];
     const first = parseISODate(days[0].date);
     const last = parseISODate(days[days.length - 1].date);
     if (!first || !last) return [];
-    const out: { key: string; title: string; cells: (StudyDay | null)[] }[] = [];
+    const out: { key: string; title: string; minutes: number; cells: (Cell | null)[] }[] = [];
     const cursor = new Date(first.getFullYear(), first.getMonth(), 1);
     while (cursor.getTime() <= last.getTime()) {
       const year = cursor.getFullYear();
       const month = cursor.getMonth();
       const lead = (new Date(year, month, 1).getDay() + 6) % 7;
       const length = new Date(year, month + 1, 0).getDate();
-      const cells: (StudyDay | null)[] = Array.from({ length: lead }, () => null);
+      const cells: (Cell | null)[] = Array.from({ length: lead }, () => null);
+      let minutes = 0;
       for (let d = 1; d <= length; d++) {
         const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const day = byDate.get(key);
-        cells.push(day || null);
+        const data = byDate.get(key) || null;
+        if (data) minutes += data.minutes;
+        cells.push({ date: key, day: d, data });
       }
       out.push({
         key: `${year}-${month}`,
         title: `${MONTH_NAMES[month]}${year === new Date().getFullYear() ? '' : ` ${year}`}`,
+        minutes,
         cells,
       });
       cursor.setMonth(cursor.getMonth() + 1);
@@ -59,51 +93,103 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
 
   const active = hover?.day || picked || null;
   const span = months.length;
+  const weekMode = days.length <= 7;
+
+  const tileProps = (cell: StudyDay) => ({
+    onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => setHover({ day: cell, ...anchorOf(e.currentTarget) }),
+    onMouseLeave: () => setHover(null),
+    onFocus: (e: React.FocusEvent<HTMLButtonElement>) => setHover({ day: cell, ...anchorOf(e.currentTarget) }),
+    onBlur: () => setHover(null),
+    onClick: () => setPicked((p) => (p?.date === cell.date ? null : cell)),
+  });
+
+  const tile = (cell: StudyDay, dayNum: number, big: boolean) => {
+    const level = heatmapLevel(cell.minutes);
+    const isPicked = picked?.date === cell.date;
+    const isToday = cell.date === todayKey;
+    return (
+      <button
+        key={cell.date}
+        type="button"
+        aria-label={`${cell.date}: ${cell.minutes} minutes`}
+        className={`relative aspect-square w-full rounded-[7px] flex items-center justify-center transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${heatmapCellClass(level)} ${
+          level === 0 ? 'border border-outline-variant/60' : ''
+        } ${isToday ? 'ring-2 ring-on-surface' : isPicked ? 'ring-2 ring-primary' : ''}`}
+        {...tileProps(cell)}
+      >
+        <span className={`tabular-nums leading-none ${big ? 'text-[15px] font-semibold' : 'text-[10px] opacity-80'} ${numClass(level)}`}>
+          {dayNum}
+        </span>
+        {streakDates.has(cell.date) && (
+          <span
+            aria-hidden="true"
+            className={`absolute bottom-[3px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${level >= 3 ? 'bg-current heat-num-hi' : 'bg-primary'}`}
+          />
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-5">
-      <div
-        className={`grid gap-x-6 gap-y-5 ${span > 6 ? 'grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4' : span > 3 ? 'grid-cols-2 lg:grid-cols-3' : span > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}
-      >
-        {months.map((month) => (
-          <div key={month.key} className="min-w-0 max-w-[13rem]">
-            <p className="font-label-sm text-label-sm text-on-surface-variant mb-2 truncate">
-              {month.title}
-            </p>
-            <div className="grid grid-cols-7 gap-[3px] mb-1">
-              {WEEKDAY_INITIALS.map((w, i) => (
-                <span
-                  key={i}
-                  className="text-center font-label-sm text-[7px] leading-none text-on-surface-variant"
-                >
-                  {w}
+      {weekMode ? (
+        <div className="grid grid-cols-7 gap-2 max-w-md">
+          {days.map((d) => {
+            const dt = parseISODate(d.date);
+            const weekday = dt ? WEEKDAY_SHORT[(dt.getDay() + 6) % 7] : '';
+            return (
+              <div key={d.date} className="flex flex-col items-center gap-1.5 min-w-0">
+                <span className={`font-label-sm text-[10px] leading-none uppercase tracking-wider ${d.date === todayKey ? 'text-on-surface font-semibold' : 'text-on-surface-variant'}`}>
+                  {weekday}
                 </span>
-              ))}
+                {tile(d, dt ? dt.getDate() : 0, true)}
+                <span className="font-label-sm text-[9px] leading-none text-on-surface-variant tabular-nums whitespace-nowrap tracking-normal">
+                  {d.minutes > 0 ? formatDuration(d.minutes) : '–'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          className={`grid gap-x-8 gap-y-6 ${span > 6 ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3' : span > 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}
+        >
+          {months.map((month) => (
+            <div key={month.key} className="min-w-0 max-w-[20rem]">
+              <div className="flex items-baseline justify-between gap-2 mb-2">
+                <p className="font-label-md text-label-md text-on-surface truncate">{month.title}</p>
+                <p className="font-label-sm text-label-sm text-on-surface-variant tabular-nums flex-shrink-0">
+                  {month.minutes > 0 ? formatDurationLong(month.minutes) : ''}
+                </p>
+              </div>
+              <div className="grid grid-cols-7 gap-1 mb-1">
+                {WEEKDAY_INITIALS.map((w, i) => (
+                  <span key={i} className="text-center font-label-sm text-[10px] leading-none text-on-surface-variant">
+                    {w}
+                  </span>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {month.cells.map((cell, i) => {
+                  if (!cell) return <span key={`e-${i}`} className="aspect-square" />;
+                  // Outside the selected period: faded and not interactive.
+                  if (!cell.data) {
+                    return (
+                      <span
+                        key={cell.date}
+                        className="aspect-square rounded-[7px] flex items-center justify-center bg-heatmap-0 opacity-30"
+                      >
+                        <span className="text-[10px] leading-none tabular-nums text-on-surface-variant">{cell.day}</span>
+                      </span>
+                    );
+                  }
+                  return tile(cell.data, cell.day, false);
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-7 gap-[3px]">
-              {month.cells.map((cell, i) => {
-                if (!cell) return <span key={`e-${i}`} className="aspect-square" />;
-                const isPicked = picked?.date === cell.date;
-                return (
-                  <button
-                    key={cell.date}
-                    type="button"
-                    aria-label={`${cell.date}: ${cell.minutes} minutes`}
-                    className={`aspect-square rounded-[4px] border border-outline/80 transition-transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                      heatmapCellClass(heatmapLevel(cell.minutes))
-                    } ${isPicked ? 'ring-2 ring-primary' : ''}`}
-                    onMouseEnter={(e) => setHover({ day: cell, ...anchorOf(e.currentTarget) })}
-                    onMouseLeave={() => setHover(null)}
-                    onFocus={(e) => setHover({ day: cell, ...anchorOf(e.currentTarget) })}
-                    onBlur={() => setHover(null)}
-                    onClick={() => setPicked((p) => (p?.date === cell.date ? null : cell))}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <p className="font-body-sm text-body-sm text-on-surface-variant min-h-[16px]">
           {active
@@ -112,18 +198,18 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
                   ? `${formatDurationLong(active.minutes)} · ${active.sessions} session${active.sessions === 1 ? '' : 's'}`
                   : 'no study'
               }`
-            : `${days.length} day${days.length === 1 ? '' : 's'} in this period.`}
+            : 'Tap a day for details.'}
         </p>
         {/* Same five steps as the rhythm heatmap, so both read alike. */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
             Less
           </span>
-          <div className="flex gap-[3px]">
+          <div className="flex gap-1">
             {([0, 1, 2, 3, 4] as const).map((level) => (
               <span
                 key={level}
-                className={`w-3 h-3 rounded-[3px] border border-outline/80 ${heatmapCellClass(level)}`}
+                className={`w-3.5 h-3.5 rounded-[4px] ${heatmapCellClass(level)} ${level === 0 ? 'border border-outline-variant/60' : ''}`}
               />
             ))}
           </div>

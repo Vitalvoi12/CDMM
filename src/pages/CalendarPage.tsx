@@ -162,6 +162,16 @@ export function CalendarPage() {
       );
       if (isEditing || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
 
+      // Desktop day view: Up/Down walk the side panel Stat → Tasks → Notes,
+      // like the vertical swipe on mobile (stops at the ends, no wrap).
+      if (!isMobile && view === 'day' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        const order = ['stats', 'tasks', 'notes'] as const;
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        setAsidePanel((p) => order[Math.max(0, Math.min(order.length - 1, order.indexOf(p) + step))]);
+        return;
+      }
+
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
         goToPrevious();
@@ -789,7 +799,7 @@ export function CalendarPage() {
                   <button
                     key={p}
                     onClick={() => setAsidePanel(p)}
-                    title="Switch Stat/Tasks/Notes (Shortcut: D)"
+                    title="Switch Stat/Tasks/Notes (Shortcut: D, ↑/↓)"
                     className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
                       asidePanel === p
                         ? 'bg-secondary-container text-on-secondary-container'

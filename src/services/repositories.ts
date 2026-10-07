@@ -309,7 +309,6 @@ function cleanTodo(rec: TodoTask): TodoTask {
     description: rec.description ?? undefined,
     dueDate: rec.dueDate ?? undefined,
     estMinutes: rec.estMinutes ?? undefined,
-    subjectId: rec.subjectId || undefined,
     completedAt: rec.completedAt ?? undefined,
   };
 }

@@ -386,12 +386,6 @@ export function calculateConsistency(days: StudyDay[]): ConsistencyStats {
 
 // ---- tasks ----
 
-export interface TaskSubjectStat {
-  subjectId: string;
-  completed: number;
-  total: number;
-}
-
 export interface TaskStats {
   /** Tasks created inside the period — the cohort every other figure describes. */
   created: number;
@@ -406,7 +400,6 @@ export interface TaskStats {
   late: number;
   /** Completed inside the period that had a deadline at all. */
   withDeadline: number;
-  bySubject: TaskSubjectStat[];
 }
 
 export function calculateTaskStats(todos: TodoTask[], from: Date, to: Date): TaskStats {
@@ -424,18 +417,11 @@ export function calculateTaskStats(todos: TodoTask[], from: Date, to: Date): Tas
   let onTime = 0;
   let late = 0;
   let withDeadline = 0;
-  const perSubject = new Map<string, { completed: number; total: number }>();
 
   for (const t of cohort) {
-    const key = t.subjectId || '';
-    const row = perSubject.get(key) || { completed: 0, total: 0 };
-    row.total += 1;
-    perSubject.set(key, row);
-
     const doneAt = t.completedAt ? new Date(t.completedAt).getTime() : NaN;
     if (t.completed && Number.isFinite(doneAt) && doneAt >= start && doneAt <= end) {
       completed++;
-      row.completed += 1;
       if (t.dueDate) {
         withDeadline++;
         if (doneAt <= new Date(t.dueDate).getTime()) onTime++;
@@ -448,10 +434,6 @@ export function calculateTaskStats(todos: TodoTask[], from: Date, to: Date): Tas
     }
   }
 
-  const bySubject = [...perSubject.entries()]
-    .map(([subjectId, v]) => ({ subjectId, ...v }))
-    .sort((a, b) => b.total - a.total || b.completed - a.completed);
-
   return {
     created: cohort.length,
     completed,
@@ -461,7 +443,6 @@ export function calculateTaskStats(todos: TodoTask[], from: Date, to: Date): Tas
     onTime,
     late,
     withDeadline,
-    bySubject,
   };
 }
 

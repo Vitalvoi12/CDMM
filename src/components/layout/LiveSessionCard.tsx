@@ -6,6 +6,7 @@ import { subscribeSessionStart, subscribeSessionStartEdit } from '../../services
 import { formatTimerDuration, timeFromDate } from '../../utils/time';
 import { SubjectPickerModal } from '../subjects/SubjectPickerModal';
 import { SessionStartEditor } from '../study/SessionStartEditor';
+import { SessionFinishConfirm } from '../study/SessionFinishConfirm';
 
 /**
  * The live session panel pinned above Settings in the desktop sidebar, and the
@@ -19,16 +20,17 @@ export function LiveSessionCard() {
   const { isActive, subjectId, startTime, elapsed, startSession, setStartTime, stopSession } = useActiveSession();
   const [showPicker, setShowPicker] = useState(false);
   const [showStartEditor, setShowStartEditor] = useState(false);
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
 
   const subject = subjectId ? subjectRepo.getById(subjectId) : undefined;
 
-  // F asks for a session start from the app shell, which cannot render the
-  // picker itself. Ignored while one runs: there is only ever one live session
-  // per account, so there is nothing to switch to.
-  useEffect(() => {
-    if (isActive) return;
-    return subscribeSessionStart(() => setShowPicker(true));
-  }, [isActive]);
+  // F comes from the app shell, which cannot render dialogs itself. Idle: open
+  // the subject picker. Running: ask before ending the session — there is only
+  // ever one live session per account, so there is nothing to switch to.
+  useEffect(
+    () => subscribeSessionStart(() => (isActive ? setShowFinishConfirm(true) : setShowPicker(true))),
+    [isActive]
+  );
 
   // C opens the start editor while a session runs.
   useEffect(() => {
@@ -132,6 +134,18 @@ export function LiveSessionCard() {
             startSession(id);
           }}
           onClose={() => setShowPicker(false)}
+        />
+      )}
+
+      {showFinishConfirm && isActive && (
+        <SessionFinishConfirm
+          subjectName={subject?.name || 'Studying'}
+          elapsed={elapsed}
+          onConfirm={() => {
+            setShowFinishConfirm(false);
+            finish();
+          }}
+          onCancel={() => setShowFinishConfirm(false)}
         />
       )}
 

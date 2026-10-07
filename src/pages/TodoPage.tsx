@@ -32,8 +32,9 @@ export function TodoPage() {
 
   useSyncRefresh(refresh);
 
-  // N opens a new task (plain quadrant); skipped while typing or when a
-  // modal is open, same guards as the calendar shortcuts.
+  // N or A opens a new task (plain quadrant: not urgent, not important);
+  // skipped while typing or when a modal is open, same guards as the
+  // calendar shortcuts.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -49,7 +50,11 @@ export function TodoPage() {
       }
       if (document.querySelector('.fixed.inset-0')) return;
       const letter = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : '';
-      if ((letter || e.key.toLowerCase()) === 'n') {
+      const key = letter || e.key.toLowerCase();
+      if (key === 'n' || key === 'a') {
+        // The form focuses its title field before the key finishes, so
+        // without this the letter would be typed into it.
+        e.preventDefault();
         setFormState((prev) => prev || { task: null, quadrant: 'nn' });
       }
     };
@@ -127,7 +132,6 @@ export function TodoPage() {
     urgent: boolean;
     dueDate?: string;
     estMinutes?: number;
-    subjectId?: string;
   }) => {
     if (formState?.task) {
       checkpoint('Edit task');

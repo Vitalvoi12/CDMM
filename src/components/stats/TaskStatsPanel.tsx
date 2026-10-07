@@ -1,10 +1,8 @@
 import type { TaskStats } from '../../utils/analytics';
-import type { Subject } from '../../types';
 import { EmptyState, Section, StatTile } from './StatParts';
 
 interface TaskStatsPanelProps {
   stats: TaskStats;
-  subjectMap: Record<string, Subject>;
   periodLabel: string;
 }
 
@@ -13,7 +11,7 @@ interface TaskStatsPanelProps {
  * period" — created, done, still open and overdue all describe that same set,
  * while "completed" and the deadline split are measured by completion time.
  */
-export function TaskStatsPanel({ stats, subjectMap, periodLabel }: TaskStatsPanelProps) {
+export function TaskStatsPanel({ stats, periodLabel }: TaskStatsPanelProps) {
   if (stats.created === 0) {
     return (
       <Section title="Tasks" delay={400}>
@@ -88,45 +86,6 @@ export function TaskStatsPanel({ stats, subjectMap, periodLabel }: TaskStatsPane
                 className="h-full bg-surface-container-highest"
                 style={{ width: `${100 - onTimePercent}%` }}
               />
-            </div>
-          </div>
-        )}
-
-        {stats.bySubject.length > 0 && (
-          <div>
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
-              By subject
-            </p>
-            <div className="flex flex-col gap-3">
-              {stats.bySubject.map((row) => {
-                const subject = subjectMap[row.subjectId];
-                const color = subject?.color || 'var(--color-on-surface-variant)';
-                const percent = row.total > 0 ? (row.completed / row.total) * 100 : 0;
-                return (
-                  <div key={row.subjectId || 'none'}>
-                    <div className="flex items-center justify-between gap-4 mb-1.5">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: color }}
-                        />
-                        <span className="font-body-sm text-body-sm text-on-surface truncate">
-                          {subject?.name || 'No subject'}
-                        </span>
-                      </div>
-                      <span className="font-label-sm text-label-sm text-on-surface tabular-nums flex-shrink-0">
-                        {row.completed} / {row.total}
-                      </span>
-                    </div>
-                    <div className="h-1 bg-surface-variant rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full origin-left animate-bar-grow-x"
-                        style={{ width: `${percent}%`, backgroundColor: color }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
         )}

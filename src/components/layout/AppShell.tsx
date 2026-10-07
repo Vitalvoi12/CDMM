@@ -11,7 +11,8 @@ export function AppShell() {
   const { pathname } = useLocation();
 
   // Section shortcuts: C → change the live session's start (calendar when none runs),
-  // S → statistics, T → todo, F → start a session. Physical keys
+  // S → statistics, T → todo, F → start a session (or, while one runs, ask
+  // to end it). Physical keys
   // (e.code) so they work on any layout; skipped while typing or with a modal
   // open so they never hijack a form or dismiss an editor.
   //

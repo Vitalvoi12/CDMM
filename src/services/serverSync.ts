@@ -79,7 +79,6 @@ function dirtyTodo(rec: TodoTask) {
     description: rec.description ?? null,
     dueDate: rec.dueDate ?? null,
     estMinutes: rec.estMinutes ?? null,
-    subjectId: rec.subjectId ?? null,
     completedAt: rec.completedAt ?? null,
   } as unknown as TodoTask & { updatedAt: number };
 }

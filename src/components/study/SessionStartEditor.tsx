@@ -48,6 +48,28 @@ export function SessionStartEditor({ startTime, elapsed, onApply, onCancel }: Se
     dialogRef.current?.focus({ preventScroll: true });
   }, []);
 
+  // Up/Down nudge the start by ±5 min. Capture phase on window so the
+  // calendar's own arrow shortcuts underneath never see the press; a focused
+  // field keeps its native per-segment arrow editing.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const step = (e.key === 'ArrowUp' ? 5 : -5) * 60000;
+      setValue((v) => {
+        const current = new Date(v).getTime();
+        const base = Number.isFinite(current) ? current : startTime ? new Date(startTime).getTime() : now;
+        return toLocalInputValue(Math.min(now, base + step));
+      });
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [now, startTime]);
+
   const parsed = new Date(value).getTime();
   // Future starts would make the running timer count backwards; clamp instead
   // of rejecting, so typing "now" in the field still works.

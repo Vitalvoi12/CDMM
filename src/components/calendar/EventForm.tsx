@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, EventChecklistItem, Subject } from '../../types';
 import { genId } from '../../services/repositories';
 import { useEscapeOverlay } from '../../services/overlays';
@@ -102,7 +102,17 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
     return '';
   }
 
-  useEscapeOverlay(onCancel);
+  // First Escape while typing a task only leaves the field; the next one closes.
+  const handleEscape = useCallback(() => {
+    const el = document.activeElement;
+    if (el instanceof HTMLInputElement && el.dataset.taskInput === '1') {
+      el.blur();
+      dialogRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    onCancel();
+  }, [onCancel]);
+  useEscapeOverlay(handleEscape);
 
   useEffect(() => {
     // Move focus inside the dialog so Enter/Delete work right away, even if
@@ -391,6 +401,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                   <div key={t.id} className="flex items-center gap-2 animate-fade-in">
                     <input
                       type="text"
+                      data-task-input="1"
                       value={t.text}
                       ref={isLast ? lastInputRef : undefined}
                       onChange={(e) => updateTaskText(t.id, e.target.value)}

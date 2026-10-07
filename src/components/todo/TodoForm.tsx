@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TodoTask } from '../../types';
-import { subjectRepo } from '../../services/repositories';
 import { useEscapeOverlay } from '../../services/overlays';
 import { formatDuration } from '../../utils/time';
 import { Toggle } from '../common/Toggle';
@@ -15,7 +14,6 @@ interface TodoFormProps {
     urgent: boolean;
     dueDate?: string;
     estMinutes?: number;
-    subjectId?: string;
   }) => void;
   onDelete?: (id: string) => void;
   onCancel: () => void;
@@ -29,12 +27,10 @@ function toInputValue(iso?: string): string {
 }
 
 export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFormProps) {
-  const [subjects] = useState(() => subjectRepo.getAll());
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [important, setImportant] = useState(task?.important ?? defaults.important);
   const [urgent, setUrgent] = useState(task?.urgent ?? defaults.urgent);
-  const [subjectId, setSubjectId] = useState(task?.subjectId || '');
   const [dueDate, setDueDate] = useState(toInputValue(task?.dueDate));
   const [estInput, setEstInput] = useState(task?.estMinutes ? String(task.estMinutes) : '');
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +66,6 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
       description: description.trim() || undefined,
       important,
       urgent,
-      subjectId: subjectId || undefined,
       dueDate: dueDate ? new Date(`${dueDate}T18:00:00`).toISOString() : undefined,
       estMinutes,
     });
@@ -156,38 +151,6 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               }}
             />
           </div>
-          {/* Subject is only a grouping label: it powers the per-subject task
-              statistics and never moves the task between quadrants. */}
-          {subjects.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
-                Subject
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {subjects.map((s) => {
-                  const active = subjectId === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setSubjectId(active ? '' : s.id)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border font-label-sm text-label-sm normal-case tracking-normal transition-colors ${
-                        active
-                          ? 'border-transparent text-on-surface'
-                          : 'border-outline-variant text-on-surface-variant hover:border-outline'
-                      }`}
-                      style={active ? { backgroundColor: s.color } : undefined}
-                    >
-                      {!active && (
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                      )}
-                      {s.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
           <div className="grid grid-cols-1 gap-3 min-[481px]:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] min-[481px]:gap-2">
             <div className="flex flex-col gap-2 min-w-0">
               <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">

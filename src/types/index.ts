@@ -150,11 +150,6 @@ export interface TodoTask {
   estMinutes?: number;
   completed: boolean;
   /**
-   * Subject the task belongs to, or absent when it is not tied to one.
-   * Purely for grouping (subject statistics); the quadrants ignore it.
-   */
-  subjectId?: string;
-  /**
    * ISO time the task was last ticked off. Stamped by the repository on the
    * completed false → true transition and cleared when it is reopened, so
    * deadline statistics never depend on a later title or urgency edit.

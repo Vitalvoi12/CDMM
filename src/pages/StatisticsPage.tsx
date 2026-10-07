@@ -96,7 +96,7 @@ export function StatisticsPage() {
 
       <ConsistencyPanel stats={consistency} days={days} periodLabel={period.label} />
 
-      <TaskStatsPanel stats={tasks} subjectMap={subjectMap} periodLabel={period.label} />
+      <TaskStatsPanel stats={tasks} periodLabel={period.label} />
 
       <PlanStabilityPanel stats={stability} subjectMap={subjectMap} periodLabel={period.label} />
       </div>
