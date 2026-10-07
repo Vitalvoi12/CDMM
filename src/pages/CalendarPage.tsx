@@ -77,6 +77,7 @@ interface PendingRecurrence {
     countInStats: boolean;
     color?: string;
     checklist?: EventChecklistItem[];
+    notifyBefore: number | null;
   } | null;
 }
 
@@ -303,7 +304,7 @@ export function CalendarPage() {
   );
 
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; checklist?: EventChecklistItem[] }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; checklist?: EventChecklistItem[]; notifyBefore: number | null }) => {
       if (editingEvent) {
         const stored = eventRepo.getById(editingEvent.id);
         const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
@@ -351,6 +352,7 @@ export function CalendarPage() {
           countInStats: data.countInStats,
           color: data.color,
           checklist: data.checklist,
+          notifyBefore: data.notifyBefore,
         });
       } else if (data.recurrence && data.recurrence.freq !== 'none') {
         const occurrences = expandRecurrence(
@@ -374,6 +376,7 @@ export function CalendarPage() {
             color: data.color,
             recurrenceId,
             checklist: data.checklist?.map((t) => ({ ...t, id: genId() })),
+            notifyBefore: data.notifyBefore,
           });
         }
       } else {
@@ -388,6 +391,7 @@ export function CalendarPage() {
           countInStats: data.countInStats,
           color: data.color,
           checklist: data.checklist,
+          notifyBefore: data.notifyBefore,
         });
       }
       setEditingEvent(null);
@@ -479,6 +483,7 @@ export function CalendarPage() {
               countInStats: data.countInStats,
               color: data.color,
               checklist: data.checklist,
+              notifyBefore: data.notifyBefore,
               recurrenceId: null,
             });
           }
@@ -501,6 +506,7 @@ export function CalendarPage() {
               countInStats: data.countInStats,
               color: data.color,
               checklist: data.checklist,
+              notifyBefore: data.notifyBefore,
             });
           }
           for (const s of following) {
@@ -518,6 +524,7 @@ export function CalendarPage() {
               countInStats: data.countInStats,
               color: data.color,
               checklist: data.checklist?.map((t) => ({ ...t, id: genId() })),
+              notifyBefore: data.notifyBefore,
             });
           }
         }
@@ -547,6 +554,7 @@ export function CalendarPage() {
         recurrenceId: null,
         // Same tasks as a fresh list: new ids, nothing pre-checked.
         checklist: source.checklist?.map((t) => ({ ...t, id: genId(), done: false })),
+        notifyBefore: source.notifyBefore ?? null,
       });
       // Open the copy so the new time can be adjusted right away.
       setEditingEvent(copy);

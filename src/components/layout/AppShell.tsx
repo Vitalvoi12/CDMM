@@ -2,13 +2,20 @@ import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
+import { NotificationPrompt } from './NotificationPrompt';
 import { requestSessionStart, requestSessionStartEdit } from '../../services/liveSession';
 import { settingsRepo } from '../../services/repositories';
 import { hasOpenOverlay } from '../../services/overlays';
+import { startEventNotifications } from '../../services/notifications';
 
 export function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  // Event reminders run while the app is open in any tab or as the PWA.
+  useEffect(() => {
+    startEventNotifications();
+  }, []);
 
   // Section shortcuts: C → change the live session's start (calendar when none runs),
   // S → statistics, T → todo, F → start a session (or, while one runs, ask
@@ -58,6 +65,7 @@ export function AppShell() {
         </main>
       </div>
       <MobileNav />
+      <NotificationPrompt />
     </div>
   );
 }

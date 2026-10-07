@@ -4,6 +4,7 @@ import { genId } from '../../services/repositories';
 import { useEscapeOverlay } from '../../services/overlays';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
+import { NOTIFY_OPTIONS, notificationPermission, requestNotificationPermission, type NotifyPermission } from '../../services/notifications';
 
 export interface EventRecurrence {
   freq: RepeatFreq;
@@ -31,6 +32,8 @@ interface EventFormProps {
     color?: string;
     /** Per-event mini tasks. Empty texts are dropped on save. */
     checklist?: EventChecklistItem[];
+    /** Reminder minutes before start (0 = at start); null = no reminder. */
+    notifyBefore: number | null;
   }) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -81,6 +84,8 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   const [repeat, setRepeat] = useState<RepeatFreq>('none');
   const [repeatUntil, setRepeatUntil] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notifyBefore, setNotifyBefore] = useState<number | null>(event?.notifyBefore ?? null);
+  const [permission, setPermission] = useState<NotifyPermission>(notificationPermission);
   // Per-event tasks: exactly one template row when empty; "+" lives only on
   // the last row and moves down as rows are added.
   const [tasks, setTasks] = useState<EventChecklistItem[]>(() => {
@@ -206,6 +211,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
       checklist: tasks
         .map((t) => ({ ...t, text: t.text.trim() }))
         .filter((t) => t.text.length > 0),
+      notifyBefore,
     });
   };
 
@@ -547,6 +553,50 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               </div>
             </div>
           )}
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>
+              Notification
+            </label>
+            <select
+              value={notifyBefore === null ? 'none' : String(notifyBefore)}
+              onChange={(e) => {
+                const next = e.target.value === 'none' ? null : Number(e.target.value);
+                setNotifyBefore(next);
+                // Ask while the user is choosing — browsers only prompt on a gesture.
+                if (next !== null && permission === 'default') {
+                  void requestNotificationPermission().then(setPermission);
+                }
+              }}
+              className={`${inputClass} appearance-none cursor-pointer`}
+            >
+              {NOTIFY_OPTIONS.map((o) => (
+                <option key={o.label} value={o.value === null ? 'none' : String(o.value)}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {notifyBefore !== null && permission !== 'granted' && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                {permission === 'denied'
+                  ? 'Notifications are blocked for this site — allow them in the browser settings.'
+                  : permission === 'unsupported'
+                    ? 'This browser does not support notifications.'
+                    : 'Notifications are not allowed yet — the reminder will not show.'}
+                {permission === 'default' && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      onClick={() => void requestNotificationPermission().then(setPermission)}
+                      className="text-primary underline underline-offset-2"
+                    >
+                      Allow
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+          </div>
           {error && (
             <p role="alert" className="font-body-sm text-body-sm text-error">
               {error}

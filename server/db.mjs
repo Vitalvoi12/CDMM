@@ -64,6 +64,7 @@ export function openDb(dir) {
       recurrence_id TEXT,
       count_in_stats INTEGER NOT NULL DEFAULT 1,
       checklist TEXT,
+      notify_before INTEGER,
       created_at TEXT,
       updated_at INTEGER NOT NULL DEFAULT 0
     );
@@ -130,6 +131,22 @@ export function openDb(dir) {
       at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_changelog_user_seq ON change_log(user_id, seq);
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      endpoint TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      tz TEXT,
+      origin TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+    CREATE TABLE IF NOT EXISTS push_sent (
+      user_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, key)
+    );
   `);
   // Migration for DBs created before recurrence support: no-op when present.
   try {
@@ -158,6 +175,12 @@ export function openDb(dir) {
   // Migration for per-event checklist tasks (JSON array, NULL = none).
   try {
     db.exec('ALTER TABLE events ADD COLUMN checklist TEXT');
+  } catch {
+    // column already exists — ignore
+  }
+  // Migration for event reminders (minutes before start, NULL = off).
+  try {
+    db.exec('ALTER TABLE events ADD COLUMN notify_before INTEGER');
   } catch {
     // column already exists — ignore
   }
@@ -270,7 +293,7 @@ function rowToPayload(entity, row) {
     };
   }
   if (entity === 'events') {
-    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, createdAt: row.created_at || undefined, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), updatedAt: row.updated_at };
+    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, createdAt: row.created_at || undefined, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), notifyBefore: row.notify_before == null ? undefined : row.notify_before, updatedAt: row.updated_at };
   }
   return {
     id: row.id, title: row.title, description: row.description,
@@ -286,7 +309,7 @@ function rowToPayload(entity, row) {
 
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
-  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'created_at'],
+  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'created_at'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'subject_id', 'completed_at', 'completed', 'created_at'],
   dayNotes: ['content'],
   eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind', 'count_in_stats', 'deleted'],
@@ -296,7 +319,7 @@ const FROM_CLIENT = {
   name: 'name', color: 'color', icon: 'icon', progress: 'progress',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
   start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id',
-  countInStats: 'count_in_stats', checklist: 'checklist',
+  countInStats: 'count_in_stats', checklist: 'checklist', notifyBefore: 'notify_before',
   important: 'important', urgent: 'urgent', dueDate: 'due_date', estMinutes: 'est_minutes',
   completedAt: 'completed_at', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
@@ -386,6 +409,10 @@ export function applyChanges(db, userId, dirty) {
         else if (v === null) v = null;
         else if (Array.isArray(v)) v = v.length > 0 ? JSON.stringify(v) : null;
         else v = prev[col] === undefined ? null : prev[col];
+      } else if (col === 'notify_before') {
+        // Reminder lead in whole minutes; null/absent-on-new/garbage = off.
+        const n = v == null || v === '' ? NaN : Number(v);
+        v = Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
       } else if (v === undefined) {
         // Absent on a NEW record: nullable columns stay NULL so a later
         // partial update that omits them does not invent a value.

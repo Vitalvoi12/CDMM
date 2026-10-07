@@ -4,7 +4,6 @@ import { useStatisticsPeriod } from '../hooks/useStatisticsPeriod';
 import { formatDurationLong } from '../utils/time';
 import { PeriodSelect } from '../components/stats/PeriodSelect';
 import { SubjectBreakdown } from '../components/stats/SubjectBreakdown';
-import { FocusTimeChart } from '../components/stats/FocusTimeChart';
 import { TimeHeatmap } from '../components/stats/TimeHeatmap';
 import { ConsistencyPanel } from '../components/stats/ConsistencyPanel';
 import { TaskStatsPanel } from '../components/stats/TaskStatsPanel';
@@ -12,8 +11,8 @@ import { PlanStabilityPanel } from '../components/stats/PlanStabilityPanel';
 
 /**
  * One screen, one period. The header picks the range and every block below
- * recomputes from it, so subjects, focus time, rhythm, consistency, tasks and
- * plan stability always describe the same window.
+ * recomputes from it, so subjects, rhythm, consistency, tasks and plan
+ * stability always describe the same window.
  */
 export function StatisticsPage() {
   const [, forceRefresh] = useReducer((x: number) => x + 1, 0);
@@ -34,15 +33,11 @@ export function StatisticsPage() {
     totalMinutes,
     totalSessions,
     days,
-    bucketSize,
-    buckets,
     rhythm,
     consistency,
     tasks,
     stability,
   } = useStatisticsPeriod();
-
-  const averageMinutes = buckets.length > 0 ? totalMinutes / buckets.length : 0;
 
   return (
     <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-hidden">
@@ -78,15 +73,6 @@ export function StatisticsPage() {
         rows={subjectRows}
         metric={metric}
         onMetricChange={setMetric}
-        totalMinutes={totalMinutes}
-        totalSessions={totalSessions}
-        periodLabel={period.label}
-      />
-
-      <FocusTimeChart
-        buckets={buckets}
-        size={bucketSize}
-        averageMinutes={averageMinutes}
         totalMinutes={totalMinutes}
         totalSessions={totalSessions}
         periodLabel={period.label}

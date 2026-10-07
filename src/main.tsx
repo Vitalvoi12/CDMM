@@ -4,6 +4,7 @@ import './index.css'
 import App from './App'
 import { initTheme } from './hooks/useTheme'
 import { backfillEventChecklists, backfillSubjects } from './services/repositories'
+import { registerNotificationWorker } from './services/notifications'
 
 initTheme()
 
@@ -24,6 +25,8 @@ document.addEventListener(
 backfillEventChecklists()
 // Re-push local subjects that never reached the server (one-time).
 backfillSubjects()
+// Service worker for event reminder notifications.
+registerNotificationWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

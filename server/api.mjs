@@ -6,6 +6,7 @@ import {
   USERNAME_RE, MIN_PASSWORD_LEN, hashPassword, verifyPassword,
   createSessionToken, lookupSession, deleteSession, touchSession, bearerToken, rateLimit,
 } from './auth.mjs';
+import { vapidPublicKey, pushToUser } from './push.mjs';
 
 const MAX_BODY = 5 * 1024 * 1024; // 5 MB
 
@@ -103,6 +104,12 @@ export async function handleApi(db, req, res, pathname) {
   touchSession(db, bearerToken(req));
 
   if (pathname === '/api/logout' && method === 'POST') {
+    // A signed-out device must stop getting this account's reminders.
+    let body = {};
+    try { body = await readBody(req); } catch { /* logout regardless */ }
+    if (typeof body.pushEndpoint === 'string') {
+      db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?').run(body.pushEndpoint, userId);
+    }
     deleteSession(db, bearerToken(req));
     return sendJson(res, 200, { ok: true }), true;
   }
@@ -149,6 +156,52 @@ export async function handleApi(db, req, res, pathname) {
       }
     }
     return sendJson(res, 200, out), true;
+  }
+
+  if (pathname === '/api/push/key' && method === 'GET') {
+    const key = vapidPublicKey();
+    if (!key) return sendJson(res, 503, { error: 'Push unavailable' }), true;
+    return sendJson(res, 200, { key }), true;
+  }
+
+  if (pathname === '/api/push/subscribe' && method === 'POST') {
+    let body;
+    try { body = await readBody(req); } catch (e) { return sendJson(res, e.status || 400, { error: e.message || 'Bad request' }), true; }
+    const sub = body?.subscription;
+    const endpoint = sub?.endpoint;
+    const p256dh = sub?.keys?.p256dh;
+    const auth = sub?.keys?.auth;
+    if (typeof endpoint !== 'string' || !/^https:\/\//.test(endpoint) || typeof p256dh !== 'string' || typeof auth !== 'string') {
+      return sendJson(res, 400, { error: 'Invalid subscription' }), true;
+    }
+    const tz = typeof body.tz === 'string' ? body.tz.slice(0, 64) : null;
+    // The public site address (via Caddy) — used as the VAPID contact.
+    const origin = typeof req.headers.origin === 'string' ? req.headers.origin.slice(0, 200) : null;
+    // Upsert by endpoint: a device that changes account moves with it.
+    db.prepare(`
+      INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth, tz, origin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, tz = excluded.tz, origin = excluded.origin
+    `).run(endpoint, userId, p256dh, auth, tz, origin, Date.now());
+    return sendJson(res, 200, { ok: true }), true;
+  }
+
+  if (pathname === '/api/push/unsubscribe' && method === 'POST') {
+    let body;
+    try { body = await readBody(req); } catch (e) { return sendJson(res, e.status || 400, { error: e.message || 'Bad request' }), true; }
+    if (typeof body.endpoint === 'string') {
+      db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?').run(body.endpoint, userId);
+    }
+    return sendJson(res, 200, { ok: true }), true;
+  }
+
+  if (pathname === '/api/push/test' && method === 'POST') {
+    const result = await pushToUser(db, userId, {
+      title: 'CDMM',
+      body: 'Test reminder — push notifications work.',
+      tag: 'cdmm-test',
+      url: '/',
+    });
+    return sendJson(res, 200, result), true;
   }
 
   return sendJson(res, 404, { error: 'Not found' }), true;

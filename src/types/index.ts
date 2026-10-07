@@ -52,6 +52,11 @@ export interface CalendarEvent {
    */
   checklist?: EventChecklistItem[];
   /**
+   * Reminder lead time in minutes before `start`; 0 = at the start.
+   * Absent/null = no reminder. null is sent to the server to clear it.
+   */
+  notifyBefore?: number | null;
+  /**
    * ISO time the event was first written. Absent on events created before this
    * field existed (and on imported ones that predate it).
    *

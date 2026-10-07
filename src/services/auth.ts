@@ -108,7 +108,15 @@ export async function login(username: string, password: string): Promise<{ token
 
 export async function logoutRemote(): Promise<void> {
   try {
-    await apiFetch('/api/logout', { method: 'POST' });
+    // Tell the server to stop pushing this account's reminders to this device.
+    let pushEndpoint: string | null = null;
+    try {
+      pushEndpoint = localStorage.getItem('cdmm.pushEndpoint');
+      localStorage.removeItem('cdmm.pushEndpoint');
+    } catch {
+      // ignore
+    }
+    await apiFetch('/api/logout', { method: 'POST', body: JSON.stringify({ pushEndpoint }) });
   } catch {
     // best effort — local session is cleared regardless
   }

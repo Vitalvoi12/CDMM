@@ -6,6 +6,7 @@ import { dirname } from 'node:path'
 import { openDb } from './server/db.mjs'
 import { handleApi } from './server/api.mjs'
 import { cleanupExpiredSessions } from './server/auth.mjs'
+import { initPush, startPushScheduler } from './server/push.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, 'dist')
@@ -14,6 +15,14 @@ const PORT = Number(process.env.API_PORT || process.env.PORT || 5173)
 const DATA_DIR = process.env.DATA_DIR || join(__dirname, 'data')
 
 const db = openDb(DATA_DIR)
+// Web Push reminders: key pair lives next to the DB; failures leave the app
+// working with in-page reminders only.
+try {
+  initPush(DATA_DIR)
+  startPushScheduler(db)
+} catch (err) {
+  console.error('[push] disabled:', err)
+}
 // Opportunistic cleanup of expired sessions (cheap, indexed delete).
 setInterval(() => {
   try { cleanupExpiredSessions(db) } catch { /* ignore */ }
