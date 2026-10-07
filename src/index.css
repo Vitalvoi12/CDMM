@@ -459,12 +459,28 @@ html[data-theme='dark'] {
   }
 }
 
-/* No pinch or double-tap zoom anywhere (iOS PWA included). Scrolling stays
- * on; children that set their own touch-action (calendar: pan-y) still
- * intersect with this one. */
+/* No pinch or double-tap zoom anywhere (iOS PWA included), and no sideways
+ * page drag: the root only pans vertically and clips anything wider than the
+ * viewport. Inner scroll containers (e.g. note code blocks) keep their own
+ * touch-action, since it's only intersected up to the nearest scroller. */
 html, body {
-  touch-action: pan-x pan-y;
+  touch-action: pan-y;
+  overflow-x: clip;
   overscroll-behavior: none;
+}
+
+/* Every mobile page scrolls inside its own overflow-y-auto pane, where the
+ * root rule above doesn't reach (touch-action stops at the nearest scroller)
+ * and overflow-x computes to auto — so iOS let the pane's content drag
+ * sideways. Vertical scrollers are vertical-only, and never rubber-band
+ * (overscroll `contain` still bounces the pane itself; `none` doesn't), so a
+ * pane that fits on screen stays put. */
+@media (max-width: 1023px) {
+  :is(.overflow-y-auto, .overflow-y-scroll, .max-lg\:overflow-y-auto):not(.max-lg\:overflow-visible, .max-lg\:overflow-hidden) {
+    overflow-x: hidden;
+    touch-action: pan-y;
+    overscroll-behavior: none;
+  }
 }
 
 
