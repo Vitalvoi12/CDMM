@@ -569,3 +569,24 @@ html[data-theme='dark'] .heat-num-hi {
   height: 0;
   pointer-events: none;
 }
+
+/* iOS Safari sizes date/time fields by their native control and ignores the
+ * box width, so in a grid they spill into the neighbouring field. Dropping the
+ * native appearance makes them obey width/min-width; the picker still opens.
+ * The value is centred and an empty field collapses in height by default. */
+@layer base {
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  input::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.5em;
+  }
+}
