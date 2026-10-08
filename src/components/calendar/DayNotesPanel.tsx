@@ -69,7 +69,16 @@ export function DayNotesPanel({ date, dateKey }: DayNotesPanelProps) {
     ],
     content: initial,
     contentType: 'markdown',
-    editorProps: { attributes: { class: 'note-editor outline-none', spellcheck: 'true' } },
+    editorProps: {
+      attributes: { class: 'note-editor outline-none', spellcheck: 'true' },
+      // Escape leaves the note (saving it via onBlur), so the calendar's
+      // keyboard shortcuts work again without clicking elsewhere.
+      handleKeyDown: (view, e) => {
+        if (e.key !== 'Escape') return false;
+        (view.dom as HTMLElement).blur();
+        return true;
+      },
+    },
     onUpdate: ({ editor: e }) => {
       pendingRef.current = e.getMarkdown();
       window.clearTimeout(timerRef.current);
