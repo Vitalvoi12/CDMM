@@ -161,6 +161,11 @@ export interface TodoTask {
    * Absent while the task is open.
    */
   completedAt?: string;
+  /**
+   * ISO moment to send a reminder notification; skipped once the task is
+   * completed. Absent/null = no reminder. null is sent to the server to clear it.
+   */
+  remindAt?: string | null;
   createdAt: string;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;

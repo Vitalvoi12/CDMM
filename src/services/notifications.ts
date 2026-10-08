@@ -1,5 +1,5 @@
-import type { CalendarEvent } from '../types';
-import { eventRepo, subscribeRepoChanges } from './repositories';
+import type { CalendarEvent, TodoTask } from '../types';
+import { eventRepo, subscribeRepoChanges, todoRepo } from './repositories';
 import { subscribeSync } from './serverSync';
 import { apiFetch } from './auth';
 
@@ -225,6 +225,23 @@ function withReminder(): CalendarEvent[] {
     .filter((e) => typeof e.notifyBefore === 'number' && e.notifyBefore >= 0);
 }
 
+/** Open tasks with a reminder set. Same key as the server's push scheduler. */
+function todoReminders(): { key: string; at: number; task: TodoTask }[] {
+  const out: { key: string; at: number; task: TodoTask }[] = [];
+  for (const t of todoRepo.getAll()) {
+    if (t.completed || !t.remindAt) continue;
+    const at = Date.parse(t.remindAt);
+    if (!Number.isFinite(at)) continue;
+    out.push({ key: `todo|${t.id}|${new Date(at).toISOString()}`, at, task: t });
+  }
+  return out;
+}
+
+function todoBody(t: TodoTask): string {
+  if (!t.dueDate) return 'Task reminder';
+  return `Task reminder · due ${new Date(t.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 function check(): void {
@@ -232,6 +249,7 @@ function check(): void {
   timer = null;
   const now = Date.now();
   const events = withReminder();
+  const todos = todoReminders();
 
   // With push, the server delivers the reminder (also when the app is
   // closed); showing it here as well would make it appear twice.
@@ -254,6 +272,16 @@ function check(): void {
         data: { url: '/' },
       });
     }
+    for (const r of todos) {
+      if (r.at > now || now - r.at > GRACE_MS || fired[r.key]) continue;
+      fired[r.key] = r.at;
+      changed = true;
+      void showNotification(r.task.title || 'Task', {
+        body: todoBody(r.task),
+        tag: `cdmm-${r.key}`,
+        data: { url: '/todo' },
+      });
+    }
     if (changed) saveFired(fired);
   }
 
@@ -263,12 +291,13 @@ function check(): void {
     const at = fireAt(e);
     if (at > now && at < next) next = at;
   }
+  for (const r of todos) if (r.at > now && r.at < next) next = r.at;
   timer = setTimeout(check, Math.max(250, next - now));
 }
 
 let started = false;
 
-/** Start the reminder loop once per page; it follows every event change. */
+/** Start the reminder loop once per page; it follows every event and task change. */
 export function startEventNotifications(): void {
   if (started) return;
   started = true;

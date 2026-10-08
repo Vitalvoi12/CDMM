@@ -97,6 +97,7 @@ export function openDb(dir) {
       est_minutes INTEGER,
       subject_id TEXT,
       completed_at TEXT,
+      remind_at TEXT,
       completed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT '',
       updated_at INTEGER NOT NULL DEFAULT 0
@@ -216,6 +217,12 @@ export function openDb(dir) {
   } catch {
     // column already exists — ignore
   }
+  // Migration for todo reminders (ISO time to notify at, NULL = off).
+  try {
+    db.exec('ALTER TABLE todos ADD COLUMN remind_at TEXT');
+  } catch {
+    // column already exists — ignore
+  }
   return db;
 }
 
@@ -302,6 +309,7 @@ function rowToPayload(entity, row) {
     estMinutes: row.est_minutes == null ? undefined : row.est_minutes,
     subjectId: row.subject_id || undefined,
     completedAt: row.completed_at || undefined,
+    remindAt: row.remind_at || undefined,
     completed: row.completed === 1,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
@@ -310,7 +318,7 @@ function rowToPayload(entity, row) {
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
   events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'created_at'],
-  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'subject_id', 'completed_at', 'completed', 'created_at'],
+  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'subject_id', 'completed_at', 'remind_at', 'completed', 'created_at'],
   dayNotes: ['content'],
   eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind', 'count_in_stats', 'deleted'],
 };
@@ -321,7 +329,7 @@ const FROM_CLIENT = {
   start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id',
   countInStats: 'count_in_stats', checklist: 'checklist', notifyBefore: 'notify_before',
   important: 'important', urgent: 'urgent', dueDate: 'due_date', estMinutes: 'est_minutes',
-  completedAt: 'completed_at', completed: 'completed',
+  completedAt: 'completed_at', remindAt: 'remind_at', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
   content: 'content', eventId: 'event_id', at: 'at', deleted: 'deleted',
   fromStart: 'from_start', fromEnd: 'from_end', toStart: 'to_start', toEnd: 'to_end',
@@ -413,6 +421,11 @@ export function applyChanges(db, userId, dirty) {
         // Reminder lead in whole minutes; null/absent-on-new/garbage = off.
         const n = v == null || v === '' ? NaN : Number(v);
         v = Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+      } else if (col === 'remind_at') {
+        // Todo reminder moment; stored as canonical ISO so the scheduler's
+        // string range query orders correctly. null/absent-on-new/garbage = off.
+        const ms = typeof v === 'string' && v ? Date.parse(v) : NaN;
+        v = Number.isFinite(ms) ? new Date(ms).toISOString() : null;
       } else if (v === undefined) {
         // Absent on a NEW record: nullable columns stay NULL so a later
         // partial update that omits them does not invent a value.

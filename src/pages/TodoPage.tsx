@@ -134,6 +134,7 @@ export function TodoPage() {
     urgent: boolean;
     dueDate?: string;
     estMinutes?: number;
+    remindAt: string | null;
   }) => {
     if (formState?.task) {
       checkpoint('Edit task');

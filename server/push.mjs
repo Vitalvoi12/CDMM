@@ -1,4 +1,4 @@
-// Web Push for event reminders, built on node:crypto only (the run image
+// Web Push for event and todo reminders, built on node:crypto only (the run image
 // ships without node_modules):
 //   - VAPID (RFC 8292): an ES256 JWT proves the push comes from this server.
 //   - Message encryption (RFC 8291, aes128gcm): only the subscribed browser
@@ -185,6 +185,38 @@ async function tick(db) {
       url: '/',
     }));
   }
+
+  // Todo reminders: an absolute moment, skipped once the task is done.
+  const todos = db.prepare(`
+    SELECT id, user_id, title, due_date, remind_at FROM todos
+    WHERE remind_at IS NOT NULL AND completed = 0 AND remind_at >= ? AND remind_at <= ?
+      AND user_id IN (SELECT user_id FROM push_subscriptions)
+  `).all(new Date(now - GRACE_MS).toISOString(), new Date(now).toISOString());
+
+  for (const t of todos) {
+    const key = `todo|${t.id}|${t.remind_at}`;
+    const claimed = db.prepare('INSERT OR IGNORE INTO push_sent (user_id, key, at) VALUES (?, ?, ?)').run(t.user_id, key, now);
+    if (claimed.changes === 0) continue;
+    await pushToUser(db, t.user_id, (sub) => ({
+      title: t.title || 'Task',
+      body: todoBody(t.due_date, sub.tz),
+      tag: `cdmm-${key}`,
+      url: '/todo',
+    }));
+  }
+}
+
+/** "Task reminder · due Oct 9" — the due time itself is a placeholder, so only the day. */
+function todoBody(dueIso, tz) {
+  if (!dueIso) return 'Task reminder';
+  const opts = { month: 'short', day: 'numeric' };
+  let day;
+  try {
+    day = new Intl.DateTimeFormat('en-US', { ...opts, timeZone: tz || 'UTC' }).format(new Date(dueIso));
+  } catch {
+    day = new Intl.DateTimeFormat('en-US', { ...opts, timeZone: 'UTC' }).format(new Date(dueIso));
+  }
+  return `Task reminder · due ${day}`;
 }
 
 /** Run the reminder loop for the lifetime of the process. */

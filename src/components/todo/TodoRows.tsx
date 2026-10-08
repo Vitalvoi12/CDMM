@@ -65,6 +65,21 @@ function EstLabel({ task }: { task: TodoTask }) {
   );
 }
 
+/** Bell shown while a reminder is still to come; it means nothing once done or passed. */
+function RemindIcon({ task }: { task: TodoTask }) {
+  if (task.completed || !task.remindAt || Date.parse(task.remindAt) <= Date.now()) return null;
+  const at = new Date(task.remindAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return (
+    <span
+      className="material-symbols-outlined text-[14px] leading-none flex-shrink-0 text-on-surface-variant"
+      title={`Reminder ${at}`}
+      aria-label={`Reminder ${at}`}
+    >
+      notifications
+    </span>
+  );
+}
+
 function DueLabel({ task }: { task: TodoTask }) {
   const label = formatDueLabel(task.dueDate, task.completed);
   if (!label) return null;
@@ -114,6 +129,7 @@ export function CompactTodoRow({
           {task.title}
         </span>
         <EstLabel task={task} />
+        <RemindIcon task={task} />
         <DueLabel task={task} />
       </span>
     </div>
@@ -166,6 +182,7 @@ export function FullTodoRow({
               Est. {formatDuration(task.estMinutes)}
             </span>
           )}
+          <RemindIcon task={task} />
           {task.dueDate && (
             <span className={`font-label-sm text-label-sm uppercase tracking-[0.1em] ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
               {formatDueLabel(task.dueDate, task.completed)}

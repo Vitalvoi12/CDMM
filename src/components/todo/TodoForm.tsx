@@ -3,6 +3,7 @@ import type { TodoTask } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
 import { formatDuration } from '../../utils/time';
 import { Toggle } from '../common/Toggle';
+import { notificationPermission, requestNotificationPermission, type NotifyPermission } from '../../services/notifications';
 
 interface TodoFormProps {
   task: TodoTask | null;
@@ -14,6 +15,8 @@ interface TodoFormProps {
     urgent: boolean;
     dueDate?: string;
     estMinutes?: number;
+    /** Reminder moment (ISO); null clears it. */
+    remindAt: string | null;
   }) => void;
   onDelete?: (id: string) => void;
   onCancel: () => void;
@@ -26,6 +29,23 @@ function toInputValue(iso?: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** Local `YYYY-MM-DDTHH:mm` for a datetime-local input. */
+function toDateTimeValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${toInputValue(d.toISOString())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** First guess when the reminder is switched on: 9:00 on the due day, else the next full hour. */
+function defaultRemindValue(dueDate: string): string {
+  if (dueDate) {
+    const morning = new Date(`${dueDate}T09:00`);
+    if (morning.getTime() > Date.now()) return toDateTimeValue(morning);
+  }
+  const next = new Date();
+  next.setHours(next.getHours() + 1, 0, 0, 0);
+  return toDateTimeValue(next);
+}
+
 export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFormProps) {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
@@ -33,6 +53,8 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const [urgent, setUrgent] = useState(task?.urgent ?? defaults.urgent);
   const [dueDate, setDueDate] = useState(toInputValue(task?.dueDate));
   const [estInput, setEstInput] = useState(task?.estMinutes ? String(task.estMinutes) : '');
+  const [remindAt, setRemindAt] = useState(task?.remindAt ? toDateTimeValue(new Date(task.remindAt)) : '');
+  const [permission, setPermission] = useState<NotifyPermission>(notificationPermission);
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -68,6 +90,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
       urgent,
       dueDate: dueDate ? new Date(`${dueDate}T18:00:00`).toISOString() : undefined,
       estMinutes,
+      remindAt: remindAt ? new Date(remindAt).toISOString() : null,
     });
   };
 
@@ -151,7 +174,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               }}
             />
           </div>
-          <div className="grid grid-cols-1 gap-3 min-[481px]:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] min-[481px]:gap-2">
+          <div className="grid grid-cols-1 gap-3 min-[481px]:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
             <div className="flex flex-col gap-2 min-w-0">
               <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
                 Due Date{urgent && <span className="text-error"> *</span>}
@@ -193,6 +216,54 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                 <p className="font-body-sm text-body-sm text-on-surface-variant">{estHint(estInput)}</p>
               )}
             </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Toggle
+              label="Notification"
+              checked={!!remindAt}
+              onChange={(on) => {
+                setRemindAt(on ? defaultRemindValue(dueDate) : '');
+                // Ask on the tap itself — iOS only prompts from a user gesture.
+                if (on && permission === 'default') {
+                  void requestNotificationPermission().then(setPermission);
+                }
+              }}
+            />
+            {remindAt && (
+              <input
+                id="todo-remind"
+                type="datetime-local"
+                aria-label="Reminder time"
+                value={remindAt}
+                // iOS "Clear" empties the field; keep the reminder until the toggle turns it off.
+                onChange={(e) => e.target.value && setRemindAt(e.target.value)}
+                className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors"
+              />
+            )}
+            {remindAt && new Date(remindAt).getTime() <= Date.now() && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">This time has passed — the reminder will not show.</p>
+            )}
+            {remindAt && permission !== 'granted' && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                {permission === 'denied'
+                  ? 'Notifications are blocked for this site — allow them in the browser settings.'
+                  : permission === 'unsupported'
+                    ? 'This browser does not support notifications.'
+                    : 'Notifications are not allowed yet — the reminder will not show.'}
+                {permission === 'default' && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      onClick={() => void requestNotificationPermission().then(setPermission)}
+                      className="text-primary underline underline-offset-2"
+                    >
+                      Allow
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
           </div>
           <div className="flex gap-3 mt-1">
             {task && onDelete && (

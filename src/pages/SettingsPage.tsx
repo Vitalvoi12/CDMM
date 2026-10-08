@@ -207,10 +207,10 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
               </h1>
               <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
                 <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
-                  Event reminders
+                  Reminders
                 </label>
                 <p className="font-body-sm text-[13px] leading-[19px] text-on-surface-variant">
-                  Pick a reminder per event in the event editor. With push enabled, the server sends reminders even when CDMM is closed.
+                  Pick a reminder per event in the event editor, or per task in the task editor. With push enabled, the server sends reminders even when CDMM is closed.
                 </p>
                 <p className="font-body-md text-[14px] leading-[20px] text-on-surface">
                   {permission === 'granted'
