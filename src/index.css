@@ -332,6 +332,20 @@ html[data-theme='dark'] {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
+/* Icons are ligatures: until the icon font arrives the browser prints their
+ * names ("calendar_today") in a fallback font. Keep them invisible until
+ * main.tsx sees the font loaded, in a square box (the size of the real glyph)
+ * so nothing shifts when they appear. Layered so w-* utilities still win. */
+@layer base {
+  .material-symbols-outlined {
+    width: 1em;
+    overflow: hidden;
+  }
+}
+html:not(.icons-ready) .material-symbols-outlined {
+  visibility: hidden;
+}
+
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
