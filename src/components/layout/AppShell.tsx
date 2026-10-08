@@ -17,8 +17,8 @@ export function AppShell() {
     startEventNotifications();
   }, []);
 
-  // Section shortcuts: C → change the live session's start (calendar when none runs),
-  // S → statistics, T → todo, F → start a session (or, while one runs, ask
+  // Section shortcuts: C → calendar, B → change the live session's start
+  // (only while one runs), S → statistics, T → todo, F → start a session (or, while one runs, ask
   // to end it). Physical keys
   // (e.code) so they work on any layout; skipped while typing or with a modal
   // open so they never hijack a form or dismiss an editor.
@@ -42,9 +42,9 @@ export function AppShell() {
       // Single-letter shortcuts must not fire behind a dialog. Asks the overlay
       // stack rather than guessing at markup with a DOM query.
       if (hasOpenOverlay()) return;
-      if (e.code === 'KeyC') {
+      if (e.code === 'KeyC') navigate('/');
+      else if (e.code === 'KeyB') {
         if (settingsRepo.get().activeSession) requestSessionStartEdit();
-        else navigate('/');
       } else if (e.code === 'KeyS') navigate('/statistics');
       else if (e.code === 'KeyT') navigate('/todo');
       else if (e.code === 'KeyF') requestSessionStart();
