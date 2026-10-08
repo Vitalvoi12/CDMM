@@ -165,13 +165,16 @@ export function CalendarPage() {
       );
       if (isEditing || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
 
-      // Desktop day view: Up/Down walk the side panel Stat → Tasks → Notes,
-      // like the vertical swipe on mobile (stops at the ends, no wrap).
-      if (!isMobile && view === 'day' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      // Day view: Up/Down cycle the panels and wrap around, so holding one
+      // key keeps going. Desktop walks the side panel Stat → Tasks → Notes →
+      // Stat; the mobile layout (iPad keyboard) walks Day → Stat → Tasks →
+      // Notes → Day. Up goes forward, Down back (like swiping up on mobile).
+      if (view === 'day' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
-        const order = ['stats', 'tasks', 'notes'] as const;
-        const step = e.key === 'ArrowDown' ? 1 : -1;
-        setAsidePanel((p) => order[Math.max(0, Math.min(order.length - 1, order.indexOf(p) + step))]);
+        const step = e.key === 'ArrowUp' ? 1 : -1;
+        const cycle = <T,>(order: readonly T[], p: T) => order[(order.indexOf(p) + step + order.length) % order.length];
+        if (isMobile) setDayPanel((p) => cycle(DAY_PANELS, p));
+        else setAsidePanel((p) => cycle(['stats', 'tasks', 'notes'] as const, p));
         return;
       }
 
