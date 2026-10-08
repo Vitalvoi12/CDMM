@@ -2,12 +2,18 @@ import type { TodoTask } from '../../types';
 import { dateKey, formatDuration } from '../../utils/time';
 import { TodoCheckbox } from './TodoCheckbox';
 
-/** Relative day label for a due date (mockup style). Times are not shown:
- *  stored due times are a fixed 18:00 placeholder, not real deadlines. */
-export function formatDueLabel(iso: string | undefined, completed: boolean): string | null {
+/** Relative day label for a due date (mockup style). The time is shown only
+ *  when the user set one: otherwise it is a fixed 18:00 placeholder. */
+export function formatDueLabel(iso: string | undefined, completed: boolean, hasTime = false): string | null {
   if (!iso) return completed ? null : 'Someday';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
+  if (hasTime && !(!completed && d.getTime() < Date.now())) {
+    const day = formatDueLabel(iso, completed);
+    return `${day} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  // A timed task is overdue the moment its time passes, not only from the next day.
+  if (hasTime) return 'Overdue';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -65,10 +71,14 @@ function EstLabel({ task }: { task: TodoTask }) {
   );
 }
 
-/** Bell shown while a reminder is still to come; it means nothing once done or passed. */
+/** Bell shown while a reminder is still to come (titled with the next one); nothing once done or all passed. */
 function RemindIcon({ task }: { task: TodoTask }) {
-  if (task.completed || !task.remindAt || Date.parse(task.remindAt) <= Date.now()) return null;
-  const at = new Date(task.remindAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const now = Date.now();
+  const next = task.completed
+    ? undefined
+    : (task.reminders ?? []).map((r) => Date.parse(r.at)).filter((t) => t > now).sort((a, b) => a - b)[0];
+  if (next === undefined) return null;
+  const at = new Date(next).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   return (
     <span
       className="material-symbols-outlined text-[14px] leading-none flex-shrink-0 text-on-surface-variant"
@@ -81,7 +91,7 @@ function RemindIcon({ task }: { task: TodoTask }) {
 }
 
 function DueLabel({ task }: { task: TodoTask }) {
-  const label = formatDueLabel(task.dueDate, task.completed);
+  const label = formatDueLabel(task.dueDate, task.completed, task.dueHasTime);
   if (!label) return null;
   const overdue = isOverdue(task);
   return (
@@ -185,7 +195,7 @@ export function FullTodoRow({
           <RemindIcon task={task} />
           {task.dueDate && (
             <span className={`font-label-sm text-label-sm uppercase tracking-[0.1em] ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
-              {formatDueLabel(task.dueDate, task.completed)}
+              {formatDueLabel(task.dueDate, task.completed, task.dueHasTime)}
             </span>
           )}
         </span>

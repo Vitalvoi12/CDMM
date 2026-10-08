@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { TodoTask } from '../../types';
+import type { TodoReminder, TodoTask } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
 import { formatDuration } from '../../utils/time';
 import { Toggle } from '../common/Toggle';
-import { notificationPermission, requestNotificationPermission, type NotifyPermission } from '../../services/notifications';
+import { NotifyList, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
 
 interface TodoFormProps {
   task: TodoTask | null;
@@ -14,9 +14,11 @@ interface TodoFormProps {
     important: boolean;
     urgent: boolean;
     dueDate?: string;
+    /** False when only a day was picked (the stored time is then 18:00). */
+    dueHasTime: boolean;
     estMinutes?: number;
-    /** Reminder moment (ISO); null clears it. */
-    remindAt: string | null;
+    /** Reminder moments; [] clears them. */
+    reminders: TodoReminder[];
   }) => void;
   onDelete?: (id: string) => void;
   onCancel: () => void;
@@ -29,21 +31,18 @@ function toInputValue(iso?: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** Local `YYYY-MM-DDTHH:mm` for a datetime-local input. */
-function toDateTimeValue(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${toInputValue(d.toISOString())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/** What preset leads count back from: the due time, or 9:00 on the due day. */
+function dueAnchor(dueDate: string, dueTime: string): Date | null {
+  if (!dueDate) return null;
+  const anchor = new Date(`${dueDate}T${dueTime || '09:00'}`);
+  return Number.isFinite(anchor.getTime()) ? anchor : null;
 }
 
-/** First guess when the reminder is switched on: 9:00 on the due day, else the next full hour. */
-function defaultRemindValue(dueDate: string): string {
-  if (dueDate) {
-    const morning = new Date(`${dueDate}T09:00`);
-    if (morning.getTime() > Date.now()) return toDateTimeValue(morning);
-  }
-  const next = new Date();
-  next.setHours(next.getHours() + 1, 0, 0, 0);
-  return toDateTimeValue(next);
+/** When a row fires: its custom moment, else its lead before the anchor. */
+function reminderMoment(anchor: Date | null, item: NotifyItem): Date | null {
+  if (item.customAt) return new Date(item.customAt);
+  if (!anchor || item.lead === null) return null;
+  return new Date(anchor.getTime() - item.lead * 60_000);
 }
 
 export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFormProps) {
@@ -52,9 +51,19 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const [important, setImportant] = useState(task?.important ?? defaults.important);
   const [urgent, setUrgent] = useState(task?.urgent ?? defaults.urgent);
   const [dueDate, setDueDate] = useState(toInputValue(task?.dueDate));
+  const [dueTime, setDueTime] = useState(() => {
+    if (!task?.dueDate || !task.dueHasTime) return '';
+    return toDateTimeValue(new Date(task.dueDate)).slice(11);
+  });
   const [estInput, setEstInput] = useState(task?.estMinutes ? String(task.estMinutes) : '');
-  const [remindAt, setRemindAt] = useState(task?.remindAt ? toDateTimeValue(new Date(task.remindAt)) : '');
-  const [permission, setPermission] = useState<NotifyPermission>(notificationPermission);
+  // A custom reminder is stored as a moment with no lead.
+  const [notifyItems, setNotifyItems] = useState<NotifyItem[]>(() =>
+    (task?.reminders ?? []).map((r) =>
+      r.lead != null ? { lead: r.lead, customAt: '' } : { lead: null, customAt: toDateTimeValue(new Date(r.at)) },
+    ),
+  );
+  const anchor = dueAnchor(dueDate, dueTime);
+  const moments = notifyItems.map((item) => reminderMoment(anchor, item));
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -88,9 +97,14 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
       description: description.trim() || undefined,
       important,
       urgent,
-      dueDate: dueDate ? new Date(`${dueDate}T18:00:00`).toISOString() : undefined,
+      dueDate: dueDate ? new Date(`${dueDate}T${dueTime || '18:00'}:00`).toISOString() : undefined,
+      dueHasTime: !!(dueDate && dueTime),
       estMinutes,
-      remindAt: remindAt ? new Date(remindAt).toISOString() : null,
+      reminders: notifyItems.flatMap((item, i) => {
+        const at = moments[i];
+        if (!at || !Number.isFinite(at.getTime())) return [];
+        return [item.customAt ? { at: at.toISOString() } : { at: at.toISOString(), lead: item.lead! }];
+      }),
     });
   };
 
@@ -174,94 +188,91 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               }}
             />
           </div>
-          <div className="grid grid-cols-1 gap-3 min-[481px]:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-            <div className="flex flex-col gap-2 min-w-0">
-              <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
-                Due Date{urgent && <span className="text-error"> *</span>}
-              </label>
-              <input
-                id="todo-due"
-                type="date"
-                value={dueDate}
-                onChange={(e) => {
-                  setDueDate(e.target.value);
-                  if (e.target.value) setError(null);
-                }}
-                aria-invalid={error ? true : undefined}
-                className={`w-full min-w-0 bg-surface-container-low border rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
-              />
-              {error && (
-                <p role="alert" className="font-body-sm text-body-sm text-error">
-                  {error}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2 min-w-0">
-              <label htmlFor="todo-est" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
-                Est. Time
-              </label>
-              <input
-                id="todo-est"
-                type="number"
-                inputMode="numeric"
-                min={5}
-                step={5}
-                max={1440}
-                value={estInput}
-                onChange={(e) => setEstInput(e.target.value)}
-                placeholder="e.g. 45"
-                className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
-              />
-              {estHint(estInput) && (
-                <p className="font-body-sm text-body-sm text-on-surface-variant">{estHint(estInput)}</p>
-              )}
-            </div>
-          </div>
           <div className="flex flex-col gap-2">
-            <Toggle
-              label="Notification"
-              checked={!!remindAt}
-              onChange={(on) => {
-                setRemindAt(on ? defaultRemindValue(dueDate) : '');
-                // Ask on the tap itself — iOS only prompts from a user gesture.
-                if (on && permission === 'default') {
-                  void requestNotificationPermission().then(setPermission);
-                }
-              }}
-            />
-            {remindAt && (
-              <input
-                id="todo-remind"
-                type="datetime-local"
-                aria-label="Reminder time"
-                value={remindAt}
-                // iOS "Clear" empties the field; keep the reminder until the toggle turns it off.
-                onChange={(e) => e.target.value && setRemindAt(e.target.value)}
-                className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors"
-              />
-            )}
-            {remindAt && new Date(remindAt).getTime() <= Date.now() && (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">This time has passed — the reminder will not show.</p>
-            )}
-            {remindAt && permission !== 'granted' && (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
-                {permission === 'denied'
-                  ? 'Notifications are blocked for this site — allow them in the browser settings.'
-                  : permission === 'unsupported'
-                    ? 'This browser does not support notifications.'
-                    : 'Notifications are not allowed yet — the reminder will not show.'}
-                {permission === 'default' && (
-                  <>
-                    {' '}
+            <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
+              <div className="flex flex-col gap-2 min-w-0">
+                <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+                  Due Date{urgent && <span className="text-error"> *</span>}
+                </label>
+                <input
+                  id="todo-due"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => {
+                    setDueDate(e.target.value);
+                    if (e.target.value) setError(null);
+                  }}
+                  aria-invalid={error ? true : undefined}
+                  className={`w-full min-w-0 bg-surface-container-low border rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
+                />
+              </div>
+              <div className="flex flex-col gap-2 min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <label htmlFor="todo-time" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+                    Time
+                  </label>
+                  {dueTime && (
                     <button
                       type="button"
-                      onClick={() => void requestNotificationPermission().then(setPermission)}
-                      className="text-primary underline underline-offset-2"
+                      onClick={() => setDueTime('')}
+                      className="font-label-sm text-label-sm text-primary uppercase tracking-[0.1em]"
                     >
-                      Allow
+                      Clear
                     </button>
-                  </>
-                )}
+                  )}
+                </div>
+                <input
+                  id="todo-time"
+                  type="time"
+                  value={dueTime}
+                  disabled={!dueDate}
+                  // iOS "Reset" empties the field, which simply means no time.
+                  onChange={(e) => setDueTime(e.target.value)}
+                  title={dueDate ? undefined : 'Pick a due date first'}
+                  className="w-full min-w-0 bg-surface-container-low border rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors border-outline-variant focus:border-primary disabled:opacity-40"
+                />
+              </div>
+            </div>
+            {error && (
+              <p role="alert" className="font-body-sm text-body-sm text-error">
+                {error}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2 min-w-0">
+            <label htmlFor="todo-est" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+              Est. Time
+            </label>
+            <input
+              id="todo-est"
+              type="number"
+              inputMode="numeric"
+              min={5}
+              step={5}
+              max={1440}
+              value={estInput}
+              onChange={(e) => setEstInput(e.target.value)}
+              placeholder="e.g. 45"
+              className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+            />
+            {estHint(estInput) && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">{estHint(estInput)}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <NotifyList
+              items={notifyItems}
+              onChange={setNotifyItems}
+              anchor={anchor}
+              zeroLabel="At due time"
+              noAnchorHint="No due date — pick a custom time, or set a due date for the other options."
+            />
+            {dueDate && !dueTime && notifyItems.some((item) => !item.customAt) && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">No time set — counts from 9:00 on the due day.</p>
+            )}
+            {moments.some((m) => m !== null && m.getTime() <= Date.now()) && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                {moments.length > 1 ? 'Some of these times have passed — those will not show.' : 'This time has passed — the reminder will not show.'}
               </p>
             )}
           </div>

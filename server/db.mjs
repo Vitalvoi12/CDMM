@@ -94,10 +94,11 @@ export function openDb(dir) {
       important INTEGER NOT NULL DEFAULT 0,
       urgent INTEGER NOT NULL DEFAULT 0,
       due_date TEXT,
+      due_has_time INTEGER NOT NULL DEFAULT 0,
       est_minutes INTEGER,
       subject_id TEXT,
       completed_at TEXT,
-      remind_at TEXT,
+      reminders TEXT,
       completed INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT '',
       updated_at INTEGER NOT NULL DEFAULT 0
@@ -185,6 +186,18 @@ export function openDb(dir) {
   } catch {
     // column already exists — ignore
   }
+  // Migration for extra event reminders (JSON array of leads, NULL = none).
+  try {
+    db.exec('ALTER TABLE events ADD COLUMN notify_extra TEXT');
+  } catch {
+    // column already exists — ignore
+  }
+  // Migration for todo reminder lists (JSON [{at, lead?}], NULL = none).
+  try {
+    db.exec('ALTER TABLE todos ADD COLUMN reminders TEXT');
+  } catch {
+    // column already exists — ignore
+  }
   // Migration for the event creation stamp (plan-stability grace period).
   try {
     db.exec('ALTER TABLE events ADD COLUMN created_at TEXT');
@@ -217,9 +230,9 @@ export function openDb(dir) {
   } catch {
     // column already exists — ignore
   }
-  // Migration for todo reminders (ISO time to notify at, NULL = off).
+  // Migration for todo due times (0 = date only, the time is a placeholder).
   try {
-    db.exec('ALTER TABLE todos ADD COLUMN remind_at TEXT');
+    db.exec('ALTER TABLE todos ADD COLUMN due_has_time INTEGER NOT NULL DEFAULT 0');
   } catch {
     // column already exists — ignore
   }
@@ -300,16 +313,17 @@ function rowToPayload(entity, row) {
     };
   }
   if (entity === 'events') {
-    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, createdAt: row.created_at || undefined, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), notifyBefore: row.notify_before == null ? undefined : row.notify_before, updatedAt: row.updated_at };
+    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, createdAt: row.created_at || undefined, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), notifyBefore: row.notify_before == null ? undefined : row.notify_before, notifyExtra: parseLeads(row.notify_extra), updatedAt: row.updated_at };
   }
   return {
     id: row.id, title: row.title, description: row.description,
     important: row.important === 1, urgent: row.urgent === 1,
     dueDate: row.due_date,
+    dueHasTime: row.due_has_time === 1 ? true : undefined,
     estMinutes: row.est_minutes == null ? undefined : row.est_minutes,
     subjectId: row.subject_id || undefined,
     completedAt: row.completed_at || undefined,
-    remindAt: row.remind_at || undefined,
+    reminders: parseReminders(row.reminders),
     completed: row.completed === 1,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
@@ -317,8 +331,8 @@ function rowToPayload(entity, row) {
 
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress'],
-  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'created_at'],
-  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'est_minutes', 'subject_id', 'completed_at', 'remind_at', 'completed', 'created_at'],
+  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'notify_extra', 'created_at'],
+  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'due_has_time', 'est_minutes', 'subject_id', 'completed_at', 'reminders', 'completed', 'created_at'],
   dayNotes: ['content'],
   eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind', 'count_in_stats', 'deleted'],
 };
@@ -327,9 +341,9 @@ const FROM_CLIENT = {
   name: 'name', color: 'color', icon: 'icon', progress: 'progress',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
   start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id',
-  countInStats: 'count_in_stats', checklist: 'checklist', notifyBefore: 'notify_before',
-  important: 'important', urgent: 'urgent', dueDate: 'due_date', estMinutes: 'est_minutes',
-  completedAt: 'completed_at', remindAt: 'remind_at', completed: 'completed',
+  countInStats: 'count_in_stats', checklist: 'checklist', notifyBefore: 'notify_before', notifyExtra: 'notify_extra', reminders: 'reminders',
+  important: 'important', urgent: 'urgent', dueDate: 'due_date', dueHasTime: 'due_has_time', estMinutes: 'est_minutes',
+  completedAt: 'completed_at', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
   content: 'content', eventId: 'event_id', at: 'at', deleted: 'deleted',
   fromStart: 'from_start', fromEnd: 'from_end', toStart: 'to_start', toEnd: 'to_end',
@@ -339,6 +353,40 @@ const FROM_CLIENT = {
  * Checklist wire form is a JSON array; anything else (or an empty list)
  * reads back as "no tasks" so old records and cleared lists stay clean.
  */
+export function parseLeads(value) {
+  if (value == null || value === '') return undefined;
+  try {
+    const arr = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(arr)) return undefined;
+    const leads = [...new Set(arr.map(Number).filter((n) => Number.isFinite(n) && n >= 0).map(Math.round))];
+    return leads.length > 0 ? leads : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function parseReminders(value) {
+  if (value == null || value === '') return undefined;
+  try {
+    const arr = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(arr)) return undefined;
+    const seen = new Set();
+    const out = [];
+    for (const r of arr) {
+      const ms = r && typeof r.at === 'string' ? Date.parse(r.at) : NaN;
+      if (!Number.isFinite(ms)) continue;
+      const at = new Date(ms).toISOString();
+      if (seen.has(at)) continue;
+      seen.add(at);
+      const lead = Number(r.lead);
+      out.push(Number.isFinite(lead) && lead >= 0 ? { at, lead: Math.round(lead) } : { at });
+    }
+    return out.length > 0 ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function parseChecklist(value) {
   if (value == null || value === '') return undefined;
   try {
@@ -392,7 +440,7 @@ export function applyChanges(db, userId, dirty) {
     for (const col of COLS[entity]) {
       const clientKey = Object.keys(FROM_CLIENT).find((k) => FROM_CLIENT[k] === col);
       let v = clientKey && Object.prototype.hasOwnProperty.call(rec, clientKey) ? rec[clientKey] : prev[col];
-      if (col === 'important' || col === 'urgent' || col === 'completed') {
+      if (col === 'important' || col === 'urgent' || col === 'completed' || col === 'due_has_time') {
         v = v ? 1 : 0;
       } else if (col === 'at') {
         // Epoch column of the plan-stability log: never store a string.
@@ -421,11 +469,14 @@ export function applyChanges(db, userId, dirty) {
         // Reminder lead in whole minutes; null/absent-on-new/garbage = off.
         const n = v == null || v === '' ? NaN : Number(v);
         v = Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
-      } else if (col === 'remind_at') {
-        // Todo reminder moment; stored as canonical ISO so the scheduler's
-        // string range query orders correctly. null/absent-on-new/garbage = off.
-        const ms = typeof v === 'string' && v ? Date.parse(v) : NaN;
-        v = Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+      } else if (col === 'notify_extra' || col === 'reminders') {
+        // JSON arrays on the wire, TEXT in the column. Absent inherits; an
+        // empty list, null or garbage clears to NULL.
+        if (v === undefined) v = prev[col] === undefined ? null : prev[col];
+        else {
+          const list = col === 'notify_extra' ? parseLeads(v) : parseReminders(v);
+          v = list ? JSON.stringify(list) : null;
+        }
       } else if (v === undefined) {
         // Absent on a NEW record: nullable columns stay NULL so a later
         // partial update that omits them does not invent a value.

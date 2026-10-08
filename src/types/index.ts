@@ -57,6 +57,11 @@ export interface CalendarEvent {
    */
   notifyBefore?: number | null;
   /**
+   * Further reminders, as more leads in minutes before `start`. Only used
+   * alongside `notifyBefore`. Absent/empty = none; [] is sent to clear it.
+   */
+  notifyExtra?: number[];
+  /**
    * ISO time the event was first written. Absent on events created before this
    * field existed (and on imported ones that predate it).
    *
@@ -149,6 +154,11 @@ export interface TodoTask {
   urgent: boolean;
   dueDate?: string;
   /**
+   * True when the user picked a time for `dueDate`. Otherwise the stored time
+   * is a fixed 18:00 placeholder and only the day is shown.
+   */
+  dueHasTime?: boolean;
+  /**
    * Estimated time to complete, in minutes. Absent = not estimated.
    * Purely advisory: nothing is scheduled from it.
    */
@@ -162,13 +172,20 @@ export interface TodoTask {
    */
   completedAt?: string;
   /**
-   * ISO moment to send a reminder notification; skipped once the task is
-   * completed. Absent/null = no reminder. null is sent to the server to clear it.
+   * Reminder notifications, skipped once the task is completed. `at` is the
+   * moment it fires (what the schedulers read); `lead` is set when it was
+   * picked as minutes before the due time (9:00 on the due day without a
+   * time), so the editor can show that choice again. Absent/empty = none.
    */
-  remindAt?: string | null;
+  reminders?: TodoReminder[];
   createdAt: string;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;
+}
+
+export interface TodoReminder {
+  at: string;
+  lead?: number;
 }
 
 /**

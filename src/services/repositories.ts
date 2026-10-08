@@ -308,9 +308,10 @@ function cleanTodo(rec: TodoTask): TodoTask {
     ...rec,
     description: rec.description ?? undefined,
     dueDate: rec.dueDate ?? undefined,
+    dueHasTime: rec.dueHasTime || undefined,
     estMinutes: rec.estMinutes ?? undefined,
     completedAt: rec.completedAt ?? undefined,
-    remindAt: rec.remindAt ?? undefined,
+    reminders: rec.reminders?.length ? rec.reminders : undefined,
   };
 }
 

@@ -4,7 +4,7 @@ import { useSyncRefresh } from '../hooks/useServerSync';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { checkpoint } from '../services/history';
 import { dateKey } from '../utils/time';
-import type { TodoTask } from '../types';
+import type { TodoReminder, TodoTask } from '../types';
 import { QuadrantCard } from '../components/todo/QuadrantCard';
 import { QuadrantDialog } from '../components/todo/QuadrantDialog';
 import { TodoForm } from '../components/todo/TodoForm';
@@ -133,8 +133,9 @@ export function TodoPage() {
     important: boolean;
     urgent: boolean;
     dueDate?: string;
+    dueHasTime: boolean;
     estMinutes?: number;
-    remindAt: string | null;
+    reminders: TodoReminder[];
   }) => {
     if (formState?.task) {
       checkpoint('Edit task');

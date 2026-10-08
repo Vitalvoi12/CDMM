@@ -96,7 +96,7 @@ export function ViewSettingsSheet({
           <Section label="Panel">
             {(['timeline', 'stats', 'tasks', 'notes'] as const).map((p) => (
               <button key={p} type="button" onClick={() => onDayPanelChange(p)} className={pill(dayPanel === p)}>
-                {p === 'timeline' ? 'Day' : p === 'stats' ? 'Stat' : p === 'tasks' ? 'Tasks' : 'Notes'}
+                {p === 'timeline' ? 'Day' : p === 'stats' ? 'Stat' : p === 'tasks' ? 'Check' : 'Notes'}
               </button>
             ))}
           </Section>

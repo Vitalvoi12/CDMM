@@ -79,6 +79,7 @@ interface PendingRecurrence {
     color?: string;
     checklist?: EventChecklistItem[];
     notifyBefore: number | null;
+    notifyExtra: number[];
   } | null;
 }
 
@@ -309,7 +310,7 @@ export function CalendarPage() {
   );
 
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; checklist?: EventChecklistItem[]; notifyBefore: number | null }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; checklist?: EventChecklistItem[]; notifyBefore: number | null; notifyExtra: number[] }) => {
       if (editingEvent) {
         const stored = eventRepo.getById(editingEvent.id);
         const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
@@ -358,6 +359,7 @@ export function CalendarPage() {
           color: data.color,
           checklist: data.checklist,
           notifyBefore: data.notifyBefore,
+          notifyExtra: data.notifyExtra,
         });
       } else if (data.recurrence && data.recurrence.freq !== 'none') {
         const occurrences = expandRecurrence(
@@ -382,6 +384,7 @@ export function CalendarPage() {
             recurrenceId,
             checklist: data.checklist?.map((t) => ({ ...t, id: genId() })),
             notifyBefore: data.notifyBefore,
+            notifyExtra: data.notifyExtra,
           });
         }
       } else {
@@ -397,6 +400,7 @@ export function CalendarPage() {
           color: data.color,
           checklist: data.checklist,
           notifyBefore: data.notifyBefore,
+          notifyExtra: data.notifyExtra,
         });
       }
       setEditingEvent(null);
@@ -489,6 +493,7 @@ export function CalendarPage() {
               color: data.color,
               checklist: data.checklist,
               notifyBefore: data.notifyBefore,
+              notifyExtra: data.notifyExtra,
               recurrenceId: null,
             });
           }
@@ -512,6 +517,7 @@ export function CalendarPage() {
               color: data.color,
               checklist: data.checklist,
               notifyBefore: data.notifyBefore,
+              notifyExtra: data.notifyExtra,
             });
           }
           for (const s of following) {
@@ -530,6 +536,7 @@ export function CalendarPage() {
               color: data.color,
               checklist: data.checklist?.map((t) => ({ ...t, id: genId() })),
               notifyBefore: data.notifyBefore,
+              notifyExtra: data.notifyExtra,
             });
           }
         }
@@ -560,6 +567,7 @@ export function CalendarPage() {
         // Same tasks as a fresh list: new ids, nothing pre-checked.
         checklist: source.checklist?.map((t) => ({ ...t, id: genId(), done: false })),
         notifyBefore: source.notifyBefore ?? null,
+        notifyExtra: source.notifyExtra ?? [],
       });
       // Open the copy so the new time can be adjusted right away.
       setEditingEvent(copy);
@@ -849,14 +857,14 @@ export function CalendarPage() {
                   <button
                     key={p}
                     onClick={() => setAsidePanel(p)}
-                    title="Switch Stat/Tasks/Notes (Shortcut: D, ↑/↓)"
+                    title="Switch Stat/Check/Notes (Shortcut: D, ↑/↓)"
                     className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
                       asidePanel === p
                         ? 'bg-secondary-container text-on-secondary-container'
                         : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
-                    {p === 'stats' ? 'Stat' : p === 'tasks' ? 'Tasks' : 'Notes'}
+                    {p === 'stats' ? 'Stat' : p === 'tasks' ? 'Check' : 'Notes'}
                   </button>
                 ))}
               </div>

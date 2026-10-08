@@ -68,12 +68,12 @@ export function SubjectTasksPanel({ date, events, subjects, onToggleTask }: Subj
 
   return (
     <section
-      aria-label={`Event tasks for ${dayLabel}`}
+      aria-label={`Checklist for ${dayLabel}`}
       className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 flex-1 overflow-y-auto animate-fade-in"
     >
       <div className="flex items-baseline justify-between gap-3 mb-4 max-lg:mb-2">
         <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
-          Tasks
+          Checklist
         </h2>
         <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 tracking-[0.14em] flex-shrink-0">
           {dayLabel}
@@ -85,7 +85,7 @@ export function SubjectTasksPanel({ date, events, subjects, onToggleTask }: Subj
 
       {groups.length === 0 ? (
         <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
-          No tasks for {dayLabel} — open an event to add some
+          Nothing to check for {dayLabel} — open an event to add items
         </p>
       ) : (
         <ul className="flex flex-col gap-4 max-lg:gap-3 overflow-y-auto min-h-0 flex-1">

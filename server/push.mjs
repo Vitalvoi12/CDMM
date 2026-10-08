@@ -11,6 +11,7 @@ import {
 } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parseLeads, parseReminders } from './db.mjs';
 
 /** Reminders older than this when noticed are dropped instead of sent late. */
 const GRACE_MS = 10 * 60_000;
@@ -152,64 +153,76 @@ function fmtTime(iso, tz) {
   }
 }
 
+/** "Starts in 1 d 2 h 5 min" — custom leads can be any number of minutes. */
 function leadText(minutes) {
   if (minutes === 0) return 'Starting now';
-  if (minutes % 60 === 0) return `Starts in ${minutes / 60} h`;
-  return `Starts in ${minutes} min`;
+  const d = Math.floor(minutes / 1440);
+  const h = Math.floor((minutes % 1440) / 60);
+  const m = minutes % 60;
+  const parts = [d && `${d} d`, h && `${h} h`, m && `${m} min`].filter(Boolean);
+  return `Starts in ${parts.join(' ')}`;
 }
 
 async function tick(db) {
   const now = Date.now();
-  // ISO strings compare in time order; the window is a cheap prefilter, the
-  // exact fire time is checked below.
+  // Only events that have not started yet can still be reminded of; the exact
+  // fire time of each lead is checked below. ISO strings compare in time order.
   const rows = db.prepare(`
-    SELECT id, user_id, title, start, end, notify_before FROM events
-    WHERE notify_before IS NOT NULL AND start >= ? AND start <= ?
+    SELECT id, user_id, title, start, end, notify_before, notify_extra FROM events
+    WHERE notify_before IS NOT NULL AND start >= ?
       AND user_id IN (SELECT user_id FROM push_subscriptions)
-  `).all(new Date(now - GRACE_MS).toISOString(), new Date(now + 2 * 86_400_000).toISOString());
+  `).all(new Date(now - GRACE_MS).toISOString());
 
   for (const e of rows) {
     const startMs = Date.parse(e.start);
     if (!Number.isFinite(startMs)) continue;
-    const fireAt = startMs - e.notify_before * 60_000;
-    if (fireAt > now || now - fireAt > GRACE_MS) continue;
-    // Same identity as the client: moving the event or changing the lead
-    // makes a new reminder. INSERT OR IGNORE makes each one fire once.
-    const key = `${e.id}|${e.start}|${e.notify_before}`;
-    const claimed = db.prepare('INSERT OR IGNORE INTO push_sent (user_id, key, at) VALUES (?, ?, ?)').run(e.user_id, key, now);
-    if (claimed.changes === 0) continue;
-    await pushToUser(db, e.user_id, (sub) => ({
-      title: e.title || 'Event',
-      body: `${leadText(e.notify_before)} · ${fmtTime(e.start, sub.tz)}–${fmtTime(e.end, sub.tz)}`,
-      tag: `cdmm-${key}`,
-      url: '/',
-    }));
+    for (const lead of new Set([e.notify_before, ...(parseLeads(e.notify_extra) || [])])) {
+      const fireAt = startMs - lead * 60_000;
+      if (fireAt > now || now - fireAt > GRACE_MS) continue;
+      // Same identity as the client: moving the event or changing the lead
+      // makes a new reminder. INSERT OR IGNORE makes each one fire once.
+      const key = `${e.id}|${e.start}|${lead}`;
+      const claimed = db.prepare('INSERT OR IGNORE INTO push_sent (user_id, key, at) VALUES (?, ?, ?)').run(e.user_id, key, now);
+      if (claimed.changes === 0) continue;
+      await pushToUser(db, e.user_id, (sub) => ({
+        title: e.title || 'Event',
+        body: `${leadText(lead)} · ${fmtTime(e.start, sub.tz)}–${fmtTime(e.end, sub.tz)}`,
+        tag: `cdmm-${key}`,
+        url: '/',
+      }));
+    }
   }
 
-  // Todo reminders: an absolute moment, skipped once the task is done.
+  // Todo reminders: absolute moments, skipped once the task is done.
   const todos = db.prepare(`
-    SELECT id, user_id, title, due_date, remind_at FROM todos
-    WHERE remind_at IS NOT NULL AND completed = 0 AND remind_at >= ? AND remind_at <= ?
+    SELECT id, user_id, title, due_date, due_has_time, reminders FROM todos
+    WHERE reminders IS NOT NULL AND completed = 0
       AND user_id IN (SELECT user_id FROM push_subscriptions)
-  `).all(new Date(now - GRACE_MS).toISOString(), new Date(now).toISOString());
+  `).all();
 
   for (const t of todos) {
-    const key = `todo|${t.id}|${t.remind_at}`;
-    const claimed = db.prepare('INSERT OR IGNORE INTO push_sent (user_id, key, at) VALUES (?, ?, ?)').run(t.user_id, key, now);
-    if (claimed.changes === 0) continue;
-    await pushToUser(db, t.user_id, (sub) => ({
-      title: t.title || 'Task',
-      body: todoBody(t.due_date, sub.tz),
-      tag: `cdmm-${key}`,
-      url: '/todo',
-    }));
+    for (const r of parseReminders(t.reminders) || []) {
+      const fireAt = Date.parse(r.at);
+      if (fireAt > now || now - fireAt > GRACE_MS) continue;
+      const key = `todo|${t.id}|${r.at}`;
+      const claimed = db.prepare('INSERT OR IGNORE INTO push_sent (user_id, key, at) VALUES (?, ?, ?)').run(t.user_id, key, now);
+      if (claimed.changes === 0) continue;
+      await pushToUser(db, t.user_id, (sub) => ({
+        title: t.title || 'Task',
+        body: todoBody(t.due_date, t.due_has_time === 1, sub.tz),
+        tag: `cdmm-${key}`,
+        url: '/todo',
+      }));
+    }
   }
 }
 
-/** "Task reminder · due Oct 9" — the due time itself is a placeholder, so only the day. */
-function todoBody(dueIso, tz) {
+/** "Task reminder · due Oct 9" (+ " 14:30" when the task has a real due time). */
+function todoBody(dueIso, hasTime, tz) {
   if (!dueIso) return 'Task reminder';
-  const opts = { month: 'short', day: 'numeric' };
+  const opts = hasTime
+    ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
+    : { month: 'short', day: 'numeric' };
   let day;
   try {
     day = new Intl.DateTimeFormat('en-US', { ...opts, timeZone: tz || 'UTC' }).format(new Date(dueIso));

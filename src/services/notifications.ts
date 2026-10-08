@@ -180,22 +180,28 @@ function fmtTime(d: Date): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+/** "Starts in 1 d 2 h 5 min" — custom leads can be any number of minutes. */
 function leadText(minutes: number): string {
   if (minutes === 0) return 'Starting now';
-  if (minutes % 60 === 0) return `Starts in ${minutes / 60} h`;
-  return `Starts in ${minutes} min`;
+  const d = Math.floor(minutes / 1440);
+  const h = Math.floor((minutes % 1440) / 60);
+  const m = minutes % 60;
+  const parts = [d && `${d} d`, h && `${h} h`, m && `${m} min`].filter(Boolean);
+  return `Starts in ${parts.join(' ')}`;
 }
 
 /**
  * Identity of one reminder. Moving the event or changing the lead makes a new
  * key, so a rescheduled event reminds again instead of staying "already sent".
  */
-function reminderKey(e: CalendarEvent): string {
-  return `${e.id}|${e.start}|${e.notifyBefore}`;
+function reminderKey(e: CalendarEvent, lead: number): string {
+  return `${e.id}|${e.start}|${lead}`;
 }
 
-function fireAt(e: CalendarEvent): number {
-  return new Date(e.start).getTime() - (e.notifyBefore ?? 0) * 60_000;
+/** Every reminder lead of an event: the first plus any extras, no repeats. */
+export function eventLeads(e: Pick<CalendarEvent, 'notifyBefore' | 'notifyExtra'>): number[] {
+  if (typeof e.notifyBefore !== 'number' || e.notifyBefore < 0) return [];
+  return [...new Set([e.notifyBefore, ...(e.notifyExtra ?? [])])];
 }
 
 function loadFired(): Record<string, number> {
@@ -219,27 +225,36 @@ function saveFired(fired: Record<string, number>): void {
   }
 }
 
-function withReminder(): CalendarEvent[] {
-  return eventRepo
-    .getAll()
-    .filter((e) => typeof e.notifyBefore === 'number' && e.notifyBefore >= 0);
+/** Every event reminder, one entry per lead. Same keys as the server. */
+function eventReminders(): { key: string; at: number; lead: number; event: CalendarEvent }[] {
+  const out: { key: string; at: number; lead: number; event: CalendarEvent }[] = [];
+  for (const e of eventRepo.getAll()) {
+    for (const lead of eventLeads(e)) {
+      out.push({ key: reminderKey(e, lead), at: new Date(e.start).getTime() - lead * 60_000, lead, event: e });
+    }
+  }
+  return out;
 }
 
-/** Open tasks with a reminder set. Same key as the server's push scheduler. */
+/** Reminders of open tasks. Same key as the server's push scheduler. */
 function todoReminders(): { key: string; at: number; task: TodoTask }[] {
   const out: { key: string; at: number; task: TodoTask }[] = [];
   for (const t of todoRepo.getAll()) {
-    if (t.completed || !t.remindAt) continue;
-    const at = Date.parse(t.remindAt);
-    if (!Number.isFinite(at)) continue;
-    out.push({ key: `todo|${t.id}|${new Date(at).toISOString()}`, at, task: t });
+    if (t.completed) continue;
+    for (const r of t.reminders ?? []) {
+      const at = Date.parse(r.at);
+      if (!Number.isFinite(at)) continue;
+      out.push({ key: `todo|${t.id}|${new Date(at).toISOString()}`, at, task: t });
+    }
   }
   return out;
 }
 
 function todoBody(t: TodoTask): string {
   if (!t.dueDate) return 'Task reminder';
-  return `Task reminder · due ${new Date(t.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  const d = new Date(t.dueDate);
+  const day = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `Task reminder · due ${day}${t.dueHasTime ? ` ${fmtTime(d)}` : ''}`;
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -248,7 +263,7 @@ function check(): void {
   if (timer) clearTimeout(timer);
   timer = null;
   const now = Date.now();
-  const events = withReminder();
+  const events = eventReminders();
   const todos = todoReminders();
 
   // With push, the server delivers the reminder (also when the app is
@@ -258,17 +273,15 @@ function check(): void {
     // reminder is seen; the shared `tag` collapses any remaining duplicate.
     const fired = loadFired();
     let changed = false;
-    for (const e of events) {
-      const at = fireAt(e);
-      const key = reminderKey(e);
-      if (at > now || now - at > GRACE_MS || fired[key]) continue;
-      fired[key] = at;
+    for (const r of events) {
+      if (r.at > now || now - r.at > GRACE_MS || fired[r.key]) continue;
+      fired[r.key] = r.at;
       changed = true;
-      const start = new Date(e.start);
-      const end = new Date(e.end);
-      void showNotification(e.title || 'Event', {
-        body: `${leadText(e.notifyBefore ?? 0)} · ${fmtTime(start)}–${fmtTime(end)}`,
-        tag: `cdmm-${key}`,
+      const start = new Date(r.event.start);
+      const end = new Date(r.event.end);
+      void showNotification(r.event.title || 'Event', {
+        body: `${leadText(r.lead)} · ${fmtTime(start)}–${fmtTime(end)}`,
+        tag: `cdmm-${r.key}`,
         data: { url: '/' },
       });
     }
@@ -287,11 +300,7 @@ function check(): void {
 
   // Sleep until the next reminder is due, but never longer than a minute.
   let next = now + MAX_SLEEP_MS;
-  for (const e of events) {
-    const at = fireAt(e);
-    if (at > now && at < next) next = at;
-  }
-  for (const r of todos) if (r.at > now && r.at < next) next = r.at;
+  for (const r of [...events, ...todos]) if (r.at > now && r.at < next) next = r.at;
   timer = setTimeout(check, Math.max(250, next - now));
 }
 

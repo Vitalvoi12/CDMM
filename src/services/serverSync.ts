@@ -80,6 +80,8 @@ function dirtyTodo(rec: TodoTask) {
     dueDate: rec.dueDate ?? null,
     estMinutes: rec.estMinutes ?? null,
     completedAt: rec.completedAt ?? null,
+    dueHasTime: rec.dueHasTime === true,
+    reminders: rec.reminders ?? [],
   } as unknown as TodoTask & { updatedAt: number };
 }
 

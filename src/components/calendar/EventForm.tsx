@@ -4,7 +4,8 @@ import { genId } from '../../services/repositories';
 import { useEscapeOverlay } from '../../services/overlays';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
-import { NOTIFY_OPTIONS, notificationPermission, requestNotificationPermission, type NotifyPermission } from '../../services/notifications';
+import { NotifyList, isPresetLead, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
+import { eventLeads } from '../../services/notifications';
 
 export interface EventRecurrence {
   freq: RepeatFreq;
@@ -34,6 +35,8 @@ interface EventFormProps {
     checklist?: EventChecklistItem[];
     /** Reminder minutes before start (0 = at start); null = no reminder. */
     notifyBefore: number | null;
+    /** Further leads after the first; [] = none. */
+    notifyExtra: number[];
   }) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -84,8 +87,15 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   const [repeat, setRepeat] = useState<RepeatFreq>('none');
   const [repeatUntil, setRepeatUntil] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [notifyBefore, setNotifyBefore] = useState<number | null>(event?.notifyBefore ?? null);
-  const [permission, setPermission] = useState<NotifyPermission>(notificationPermission);
+  // A custom time is stored as an arbitrary lead before the start, so it
+  // moves with the event and applies to every occurrence of a series.
+  const [notifyItems, setNotifyItems] = useState<NotifyItem[]>(() =>
+    (event ? eventLeads(event) : []).map((lead) =>
+      isPresetLead(lead)
+        ? { lead, customAt: '' }
+        : { lead: null, customAt: toDateTimeValue(new Date(initialStart.getTime() - lead * 60_000)) },
+    ),
+  );
   // Per-event tasks: exactly one template row when empty; "+" lives only on
   // the last row and moves down as rows are added.
   const [tasks, setTasks] = useState<EventChecklistItem[]>(() => {
@@ -163,6 +173,16 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
       alert('End time must be after start time');
       return;
     }
+    const leads: number[] = [];
+    for (const item of notifyItems) {
+      const lead = item.customAt ? Math.round((start.getTime() - new Date(item.customAt).getTime()) / 60_000) : item.lead;
+      if (lead === null) continue;
+      if (!Number.isFinite(lead) || lead < 0) {
+        setError('Notifications must be before the start');
+        return;
+      }
+      if (!leads.includes(lead)) leads.push(lead);
+    }
     let recurrence: EventRecurrence | undefined;
     if (isNew && repeat !== 'none') {
       if (!repeatUntil) {
@@ -211,7 +231,8 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
       checklist: tasks
         .map((t) => ({ ...t, text: t.text.trim() }))
         .filter((t) => t.text.length > 0),
-      notifyBefore,
+      notifyBefore: leads[0] ?? null,
+      notifyExtra: leads.slice(1),
     });
   };
 
@@ -398,7 +419,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
           </div>
           <div className="flex flex-col gap-2">
             <label className={labelClass}>
-              Tasks
+              Checklist
             </label>
             <div className="flex flex-col gap-2">
               {tasks.map((t, i) => {
@@ -421,15 +442,15 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                           addTask();
                         }
                       }}
-                      placeholder={isLast ? 'New task — type and press +' : 'Task'}
-                      aria-label={`Task ${i + 1}`}
+                      placeholder={isLast ? 'New item — type and press +' : 'Item'}
+                      aria-label={`Checklist item ${i + 1}`}
                       className={`${inputClass} flex-1`}
                     />
                     {isLast ? (
                       <button
                         type="button"
                         onClick={addTask}
-                        aria-label="Add another task"
+                        aria-label="Add another item"
                         title="Add another task"
                         className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl border border-outline-variant text-on-surface hover:border-primary hover:text-primary transition-colors"
                       >
@@ -439,7 +460,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                       <button
                         type="button"
                         onClick={() => removeTask(t.id)}
-                        aria-label={`Remove task ${i + 1}`}
+                        aria-label={`Remove item ${i + 1}`}
                         title="Remove task"
                         className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-error transition-colors"
                       >
@@ -553,50 +574,15 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               </div>
             </div>
           )}
-          <div className="flex flex-col gap-2">
-            <label className={labelClass}>
-              Notification
-            </label>
-            <select
-              value={notifyBefore === null ? 'none' : String(notifyBefore)}
-              onChange={(e) => {
-                const next = e.target.value === 'none' ? null : Number(e.target.value);
-                setNotifyBefore(next);
-                // Ask while the user is choosing — browsers only prompt on a gesture.
-                if (next !== null && permission === 'default') {
-                  void requestNotificationPermission().then(setPermission);
-                }
-              }}
-              className={`${inputClass} appearance-none cursor-pointer`}
-            >
-              {NOTIFY_OPTIONS.map((o) => (
-                <option key={o.label} value={o.value === null ? 'none' : String(o.value)}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            {notifyBefore !== null && permission !== 'granted' && (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
-                {permission === 'denied'
-                  ? 'Notifications are blocked for this site — allow them in the browser settings.'
-                  : permission === 'unsupported'
-                    ? 'This browser does not support notifications.'
-                    : 'Notifications are not allowed yet — the reminder will not show.'}
-                {permission === 'default' && (
-                  <>
-                    {' '}
-                    <button
-                      type="button"
-                      onClick={() => void requestNotificationPermission().then(setPermission)}
-                      className="text-primary underline underline-offset-2"
-                    >
-                      Allow
-                    </button>
-                  </>
-                )}
-              </p>
-            )}
-          </div>
+          <NotifyList
+            items={notifyItems}
+            onChange={(items) => {
+              setNotifyItems(items);
+              setError(null);
+            }}
+            anchor={Number.isFinite(combine(startDate, startTime).getTime()) ? combine(startDate, startTime) : null}
+            zeroLabel="At the start"
+          />
           {error && (
             <p role="alert" className="font-body-sm text-body-sm text-error">
               {error}
