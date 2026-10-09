@@ -143,6 +143,8 @@ export function CalendarPage() {
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
   const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks' | 'notes'>('stats');
+  // Bumped by the V shortcut; the Checklist panel opens its new-task row.
+  const [addTaskRequest, setAddTaskRequest] = useState(0);
   // Which event kinds the calendars show. 'all' splits timeline days into
   // Real|Plan halves and lists the month cells in one column; 'real'/'plan'
   // renders a single full-width column. Persisted.
@@ -218,6 +220,14 @@ export function CalendarPage() {
       // N opens a new event, same defaults as the New event button.
       else if (key === 'n') {
         setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter });
+      }
+      // V opens a new task in the shown day's Checklist.
+      else if (key === 'v') {
+        e.preventDefault();
+        if (view !== 'day') setView('day');
+        if (isMobile) setDayPanel('tasks');
+        else setAsidePanel('tasks');
+        setAddTaskRequest((n) => n + 1);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -845,7 +855,7 @@ export function CalendarPage() {
               onTouchEnd={panelSwipe.onTouchEnd}
               onTouchCancel={panelSwipe.onTouchCancel}
             >
-              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} todos={todos} onToggleTodo={handleTodoToggle} />
+              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} addRequest={addTaskRequest} todos={todos} onToggleTodo={handleTodoToggle} />
             </div>
           )}
           </div>
@@ -889,7 +899,7 @@ export function CalendarPage() {
                   totalMinutes={stats.totalMinutes}
                 />
               ) : asidePanel === 'tasks' ? (
-                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} todos={todos} onToggleTodo={handleTodoToggle} />
+                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} addRequest={addTaskRequest} todos={todos} onToggleTodo={handleTodoToggle} />
               ) : (
                 <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} />
               )}

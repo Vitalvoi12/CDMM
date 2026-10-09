@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { isSameDay } from '../../utils/time';
 import { isOverdue } from '../todo/TodoRows';
@@ -13,6 +13,8 @@ interface SubjectTasksPanelProps {
   onToggleTask: (id: string, done: boolean) => void;
   onAddTask: (text: string, subjectId: string) => void;
   onDeleteTask: (id: string) => void;
+  /** Bumped by the V shortcut: each new value opens the new-task row. */
+  addRequest?: number;
   /** All todo tasks; the ones due on `date` are listed after the subjects. */
   todos?: TodoTask[];
   onToggleTodo?: (id: string, completed: boolean) => void;
@@ -27,13 +29,15 @@ interface Group {
 
 /** Subject picked for the next new task; kept across days and remounts. */
 let lastSubjectId = '';
+/** Last V-shortcut request already acted on, so a remount does not reopen. */
+let handledAddRequest = 0;
 
 /**
  * The day's checklist: tasks added here with "+", grouped under their subject
  * (color dot + name), each with a checkbox. A day needs no event of a subject
  * to hold tasks for it.
  */
-export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, todos = [], onToggleTodo }: SubjectTasksPanelProps) {
+export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, addRequest = 0, todos = [], onToggleTodo }: SubjectTasksPanelProps) {
   const groups = useMemo<Group[]>(() => {
     const subjectMap = new Map(subjects.map((s) => [s.id, s]));
     const byKey = new Map<string, Group>();
@@ -75,10 +79,40 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     setText('');
   }, []);
 
+  useEffect(() => {
+    if (addRequest <= handledAddRequest) return;
+    handledAddRequest = addRequest;
+    setAdding(true);
+    // Already open: autoFocus will not run again, so focus explicitly.
+    inputRef.current?.focus();
+  }, [addRequest]);
+
   const pickSubject = (id: string) => {
     lastSubjectId = id;
     setSubjectId(id);
     inputRef.current?.focus();
+  };
+
+  // "No subject" first, then subjects in Subjects-page order. Its index is the
+  // Alt+digit that picks it (Alt+0 = no subject).
+  const subjectChoices = [{ id: '', name: 'No subject', color: '' }, ...subjects];
+
+  // Keyboard subject choice while typing: Tab / Shift+Tab step through the
+  // chips, Alt+0…9 jump straight to one. e.code keeps Alt+digit working on
+  // macOS, where Option changes e.key.
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      const i = subjectChoices.findIndex((s) => s.id === subjectId);
+      const n = subjectChoices.length;
+      pickSubject(subjectChoices[(i + (e.shiftKey ? -1 : 1) + n) % n].id);
+      return;
+    }
+    const digit = /^Digit[0-9]$/.test(e.code) ? Number(e.code.slice(5)) : -1;
+    if (e.altKey && !e.ctrlKey && !e.metaKey && digit >= 0 && digit < subjectChoices.length) {
+      e.preventDefault();
+      pickSubject(subjectChoices[digit].id);
+    }
   };
 
   const submit = () => {
@@ -128,7 +162,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
           onClick={() => (adding ? closeAdd() : setAdding(true))}
           aria-label={adding ? 'Close new task' : 'Add a task'}
           aria-expanded={adding}
-          title={adding ? 'Close' : 'Add a task'}
+          title={adding ? 'Close' : 'Add a task (Shortcut: V)'}
           className={`w-7 h-7 max-lg:w-6 max-lg:h-6 flex-shrink-0 flex items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             adding
               ? 'bg-secondary-container border-secondary-container text-on-secondary-container'
@@ -149,7 +183,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         >
           <EscapeToClose onClose={closeAdd} />
           <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Subject">
-            {[{ id: '', name: 'No subject', color: '' }, ...subjects].map((s) => {
+            {subjectChoices.map((s, i) => {
               const selected = subjectId === s.id;
               return (
                 <button
@@ -168,6 +202,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                   )}
                   {s.name}
+                  {i <= 9 && (
+                    <kbd className="max-lg:hidden font-label-sm text-[10px] leading-none opacity-50 tabular-nums">{i}</kbd>
+                  )}
                 </button>
               );
             })}
@@ -179,6 +216,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleInputKeyDown}
               placeholder="New task"
               aria-label="New task"
               enterKeyHint="done"
@@ -193,6 +231,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
               <span className="material-symbols-outlined text-[18px] leading-none">check</span>
             </button>
           </div>
+          <p className="max-lg:hidden font-body-sm text-[11px] text-on-surface-variant/70">
+            Tab / Shift+Tab — next subject · Alt+0…9 — pick by number · Enter — add · Esc — close
+          </p>
         </form>
       )}
 
