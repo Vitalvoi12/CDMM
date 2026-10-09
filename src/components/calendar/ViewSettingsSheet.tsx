@@ -62,7 +62,7 @@ export function ViewSettingsSheet({
   useEscapeOverlay(onClose);
 
   return (
-    <div className="fixed inset-0 z-[100] lg:hidden animate-fade-in" onClick={onClose}>
+    <div className="overlay-root z-[100] lg:hidden animate-fade-in" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"

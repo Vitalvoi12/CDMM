@@ -84,12 +84,12 @@ export function SessionStartEditor({ startTime, elapsed, onApply, onCancel }: Se
   };
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
+    <div className="overlay-root z-[110] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <form
         ref={dialogRef}
         tabIndex={-1}
         aria-label="Change session start"
-        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md focus:outline-none animate-pop-in"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md max-h-full overflow-y-auto focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
         // Enter applies from anywhere in the dialog — focus starts on the form
         // itself, where Enter would not submit natively. A focused button keeps

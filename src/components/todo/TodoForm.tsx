@@ -136,7 +136,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in"
+      className="overlay-root z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in"
       onClick={onCancel}
     >
       <div
@@ -145,7 +145,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
         role="dialog"
         aria-modal="true"
         aria-label={task ? 'Edit task' : 'New task'}
-        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none animate-pop-in"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-full overflow-y-auto focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >

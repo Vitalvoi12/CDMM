@@ -5,6 +5,7 @@ import App from './App'
 import { initTheme } from './hooks/useTheme'
 import { backfillSubjects } from './services/repositories'
 import { registerNotificationWorker } from './services/notifications'
+import { installKeyboardInset } from './services/keyboardInset'
 
 initTheme()
 
@@ -37,6 +38,8 @@ document.addEventListener(
 
 // Re-push local subjects that never reached the server (one-time).
 backfillSubjects()
+// Overlay windows stay above the on-screen keyboard.
+installKeyboardInset()
 // Service worker for event reminder notifications.
 registerNotificationWorker()
 

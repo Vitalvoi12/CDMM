@@ -32,7 +32,7 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 max-lg:p-2 max-lg:pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] animate-fade-in"
+      className="overlay-root z-[100] flex items-center justify-center bg-scrim p-4 max-lg:p-2 max-lg:pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] animate-fade-in"
       onClick={onClose}
     >
       <div
@@ -40,7 +40,7 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
         role="dialog"
         aria-modal="true"
         aria-label={`${title} tasks`}
-        className="bg-surface-container-lowest rounded-2xl shadow-elev-3 w-[92vw] h-[92vh] max-lg:w-[calc(100vw-1rem)] max-lg:h-[calc(100dvh-1rem-env(safe-area-inset-bottom,0px))] flex flex-col overflow-hidden animate-pop-in"
+        className="bg-surface-container-lowest rounded-2xl shadow-elev-3 w-[92vw] h-[92vh] max-lg:w-[calc(100vw-1rem)] max-lg:h-[calc(100dvh-1rem-env(safe-area-inset-bottom,0px))] max-h-full flex flex-col overflow-hidden animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-outline-variant flex-shrink-0">

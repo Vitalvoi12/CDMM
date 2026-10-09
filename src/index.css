@@ -412,6 +412,16 @@ html:not(.icons-ready) .material-symbols-outlined {
 .animate-bar-grow-x { animation: cdmm-bar-grow-x 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; transform-origin: left; }
 .animate-breathe { animation: cdmm-breathe 2.2s ease-in-out infinite; }
 
+/* Backdrop of every overlay window: the visible area above the on-screen
+   keyboard (see services/keyboardInset.ts), not the full layout viewport. */
+.overlay-root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-height, 100%);
+}
+
 @layer base {
   /* Tactile press on every button; transform-only so drag math
    * (clientX/Y deltas) and layout are unaffected. */

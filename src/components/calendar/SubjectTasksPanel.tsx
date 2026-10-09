@@ -171,6 +171,32 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
           }}
         >
           <EscapeToClose onClose={closeAdd} />
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              autoFocus
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleInputKeyDown}
+              placeholder="New task"
+              aria-label="New task"
+              enterKeyHint="done"
+              // 16px on the phone: iOS zooms into smaller fields on focus.
+              className={`flex-1 min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 ${
+                isMobile ? 'py-3 px-4 !text-[16px]' : 'py-2 px-3'
+              }`}
+            />
+            <button
+              type="submit"
+              disabled={!text.trim()}
+              aria-label="Add task"
+              onMouseDown={(e) => e.preventDefault()}
+              className={`${isMobile ? 'w-12 h-12' : 'w-9 h-9'} flex-shrink-0 flex items-center justify-center rounded-xl bg-primary text-on-primary disabled:opacity-40 transition-opacity`}
+            >
+              <span className="material-symbols-outlined text-[18px] leading-none">check</span>
+            </button>
+          </div>
           <div className={`flex flex-wrap ${isMobile ? 'gap-2' : 'gap-1.5'}`} role="radiogroup" aria-label="Subject">
             {subjectChoices.map((s) => {
               const selected = subjectId === s.id;
@@ -198,32 +224,6 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                 </button>
               );
             })}
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={handleInputKeyDown}
-              placeholder="New task"
-              aria-label="New task"
-              enterKeyHint="done"
-              // 16px on the phone: iOS zooms into smaller fields on focus.
-              className={`flex-1 min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 ${
-                isMobile ? 'py-3 px-4 !text-[16px]' : 'py-2 px-3'
-              }`}
-            />
-            <button
-              type="submit"
-              disabled={!text.trim()}
-              aria-label="Add task"
-              onMouseDown={(e) => e.preventDefault()}
-              className={`${isMobile ? 'w-12 h-12' : 'w-9 h-9'} flex-shrink-0 flex items-center justify-center rounded-xl bg-primary text-on-primary disabled:opacity-40 transition-opacity`}
-            >
-              <span className="material-symbols-outlined text-[18px] leading-none">check</span>
-            </button>
           </div>
           <p className="max-lg:hidden font-body-sm text-[11px] text-on-surface-variant/70">
             ↑ / ↓ or Tab — change subject · Enter — add · Esc — close
@@ -265,7 +265,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
       {adding && !isMobile && addForm}
       {adding && isMobile && createPortal(
         <div
-          className="fixed inset-0 z-[100] bg-scrim animate-fade-in"
+          className="overlay-root z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in"
           onClick={closeAdd}
           // React bubbles portal events to the page behind: keep its day
           // swipe and double tap from seeing touches made in this window.
@@ -278,8 +278,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             role="dialog"
             aria-modal="true"
             aria-label="New checklist task"
-            // Pinned to the top so the keyboard never covers it.
-            className="absolute inset-x-0 top-0 bg-surface-container-lowest rounded-b-2xl border-b border-outline-variant px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] shadow-elev-3 flex flex-col gap-3"
+            className="bg-surface-container-lowest rounded-2xl p-5 shadow-elev-3 w-full max-w-md max-h-full overflow-y-auto flex flex-col gap-3 animate-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">

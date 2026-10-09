@@ -211,11 +211,11 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
     'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
+    <div className="overlay-root z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-[90vh] overflow-y-auto focus:outline-none animate-pop-in"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-lg max-h-full overflow-y-auto focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >

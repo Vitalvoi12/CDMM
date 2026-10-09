@@ -25,11 +25,11 @@ export function SessionFinishConfirm({ subjectName, elapsed, onConfirm, onCancel
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
+    <div className="overlay-root z-[110] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <div
         role="alertdialog"
         aria-label="End session"
-        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md animate-pop-in"
+        className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md max-h-full overflow-y-auto animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-headline-md text-headline-md text-on-surface mb-2">End session?</h2>

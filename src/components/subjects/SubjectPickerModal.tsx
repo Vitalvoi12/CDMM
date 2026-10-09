@@ -26,14 +26,14 @@ export function SubjectPickerModal({ subjects, onSelect, onClose }: SubjectPicke
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim animate-fade-in" onClick={onClose}>
+    <div className="overlay-root z-[100] flex items-center justify-center bg-scrim animate-fade-in" onClick={onClose}>
       <div
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Select subject"
-        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-sm mx-4 animate-pop-in focus:outline-none"
+        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-sm mx-4 max-h-full overflow-y-auto animate-pop-in focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-headline-md text-headline-md max-lg:!text-[12px] max-lg:mb-3 text-on-surface mb-5">
