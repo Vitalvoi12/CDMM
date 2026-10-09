@@ -85,7 +85,7 @@ export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarPro
                       <div className="flex justify-between items-baseline mb-1.5 max-lg:mb-1">
                         <span className="font-body-md text-body-md max-lg:!text-[10px] max-lg:leading-none text-on-surface flex items-center gap-2 min-w-0">
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                          <span className="truncate">{subject?.name || stat.subjectId}</span>
+                          <span className="truncate">{subject?.name || stat.subjectId || 'No subject'}</span>
                         </span>
                         <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
                           {formatDuration(stat.realMinutes)} / {formatDuration(stat.planMinutes)}
@@ -130,7 +130,7 @@ export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarPro
                     <div className="flex justify-between items-baseline mb-1.5 max-lg:mb-1">
                       <span className="font-body-md text-body-md max-lg:!text-[10px] max-lg:leading-none text-on-surface flex items-center gap-2 min-w-0">
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                        <span className="truncate">{subject?.name || stat.subjectId}</span>
+                        <span className="truncate">{subject?.name || stat.subjectId || 'No subject'}</span>
                       </span>
                       <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
                         {formatDuration(stat.minutes)}

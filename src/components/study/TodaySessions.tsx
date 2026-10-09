@@ -1,4 +1,6 @@
 import type { CalendarEvent, Subject } from '../../types';
+import { liveSessionSubject, type LiveSessionRef } from '../../utils/stats';
+import { eventFillColor } from '../../utils/color';
 import { minutesBetween } from '../../utils/time';
 import { formatDuration } from '../../utils/time';
 
@@ -8,7 +10,7 @@ interface TodaySessionsProps {
   totalMinutes: number;
   currentEventId?: string;
   /** Running live session (not yet a stored event) — shown as the last row. */
-  liveSession?: { subjectId: string; start: string; elapsedMs: number } | null;
+  liveSession?: (LiveSessionRef & { elapsedMs: number }) | null;
 }
 
 export function TodaySessions({ events, subjects, totalMinutes, currentEventId, liveSession }: TodaySessionsProps) {
@@ -19,7 +21,7 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId, 
     (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
   );
 
-  const liveSubject = liveSession ? subjectMap[liveSession.subjectId] : undefined;
+  const liveSubject = liveSessionSubject(liveSession, subjectMap);
   const liveMinutes = liveSession ? Math.floor(liveSession.elapsedMs / 60000) : 0;
 
   const renderRow = (
@@ -76,7 +78,7 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId, 
               event.id,
               i + 1,
               subject?.name || event.title || 'Untitled',
-              subject?.color,
+              eventFillColor(event, subject, 'var(--color-on-surface-variant)'),
               formatDuration(mins),
               { highlight: isCurrent, live: isCurrent }
             );

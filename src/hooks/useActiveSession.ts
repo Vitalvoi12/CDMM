@@ -99,10 +99,11 @@ export function useActiveSession() {
   }, []);
 
   const startSession = useCallback(
-    (subjectId: string) => {
+    (subjectId: string, custom?: { title: string; color: string }) => {
       mutate(() => ({
         id: genId(),
-        subjectId,
+        subjectId: custom ? '' : subjectId,
+        ...(custom ? { title: custom.title, color: custom.color } : {}),
         start: new Date().toISOString(),
         updatedAt: 0,
       }));
@@ -150,7 +151,8 @@ export function useActiveSession() {
       id: current.id,
       uid: `evt-${current.id}@cdmm`,
       subjectId: current.subjectId,
-      title: current.subjectId,
+      title: current.title || current.subjectId,
+      color: current.color,
       start: current.start,
       end: end.toISOString(),
       kind: 'real',
@@ -162,6 +164,11 @@ export function useActiveSession() {
   return {
     isActive: session !== null,
     subjectId: session?.subjectId || null,
+    /** Custom session name/color; null for subject sessions. */
+    title: session?.title || null,
+    color: session?.color || null,
+    /** Display reference for the running session, or null when idle. */
+    live: session ? { subjectId: session.subjectId, start: session.start, title: session.title, color: session.color } : null,
     startTime: session?.start || null,
     /** Focus ms, ticking every second. */
     elapsed: session ? elapsed : 0,

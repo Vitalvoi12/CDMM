@@ -55,7 +55,7 @@ function combine(dateVal: string, timeVal: string): Date {
   return new Date(`${dateVal}T${timeVal}`);
 }
 
-/** Select value meaning "a free-form plan event, not tied to any subject". */
+/** Select value meaning "a free-form event, not tied to any subject". */
 const CUSTOM_SUBJECT = '__custom__';
 
 export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, defaultKind = 'plan', subjects, onSave, onDelete, onDuplicate, onCancel }: EventFormProps) {
@@ -70,10 +70,8 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   const [subjectSel, setSubjectSel] = useState<string>(() => {
     const sid = event?.subjectId || defaultSubjectId;
     if (sid && subjects.some((s) => s.id === sid)) return sid;
-    // Unknown/empty subject: heal into custom mode for plan events,
-    // fall back to the first subject for real events (they require one).
-    if (initialKind === 'plan') return CUSTOM_SUBJECT;
-    return subjects[0]?.id || '';
+    // Unknown/empty subject: heal into custom mode.
+    return CUSTOM_SUBJECT;
   });
   const [kind, setKind] = useState<'real' | 'plan'>(initialKind);
   const [countInStats, setCountInStats] = useState(event?.countInStats ?? true);
@@ -196,7 +194,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
       }
       recurrence = { freq: repeat, until };
     }
-    const isCustom = kind === 'plan' && subjectSel === CUSTOM_SUBJECT;
+    const isCustom = subjectSel === CUSTOM_SUBJECT;
     let finalSubjectId: string;
     let finalTitle: string;
     if (isCustom) {
@@ -296,15 +294,13 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               onChange={(e) => setSubjectSel(e.target.value)}
               className={`${inputClass} appearance-none cursor-pointer`}
             >
-              {kind === 'plan' && (
-                <option value={CUSTOM_SUBJECT}>Custom event (no subject)</option>
-              )}
+              <option value={CUSTOM_SUBJECT}>Custom event (no subject)</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           </div>
-          {kind === 'plan' && subjectSel === CUSTOM_SUBJECT && (
+          {subjectSel === CUSTOM_SUBJECT && (
             <div className="flex flex-col gap-2">
               <label className={labelClass}>
                 Title
@@ -321,7 +317,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               />
             </div>
           )}
-          {kind === 'plan' && subjectSel === CUSTOM_SUBJECT && (
+          {subjectSel === CUSTOM_SUBJECT && (
             <div className="flex flex-col gap-2">
               <label className={labelClass}>
                 Color
@@ -361,13 +357,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                 key={k}
                 type="button"
                 aria-pressed={kind === k}
-                onClick={() => {
-                  setKind(k);
-                  // Real events must be tied to a subject — leave custom mode.
-                  if (k === 'real' && subjectSel === CUSTOM_SUBJECT) {
-                    setSubjectSel(subjects[0]?.id || '');
-                  }
-                }}
+                onClick={() => setKind(k)}
                 className={`flex-1 py-2 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
                   kind === k
                     ? 'bg-secondary-container text-on-secondary-container'

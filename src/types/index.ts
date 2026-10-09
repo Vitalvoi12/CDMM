@@ -198,7 +198,12 @@ export interface TodoReminder {
  */
 export interface SyncedSession {
   id: string;
+  /** '' for a custom session, which carries its own title and color instead. */
   subjectId: string;
+  /** Custom (subject-less) session name. */
+  title?: string;
+  /** Custom (subject-less) session color. */
+  color?: string;
   /**
    * Wall-clock start, and the only clock the focus time is derived from:
    * elapsed = now - start, unconditionally.

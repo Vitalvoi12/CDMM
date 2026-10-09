@@ -25,7 +25,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   const excludedFromStats = event.countInStats === false;
   const statsTitle = excludedFromStats ? 'Excluded from statistics' : undefined;
 
-  const color = subject?.color || 'var(--color-on-surface-variant)';
+  const color = eventFillColor(event, subject, 'var(--color-on-surface-variant)');
   const displayName = subject?.name || event.title || 'Untitled';
   // Apple-Calendar look: solid muted fill with a brighter spine on the
   // left. Real events mute the subject color; plans keep full fill.

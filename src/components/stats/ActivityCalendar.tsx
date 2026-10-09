@@ -26,8 +26,7 @@ type Cell = { date: string; day: number; data: StudyDay | null };
  * The period as a calendar: a single row of big day tiles for a week, calendar
  * months for anything longer. A day with no session is a faint tile; the rest
  * fill up with the same five-step scale the rhythm heatmap uses. Days outside
- * the selected period are faded, today is ringed, and a dot marks days that
- * belong to a run of consecutive study days.
+ * the selected period are faded and today is ringed.
  */
 export function ActivityCalendar({ days }: ActivityCalendarProps) {
   const byDate = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
@@ -43,22 +42,6 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
     const t = new Date();
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
   }, []);
-
-  // Days that sit in a streak of 2+ consecutive study days.
-  const streakDates = useMemo(() => {
-    const out = new Set<string>();
-    let run: string[] = [];
-    const flush = () => {
-      if (run.length >= 2) run.forEach((d) => out.add(d));
-      run = [];
-    };
-    for (const d of days) {
-      if (d.minutes > 0) run.push(d.date);
-      else flush();
-    }
-    flush();
-    return out;
-  }, [days]);
 
   const months = useMemo(() => {
     if (days.length === 0) return [];
@@ -120,12 +103,6 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
         <span className={`tabular-nums leading-none ${big ? 'text-[15px] font-semibold' : 'text-[10px] opacity-80'} ${numClass(level)}`}>
           {dayNum}
         </span>
-        {streakDates.has(cell.date) && (
-          <span
-            aria-hidden="true"
-            className={`absolute bottom-[3px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${level >= 3 ? 'bg-current heat-num-hi' : 'bg-primary'}`}
-          />
-        )}
       </button>
     );
   };

@@ -683,15 +683,20 @@ function num(v: unknown, fallback = 0): number {
 function sanitizeSession(raw: unknown): SyncedSession | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
-  const subjectId = str(r.subjectId);
+  const subjectId = str(r.subjectId) ?? '';
+  const title = str(r.title);
+  const color = str(r.color);
   const start = str(r.start);
-  if (!subjectId || !start || Number.isNaN(new Date(start).getTime())) return null;
+  // A session needs a subject, or a title when it is a custom one.
+  if ((!subjectId && !title) || !start || Number.isNaN(new Date(start).getTime())) return null;
   // `pausedAt` / `bankedMs` from a record written before pause was removed are
   // deliberately dropped: a legacy paused session simply resumes counting from
   // its original start, which is the honest reading of the data that survives.
   return {
     id: str(r.id) || `${subjectId}:${start}`,
     subjectId,
+    ...(title ? { title } : {}),
+    ...(color ? { color } : {}),
     start,
     updatedAt: num(r.updatedAt),
   };

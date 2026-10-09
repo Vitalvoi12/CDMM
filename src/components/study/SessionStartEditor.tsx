@@ -91,6 +91,15 @@ export function SessionStartEditor({ startTime, elapsed, onApply, onCancel }: Se
         aria-label="Change session start"
         className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
+        // Enter applies from anywhere in the dialog — focus starts on the form
+        // itself, where Enter would not submit natively. A focused button keeps
+        // its own Enter (Cancel, the quick backdates).
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' || e.target instanceof HTMLButtonElement) return;
+          e.preventDefault();
+          e.stopPropagation();
+          dialogRef.current?.requestSubmit();
+        }}
         onSubmit={(e) => {
           e.preventDefault();
           if (clamped !== null) onApply(clamped);

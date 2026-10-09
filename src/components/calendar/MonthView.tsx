@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CalendarEvent, EventFilter, Subject } from '../../types';
 import { getMonthGrid, formatDayOfMonth, isSameDay, timeFromDate } from '../../utils/time';
-import { getEventsForDate } from '../../utils/stats';
+import { getEventsForDate, liveSessionSubject, type LiveSessionRef } from '../../utils/stats';
 import { monthBlock, monthSlots } from '../../utils/eventDensity';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -17,7 +17,7 @@ interface MonthViewProps {
   /** Opens the editor; clicking anywhere else in the cell only selects the day. */
   onEventClick?: (event: CalendarEvent) => void;
   /** Running study session — shown as a LIVE badge on today's cell. */
-  liveSession?: { subjectId: string; start: string } | null;
+  liveSession?: LiveSessionRef | null;
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -161,7 +161,7 @@ export function MonthView({
           const ariaLabel = dayEvents.length
             ? `${dateLabel}, ${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}`
             : dateLabel;
-          const liveSubject = liveSession ? subjectMap[liveSession.subjectId] : undefined;
+          const liveSubject = liveSessionSubject(liveSession, subjectMap);
           return (
             <div
               key={i}
@@ -253,7 +253,7 @@ function MonthEventBlock({
   height: number;
 }) {
   const plan = event.kind === 'plan';
-  const color = subject?.color || 'var(--color-on-surface-variant)';
+  const color = eventFillColor(event, subject, 'var(--color-on-surface-variant)');
   const fill = eventFillColor(event, subject);
   const name = subject?.name || event.title || 'Untitled';
   const bg = plan ? fill : `color-mix(in srgb, ${color} 42%, var(--color-surface-dim))`;

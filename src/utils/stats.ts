@@ -1,4 +1,5 @@
-import type { CalendarEvent, DailyStatistics } from '../types';
+import type { CalendarEvent, DailyStatistics, Subject } from '../types';
+import { DEFAULT_CUSTOM_COLOR } from './color';
 import { minutesBetween, startOfDay, endOfDay, dateKey } from './time';
 
 /**
@@ -51,8 +52,32 @@ export function getEventsForDate(events: CalendarEvent[], date: Date): CalendarE
  * or future date, or a zero-length span), so callers can leave their list
  * untouched.
  */
+/** The running session as the calendar and lists see it. */
+export interface LiveSessionRef {
+  subjectId: string;
+  start: string;
+  /** Custom (subject-less) session name and color. */
+  title?: string;
+  color?: string;
+}
+
+/**
+ * Name and color to show for a live session: its subject, or the custom
+ * title/color of a subject-less session.
+ */
+export function liveSessionSubject(
+  session: LiveSessionRef | null | undefined,
+  subjects: Record<string, Subject>
+): Subject | undefined {
+  if (!session) return undefined;
+  const subject = subjects[session.subjectId];
+  if (subject) return subject;
+  if (!session.title) return undefined;
+  return { id: '', name: session.title, color: session.color || DEFAULT_CUSTOM_COLOR, updatedAt: 0 };
+}
+
 export function liveEventForDate(
-  session: { subjectId: string; start: string } | null | undefined,
+  session: LiveSessionRef | null | undefined,
   date: Date,
   now: number = Date.now()
 ): CalendarEvent | null {
@@ -68,7 +93,8 @@ export function liveEventForDate(
     id: '__live__',
     uid: '__live__@cdmm',
     subjectId: session.subjectId,
-    title: session.subjectId,
+    title: session.title || session.subjectId,
+    color: session.color,
     start: new Date(start).toISOString(),
     end: new Date(end).toISOString(),
     kind: 'real',

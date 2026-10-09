@@ -3,7 +3,7 @@ import { useActiveSession } from '../hooks/useActiveSession';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { eventRepo, subjectRepo } from '../services/repositories';
 import { checkpoint } from '../services/history';
-import { buildYearHeatmap, calculateYearStats, getEventsForDate, calculateDailyStats } from '../utils/stats';
+import { buildYearHeatmap, calculateYearStats, getEventsForDate, calculateDailyStats, liveSessionSubject } from '../utils/stats';
 import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { FocusRoom } from '../components/study/FocusRoom';
 import { SessionStartEditor } from '../components/study/SessionStartEditor';
@@ -14,6 +14,7 @@ export function StudyPage() {
   const {
     isActive,
     subjectId,
+    live,
     startTime,
     elapsed,
     startSession,
@@ -44,9 +45,15 @@ export function StudyPage() {
     return calculateYearStats(heatmap).longestStreakDays;
   }, [events]);
 
+  const liveTitle = live?.title;
+  const liveColor = live?.color;
   const subject = useMemo(
-    () => subjects.find((s) => s.id === subjectId),
-    [subjects, subjectId]
+    () =>
+      liveSessionSubject(
+        subjectId !== null || liveTitle ? { subjectId: subjectId || '', start: '', title: liveTitle, color: liveColor } : null,
+        Object.fromEntries(subjects.map((s) => [s.id, s]))
+      ),
+    [subjects, subjectId, liveTitle, liveColor]
   );
 
   const todayEvents = useMemo(() => getEventsForDate(events, new Date()), [events]);
@@ -62,6 +69,7 @@ export function StudyPage() {
       id: event.id,
       subjectId: event.subjectId,
       title: subject?.name || event.title,
+      color: event.color,
       start: event.start,
       end: event.end,
       kind: 'real',
@@ -75,9 +83,9 @@ export function StudyPage() {
   }, []);
 
   const handleSubjectSelected = useCallback(
-    (id: string) => {
+    (id: string, custom?: { title: string; color: string }) => {
       setShowSubjectPicker(false);
-      startSession(id);
+      startSession(id, custom);
     },
     [startSession]
   );
@@ -129,8 +137,8 @@ export function StudyPage() {
           totalMinutes={todayTotalMinutes}
           currentEventId={todayStats.currentEvent?.id}
           liveSession={
-            isActive && subjectId && startTime
-              ? { subjectId, start: startTime, elapsedMs: elapsed }
+            isActive && live
+              ? { ...live, elapsedMs: elapsed }
               : null
           }
         />

@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
-import { getEventsForDate } from '../../utils/stats';
+import { getEventsForDate, liveSessionSubject, type LiveSessionRef } from '../../utils/stats';
 import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
@@ -28,13 +28,13 @@ interface MultiDayViewProps {
       halves, 'real'/'plan' renders each day as a single full-width column. */
   mode?: EventFilter;
   /** Running study session — rendered transiently in the Real column of today's date. */
-  activeSession?: { subjectId: string; start: string } | null;
+  activeSession?: LiveSessionRef | null;
   /** Mobile swipe navigation (wired by the parent only on mobile). */
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
 }
 
-const START_HOUR = 5;
+const START_HOUR = 0;
 const END_HOUR = 24;
 const HOUR_HEIGHT_DESKTOP = 48;
 /** Lower bound: below this the grid scrolls instead of compressing further.
@@ -599,7 +599,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     // events, else the subject color) — foreground picked
                     // for contrast; real events use the muted subject color.
                     const fill = eventFillColor(ev, subject);
-                    const subjectColor = subject?.color || 'var(--color-on-surface-variant)';
+                    const subjectColor = eventFillColor(ev, subject, 'var(--color-on-surface-variant)');
                     const mutedFill = `color-mix(in srgb, ${subjectColor} 42%, var(--color-surface-dim))`;
                     const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : subjectColor;
                     const planFg = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : undefined;
@@ -732,7 +732,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                             startHour={START_HOUR}
                             endHour={END_HOUR}
                             hourHeight={HOUR_HEIGHT}
-                            subject={subjectMap[activeSession.subjectId]}
+                            subject={liveSessionSubject(activeSession, subjectMap)}
                             isMobile={isMobile}
                           />
                         )}
@@ -749,7 +749,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                               startHour={START_HOUR}
                               endHour={END_HOUR}
                               hourHeight={HOUR_HEIGHT}
-                              subject={subjectMap[activeSession.subjectId]}
+                              subject={liveSessionSubject(activeSession, subjectMap)}
                               isMobile={isMobile}
                             />
                           )}

@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { liveSessionSubject, type LiveSessionRef } from '../../utils/stats';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
@@ -17,7 +18,7 @@ interface TimelineProps {
   subjects: Subject[];
   date: Date;
   /** Running study session — rendered transiently in the Real column. */
-  activeSession?: { subjectId: string; start: string } | null;
+  activeSession?: LiveSessionRef | null;
   onEventClick?: (event: CalendarEvent) => void;
   /** `source: 'touch'` lets the parent skip editor-open / undo snapshots
       (a touch drag must not pop the editor and be rolled back by Cancel). */
@@ -33,7 +34,7 @@ interface TimelineProps {
   onSwipeRight?: () => void;
 }
 
-const START_HOUR = 6;
+const START_HOUR = 0;
 const END_HOUR = 24;
 const HOUR_HEIGHT_DESKTOP = 96;
 /** Lower bound: below this the grid scrolls instead of compressing further.
@@ -597,7 +598,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
                   startHour={START_HOUR}
                   endHour={END_HOUR}
                   hourHeight={HOUR_HEIGHT}
-                  subject={subjectMap[activeSession.subjectId]}
+                  subject={liveSessionSubject(activeSession, subjectMap)}
                   isMobile={isMobile}
                 />
               )}
@@ -614,7 +615,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
                     startHour={START_HOUR}
                     endHour={END_HOUR}
                     hourHeight={HOUR_HEIGHT}
-                    subject={subjectMap[activeSession.subjectId]}
+                    subject={liveSessionSubject(activeSession, subjectMap)}
                     isMobile={isMobile}
                   />
                 )}

@@ -106,7 +106,7 @@ export function CalendarPage() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
-  const { isActive, subjectId, startTime, elapsed } = useActiveSession();
+  const { isActive, subjectId, title: sessionTitle, color: sessionColor, startTime, elapsed } = useActiveSession();
   // When the last panel swipe was decided — see panelSwipe below.
   const panelSwipeAtRef = useRef(0);
   const navigate = useNavigate();
@@ -227,8 +227,11 @@ export function CalendarPage() {
   // Comes from the synced session record, so the running block shows up on
   // every signed-in device — including one that only ever opens the calendar.
   const activeSession = useMemo(
-    () => (isActive && subjectId && startTime ? { subjectId, start: startTime } : null),
-    [isActive, subjectId, startTime]
+    () =>
+      isActive && startTime && (subjectId || sessionTitle)
+        ? { subjectId: subjectId || '', start: startTime, title: sessionTitle || undefined, color: sessionColor || undefined }
+        : null,
+    [isActive, subjectId, sessionTitle, sessionColor, startTime]
   );
 
   // The day's statistics must include the running session: it has no stored

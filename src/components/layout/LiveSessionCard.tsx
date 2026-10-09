@@ -4,6 +4,7 @@ import { eventRepo, subjectRepo } from '../../services/repositories';
 import { checkpoint } from '../../services/history';
 import { subscribeSessionStart, subscribeSessionStartEdit } from '../../services/liveSession';
 import { formatTimerDuration, timeFromDate } from '../../utils/time';
+import { DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { SubjectPickerModal } from '../subjects/SubjectPickerModal';
 import { SessionStartEditor } from '../study/SessionStartEditor';
 import { SessionFinishConfirm } from '../study/SessionFinishConfirm';
@@ -17,12 +18,12 @@ import { SessionFinishConfirm } from '../study/SessionFinishConfirm';
  * Inverse-surface so it stands out in both themes; English labels.
  */
 export function LiveSessionCard() {
-  const { isActive, subjectId, startTime, elapsed, startSession, setStartTime, stopSession } = useActiveSession();
+  const { isActive, subjectId, title, color, startTime, elapsed, startSession, setStartTime, stopSession } = useActiveSession();
   const [showPicker, setShowPicker] = useState(false);
   const [showStartEditor, setShowStartEditor] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
 
-  const subject = subjectId ? subjectRepo.getById(subjectId) : undefined;
+  const subject = (subjectId ? subjectRepo.getById(subjectId) : undefined) ?? (title ? { name: title, color: color || DEFAULT_CUSTOM_COLOR } : undefined);
 
   // F comes from the app shell, which cannot render dialogs itself. Idle: open
   // the subject picker. Running: ask before ending the session — there is only
@@ -50,6 +51,7 @@ export function LiveSessionCard() {
       id: event.id,
       subjectId: event.subjectId,
       title: subject?.name || event.title,
+      color: event.color,
       start: event.start,
       end: event.end,
       kind: 'real',
@@ -129,9 +131,9 @@ export function LiveSessionCard() {
       {showPicker && (
         <SubjectPickerModal
           subjects={subjectRepo.getAll()}
-          onSelect={(id) => {
+          onSelect={(id, custom) => {
             setShowPicker(false);
-            startSession(id);
+            startSession(id, custom);
           }}
           onClose={() => setShowPicker(false)}
         />
