@@ -93,26 +93,23 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     inputRef.current?.focus();
   };
 
-  // "No subject" first, then subjects in Subjects-page order. Its index is the
-  // Alt+digit that picks it (Alt+0 = no subject).
+  // "No subject" first, then subjects in Subjects-page order.
   const subjectChoices = [{ id: '', name: 'No subject', color: '' }, ...subjects];
 
-  // Keyboard subject choice while typing: Tab / Shift+Tab step through the
-  // chips, Alt+0…9 jump straight to one. e.code keeps Alt+digit working on
-  // macOS, where Option changes e.key.
+  // Keyboard subject choice while typing: ↓ / Tab step to the next chip,
+  // ↑ / Shift+Tab to the previous one. (Alt+digit was tried first, but
+  // browsers on Linux/Windows switch tabs on it before the page sees it.)
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      const i = subjectChoices.findIndex((s) => s.id === subjectId);
-      const n = subjectChoices.length;
-      pickSubject(subjectChoices[(i + (e.shiftKey ? -1 : 1) + n) % n].id);
-      return;
-    }
-    const digit = /^Digit[0-9]$/.test(e.code) ? Number(e.code.slice(5)) : -1;
-    if (e.altKey && !e.ctrlKey && !e.metaKey && digit >= 0 && digit < subjectChoices.length) {
-      e.preventDefault();
-      pickSubject(subjectChoices[digit].id);
-    }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const step =
+      e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey) ? 1
+      : e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey) ? -1
+      : 0;
+    if (!step) return;
+    e.preventDefault();
+    const i = subjectChoices.findIndex((s) => s.id === subjectId);
+    const n = subjectChoices.length;
+    pickSubject(subjectChoices[(i + step + n) % n].id);
   };
 
   const submit = () => {
@@ -183,7 +180,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         >
           <EscapeToClose onClose={closeAdd} />
           <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Subject">
-            {subjectChoices.map((s, i) => {
+            {subjectChoices.map((s) => {
               const selected = subjectId === s.id;
               return (
                 <button
@@ -202,9 +199,6 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                   )}
                   {s.name}
-                  {i <= 9 && (
-                    <kbd className="max-lg:hidden font-label-sm text-[10px] leading-none opacity-50 tabular-nums">{i}</kbd>
-                  )}
                 </button>
               );
             })}
@@ -232,7 +226,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             </button>
           </div>
           <p className="max-lg:hidden font-body-sm text-[11px] text-on-surface-variant/70">
-            Tab / Shift+Tab — next subject · Alt+0…9 — pick by number · Enter — add · Esc — close
+            ↑ / ↓ or Tab — change subject · Enter — add · Esc — close
           </p>
         </form>
       )}
