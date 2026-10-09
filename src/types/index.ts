@@ -46,9 +46,9 @@ export interface CalendarEvent {
    */
   recurrenceId?: string | null;
   /**
-   * Per-event mini tasks, edited in the event editor and aggregated by
-   * subject in the calendar day panel. Absent = none (backward compat).
-   * Travels inside the synced record, so all devices see the same list.
+   * Legacy per-event mini tasks. No longer edited: on sync they are moved
+   * into the day's checklist (see DayTaskList) and cleared here. Kept so
+   * records written by older clients still migrate.
    */
   checklist?: EventChecklistItem[];
   /**
@@ -247,5 +247,25 @@ export type EventFilter = 'real' | 'plan' | 'all';
 export interface DayNote {
   id: string;
   content: string;
+  updatedAt: number;
+}
+
+/** One item of a day's checklist. */
+export interface DayTask {
+  id: string;
+  text: string;
+  done: boolean;
+  /** Subject it is grouped under, or '' for none. */
+  subjectId: string;
+}
+
+/**
+ * The Checklist of one calendar day, independent of the day's events. `id` is
+ * the local date key ("YYYY-MM-DD"); like day notes the record is never
+ * deleted — removing the last task stores an empty list.
+ */
+export interface DayTaskList {
+  id: string;
+  tasks: DayTask[];
   updatedAt: number;
 }

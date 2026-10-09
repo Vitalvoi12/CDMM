@@ -1,9 +1,11 @@
 import type {
   Subject, CalendarEvent, UserSettings, TodoTask, ThemeMode, SyncedSession, EventTimeEdit, DayNote,
+  DayTask, DayTaskList,
 } from '../types';
+import { dateKey } from '../utils/time';
 import { PLAN_FIX_WINDOW_MS } from '../utils/analytics';
 
-export type SyncEntity = 'subjects' | 'events' | 'todos' | 'eventEdits' | 'dayNotes';
+export type SyncEntity = 'subjects' | 'events' | 'todos' | 'eventEdits' | 'dayNotes' | 'dayTasks';
 
 export interface Tombstone {
   entity: SyncEntity;
@@ -19,6 +21,7 @@ const STORAGE_KEYS = {
   todos: 'cdmm.todos',
   eventEdits: 'cdmm.eventEdits',
   dayNotes: 'cdmm.dayNotes',
+  dayTasks: 'cdmm.dayTasks',
   dirty: 'cdmm.dirty',
   settingsDirty: 'cdmm.settingsDirty',
 } as const;
@@ -111,18 +114,18 @@ function unmarkDirty(entries: string[]): void {
 }
 
 export function takeDirtySnapshot(): {
-  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[]; dayNotes: string[];
+  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[]; dayNotes: string[]; dayTasks: string[];
 } {
   const out = {
     subjects: [] as string[], events: [] as string[], todos: [] as string[],
-    eventEdits: [] as string[], dayNotes: [] as string[],
+    eventEdits: [] as string[], dayNotes: [] as string[], dayTasks: [] as string[],
   };
   for (const e of loadDirty()) {
     const [entity, ...rest] = e.split(':');
     const key = rest.join(':');
     if (
       entity === 'subjects' || entity === 'events' || entity === 'todos' ||
-      entity === 'eventEdits' || entity === 'dayNotes'
+      entity === 'eventEdits' || entity === 'dayNotes' || entity === 'dayTasks'
     ) {
       (out[entity] as string[]).push(key);
     }
@@ -131,10 +134,10 @@ export function takeDirtySnapshot(): {
 }
 
 export function clearDirtySnapshot(keys: {
-  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[]; dayNotes: string[];
+  subjects: string[]; events: string[]; todos: string[]; eventEdits: string[]; dayNotes: string[]; dayTasks: string[];
 }): void {
   const entries: string[] = [];
-  for (const entity of ['subjects', 'events', 'todos', 'eventEdits', 'dayNotes'] as const) {
+  for (const entity of ['subjects', 'events', 'todos', 'eventEdits', 'dayNotes', 'dayTasks'] as const) {
     for (const k of keys[entity]) entries.push(`${entity}:${k}`);
   }
   unmarkDirty(entries);
@@ -160,7 +163,6 @@ export function markSettingsDirty(): void {
   save(STORAGE_KEYS.settingsDirty, true);
 }
 
-const CHECKLIST_BACKFILL_KEY = 'cdmm.checklist-backfill-v1';
 const SUBJECTS_BACKFILL_KEY = 'cdmm.subjects-backfill-v1';
 
 /**
@@ -171,33 +173,6 @@ const SUBJECTS_BACKFILL_KEY = 'cdmm.subjects-backfill-v1';
  */
 const MAX_EDIT_LOG = 4000;
 const EDIT_LOG_MAX_AGE_MS = 730 * 24 * 60 * 60 * 1000;
-
-/**
- * One-time repair for checklists pushed while the server did not know the
- * column yet: the server dropped them but the push cleared the dirty flag,
- * so the records look clean and would never be re-sent. Re-mark every event
- * that still holds local tasks as dirty — the next sync pushes them whole.
- */
-export function backfillEventChecklists(): boolean {
-  try {
-    if (localStorage.getItem(CHECKLIST_BACKFILL_KEY)) return false;
-  } catch {
-    return false;
-  }
-  let marked = false;
-  try {
-    for (const e of eventRepo.getAll()) {
-      if (e.checklist && e.checklist.length > 0) {
-        markDirty('events', e.id);
-        marked = true;
-      }
-    }
-    localStorage.setItem(CHECKLIST_BACKFILL_KEY, '1');
-  } catch {
-    // storage unavailable — try again next boot
-  }
-  return marked;
-}
 
 /**
  * One-time repair for subjects that exist locally but never reached the
@@ -869,6 +844,84 @@ class DayNoteRepository {
 }
 
 /**
+ * The Checklist of each calendar day (id = "YYYY-MM-DD"). Like day notes the
+ * per-day record is never deleted — removing tasks stores the shorter list —
+ * so it syncs through plain last-write-wins without tombstones.
+ */
+class DayTaskRepository {
+  private lists: DayTaskList[] = load<DayTaskList[]>(STORAGE_KEYS.dayTasks, []);
+
+  getAll(): DayTaskList[] {
+    return [...this.lists];
+  }
+
+  getById(date: string): DayTaskList | undefined {
+    return this.lists.find((l) => l.id === date);
+  }
+
+  /** The day's tasks, or [] when it has none. */
+  getTasks(date: string): DayTask[] {
+    return this.getById(date)?.tasks ?? [];
+  }
+
+  /** Replace a day's list. No-op when nothing changed. */
+  set(date: string, tasks: DayTask[]): void {
+    const idx = this.lists.findIndex((l) => l.id === date);
+    if (idx === -1 && tasks.length === 0) return;
+    if (idx !== -1 && JSON.stringify(this.lists[idx].tasks) === JSON.stringify(tasks)) return;
+    const rec = { id: date, tasks, updatedAt: Date.now() };
+    if (idx === -1) this.lists.push(rec);
+    else this.lists[idx] = rec;
+    save(STORAGE_KEYS.dayTasks, this.lists);
+    markDirty('dayTasks', date);
+    emitRepoChange();
+  }
+
+  add(date: string, task: Omit<DayTask, 'id' | 'done'>): void {
+    this.set(date, [...this.getTasks(date), { id: genId(), done: false, ...task }]);
+  }
+
+  toggle(date: string, id: string, done: boolean): void {
+    this.set(date, this.getTasks(date).map((t) => (t.id === id ? { ...t, done } : t)));
+  }
+
+  remove(date: string, id: string): void {
+    this.set(date, this.getTasks(date).filter((t) => t.id !== id));
+  }
+
+  /** Re-stamp a day so its current list wins LWW (undo/redo). */
+  bump(date: string): void {
+    const idx = this.lists.findIndex((l) => l.id === date);
+    if (idx === -1) return;
+    this.lists[idx] = { ...this.lists[idx], updatedAt: Date.now() };
+    save(STORAGE_KEYS.dayTasks, this.lists);
+    markDirty('dayTasks', date);
+  }
+
+  /** Apply a remote record (LWW). Never marks dirty. */
+  applyRemote(rec: DayTaskList): boolean {
+    const clean = { id: rec.id, tasks: Array.isArray(rec.tasks) ? rec.tasks : [], updatedAt: rec.updatedAt || 0 };
+    const idx = this.lists.findIndex((l) => l.id === rec.id);
+    if (idx === -1) {
+      this.lists.push(clean);
+      save(STORAGE_KEYS.dayTasks, this.lists);
+      return true;
+    }
+    if (clean.updatedAt > (this.lists[idx].updatedAt || 0)) {
+      this.lists[idx] = clean;
+      save(STORAGE_KEYS.dayTasks, this.lists);
+      return true;
+    }
+    return false;
+  }
+
+  replaceAll(lists: DayTaskList[]): void {
+    this.lists = lists;
+    save(STORAGE_KEYS.dayTasks, this.lists);
+  }
+}
+
+/**
  * Tombstones: (entity, key) pairs deleted locally, so the deletion
  * propagates to other devices instead of resurrecting the record.
  */
@@ -910,6 +963,31 @@ export const tombstoneRepo = new TombstoneRepository();
 export const todoRepo = new TodoRepository();
 export const eventEditRepo = new EventEditRepository();
 export const dayNoteRepo = new DayNoteRepository();
+export const dayTaskRepo = new DayTaskRepository();
+
+/**
+ * Move tasks that still live on events (written before the Checklist became
+ * per day, or by an older client) into the checklist of the event's day,
+ * under the event's subject, and clear them from the event. Item ids are
+ * kept, so a second device doing the same never duplicates them.
+ * Returns true when anything moved.
+ */
+export function migrateEventChecklists(): boolean {
+  let moved = false;
+  for (const e of eventRepo.getAll()) {
+    if (!e.checklist || e.checklist.length === 0) continue;
+    const day = dateKey(new Date(e.start));
+    const tasks = dayTaskRepo.getTasks(day);
+    const known = new Set(tasks.map((t) => t.id));
+    const added = e.checklist
+      .filter((t) => t.text && !known.has(t.id))
+      .map((t) => ({ id: t.id, text: t.text, done: t.done === true, subjectId: e.subjectId || '' }));
+    if (added.length > 0) dayTaskRepo.set(day, [...tasks, ...added]);
+    eventRepo.update(e.id, { checklist: [] }, { restoring: true });
+    moved = true;
+  }
+  return moved;
+}
 
 /** Wipe all local data (logout / account switch). */
 export function clearAllLocalData(): void {
@@ -918,6 +996,7 @@ export function clearAllLocalData(): void {
   todoRepo.replaceAll([]);
   eventEditRepo.replaceAll([]);
   dayNoteRepo.replaceAll([]);
+  dayTaskRepo.replaceAll([]);
   tombstoneRepo.replaceAll([]);
   persistDirty(new Set());
   save(STORAGE_KEYS.settingsDirty, false);

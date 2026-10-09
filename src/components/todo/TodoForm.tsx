@@ -50,7 +50,10 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const [description, setDescription] = useState(task?.description || '');
   const [important, setImportant] = useState(task?.important ?? defaults.important);
   const [urgent, setUrgent] = useState(task?.urgent ?? defaults.urgent);
-  const [dueDate, setDueDate] = useState(toInputValue(task?.dueDate));
+  // A new task is due today unless another day is picked.
+  const [dueDate, setDueDate] = useState(() =>
+    task ? toInputValue(task.dueDate) : toInputValue(new Date().toISOString())
+  );
   const [dueTime, setDueTime] = useState(() => {
     if (!task?.dueDate || !task.dueHasTime) return '';
     return toDateTimeValue(new Date(task.dueDate)).slice(11);

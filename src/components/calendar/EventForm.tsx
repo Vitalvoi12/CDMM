@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CalendarEvent, EventChecklistItem, Subject } from '../../types';
-import { genId } from '../../services/repositories';
+import { useEffect, useRef, useState } from 'react';
+import type { CalendarEvent, Subject } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
@@ -31,8 +30,6 @@ interface EventFormProps {
     recurrence?: EventRecurrence;
     /** Custom (subject-less) event color. Ignored for subject-bound events. */
     color?: string;
-    /** Per-event mini tasks. Empty texts are dropped on save. */
-    checklist?: EventChecklistItem[];
     /** Reminder minutes before start (0 = at start); null = no reminder. */
     notifyBefore: number | null;
     /** Further leads after the first; [] = none. */
@@ -94,14 +91,6 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
         : { lead: null, customAt: toDateTimeValue(new Date(initialStart.getTime() - lead * 60_000)) },
     ),
   );
-  // Per-event tasks: exactly one template row when empty; "+" lives only on
-  // the last row and moves down as rows are added.
-  const [tasks, setTasks] = useState<EventChecklistItem[]>(() => {
-    const initial = (event?.checklist ?? []).map((t) => ({ ...t }));
-    return initial.length > 0 ? initial : [{ id: genId(), text: '', done: false }];
-  });
-  const lastInputRef = useRef<HTMLInputElement | null>(null);
-  const tasksLenRef = useRef(tasks.length);
   const formRef = useRef<HTMLFormElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -115,49 +104,13 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
     return '';
   }
 
-  // First Escape while typing a task only leaves the field; the next one closes.
-  const handleEscape = useCallback(() => {
-    const el = document.activeElement;
-    if (el instanceof HTMLInputElement && el.dataset.taskInput === '1') {
-      el.blur();
-      dialogRef.current?.focus({ preventScroll: true });
-      return;
-    }
-    onCancel();
-  }, [onCancel]);
-  useEscapeOverlay(handleEscape);
+  useEscapeOverlay(onCancel);
 
   useEffect(() => {
     // Move focus inside the dialog so Enter/Delete work right away, even if
     // the user hasn't clicked any field yet. Escape is the overlay stack's job.
     dialogRef.current?.focus({ preventScroll: true });
   }, []);
-
-  // After a new task row appears, move focus into it.
-  useEffect(() => {
-    if (tasks.length > tasksLenRef.current) lastInputRef.current?.focus();
-    tasksLenRef.current = tasks.length;
-  }, [tasks.length]);
-
-  const addTask = () => {
-    const last = tasks[tasks.length - 1];
-    if (last && !last.text.trim()) {
-      lastInputRef.current?.focus();
-      return;
-    }
-    setTasks([...tasks, { id: genId(), text: '', done: false }]);
-  };
-
-  const updateTaskText = (id: string, text: string) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, text } : t)));
-  };
-
-  const removeTask = (id: string) => {
-    setTasks((prev) => {
-      const next = prev.filter((t) => t.id !== id);
-      return next.length > 0 ? next : [{ id: genId(), text: '', done: false }];
-    });
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,11 +177,6 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
       countInStats,
       recurrence,
       color: isCustom ? color : undefined,
-      // Always an array (possibly empty): an empty list must overwrite, not
-      // inherit — otherwise clearing all tasks would not propagate.
-      checklist: tasks
-        .map((t) => ({ ...t, text: t.text.trim() }))
-        .filter((t) => t.text.length > 0),
       notifyBefore: leads[0] ?? null,
       notifyExtra: leads.slice(1),
     });
@@ -406,61 +354,6 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               placeholder="Optional notes"
               className={inputClass}
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className={labelClass}>
-              Checklist
-            </label>
-            <div className="flex flex-col gap-2">
-              {tasks.map((t, i) => {
-                const isLast = i === tasks.length - 1;
-                return (
-                  <div key={t.id} className="flex items-center gap-2 animate-fade-in">
-                    <input
-                      type="text"
-                      data-task-input="1"
-                      value={t.text}
-                      ref={isLast ? lastInputRef : undefined}
-                      onChange={(e) => updateTaskText(t.id, e.target.value)}
-                      onKeyDown={(e) => {
-                        // Enter grows the list instead of submitting the form.
-                        // Escape needs no case: the overlay stack closes the
-                        // dialog from wherever the caret is.
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          addTask();
-                        }
-                      }}
-                      placeholder={isLast ? 'New item — type and press +' : 'Item'}
-                      aria-label={`Checklist item ${i + 1}`}
-                      className={`${inputClass} flex-1`}
-                    />
-                    {isLast ? (
-                      <button
-                        type="button"
-                        onClick={addTask}
-                        aria-label="Add another item"
-                        title="Add another task"
-                        className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl border border-outline-variant text-on-surface hover:border-primary hover:text-primary transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[18px] leading-none">add</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => removeTask(t.id)}
-                        aria-label={`Remove item ${i + 1}`}
-                        title="Remove task"
-                        className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-error transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[18px] leading-none">close</span>
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           </div>
           <div className="grid grid-cols-1 gap-3 min-[481px]:grid-cols-2 min-[481px]:gap-4">
             <div className="flex flex-col gap-2 min-w-0">

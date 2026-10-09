@@ -17,14 +17,14 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { useSwipeNav } from '../hooks/useSwipeNav';
 import { useButtonSwipe } from '../hooks/useViewSwipe';
-import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, genId } from '../services/repositories';
+import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, dayTaskRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
 import { expandRecurrence, dateKey } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
 import { ViewSettingsSheet } from '../components/calendar/ViewSettingsSheet';
 import { checkpoint } from '../services/history';
-import type { CalendarEvent, EventChecklistItem, EventFilter, TodoTask } from '../types';
+import type { CalendarEvent, DayTaskList, EventFilter, TodoTask } from '../types';
 
 /** Mobile day panels in tab order (the vertical swipe walks this list). */
 const DAY_PANELS = ['timeline', 'stats', 'tasks', 'notes'] as const;
@@ -77,7 +77,6 @@ interface PendingRecurrence {
     kind: 'real' | 'plan';
     countInStats: boolean;
     color?: string;
-    checklist?: EventChecklistItem[];
     notifyBefore: number | null;
     notifyExtra: number[];
   } | null;
@@ -108,6 +107,7 @@ export function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
   // Todo tasks due on the shown day are listed at the end of the Checklist.
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
+  const [dayTasks, setDayTasks] = useState<DayTaskList[]>(() => dayTaskRepo.getAll());
   const { isActive, subjectId, title: sessionTitle, color: sessionColor, startTime, elapsed } = useActiveSession();
   // When the last panel swipe was decided — see panelSwipe below.
   const panelSwipeAtRef = useRef(0);
@@ -258,27 +258,33 @@ export function CalendarPage() {
     setEvents(eventRepo.getAll());
   }, []);
 
-  // Checkbox in the day task panel: toggles one checklist item on its event.
-  const handleChecklistToggle = useCallback(
-    (eventId: string, itemId: string, done: boolean) => {
-      // A completed swipe is followed by the browser's synthesized click on
-      // the element under the finger. If that is the checkbox being flicked
-      // over, it must not tick itself — the gesture was navigation.
-      if (Date.now() - panelSwipeAtRef.current < 400) return;
-      const stored = eventRepo.getById(eventId);
-      if (!stored || !stored.checklist) return;
-      checkpoint(done ? 'Complete event task' : 'Reopen event task');
-      eventRepo.update(eventId, {
-        checklist: stored.checklist.map((t) => (t.id === itemId ? { ...t, done } : t)),
-      });
-      refreshEvents();
-    },
-    [refreshEvents]
-  );
+  // The day's own checklist (independent of events). A completed swipe is
+  // followed by the browser's synthesized click on the element under the
+  // finger; if that is a checkbox being flicked over, it must not tick
+  // itself — the gesture was navigation.
+  const handleDayTaskToggle = useCallback((id: string, done: boolean) => {
+    if (Date.now() - panelSwipeAtRef.current < 400) return;
+    checkpoint(done ? 'Complete checklist task' : 'Reopen checklist task');
+    dayTaskRepo.toggle(dateKey(currentDate), id, done);
+    setDayTasks(dayTaskRepo.getAll());
+  }, [currentDate]);
+
+  const handleDayTaskAdd = useCallback((text: string, subjectId: string) => {
+    checkpoint('Add checklist task');
+    dayTaskRepo.add(dateKey(currentDate), { text, subjectId });
+    setDayTasks(dayTaskRepo.getAll());
+  }, [currentDate]);
+
+  const handleDayTaskDelete = useCallback((id: string) => {
+    if (Date.now() - panelSwipeAtRef.current < 400) return;
+    checkpoint('Delete checklist task');
+    dayTaskRepo.remove(dateKey(currentDate), id);
+    setDayTasks(dayTaskRepo.getAll());
+  }, [currentDate]);
 
   // Checkbox on a todo task in the Checklist panel.
   const handleTodoToggle = useCallback((id: string, completed: boolean) => {
-    // Same swipe guard as the event tasks above.
+    // Same swipe guard as the checklist tasks above.
     if (Date.now() - panelSwipeAtRef.current < 400) return;
     checkpoint(completed ? 'Complete task' : 'Reopen task');
     todoRepo.update(id, { completed });
@@ -289,6 +295,7 @@ export function CalendarPage() {
     useCallback(() => {
       refreshEvents();
       setTodos(todoRepo.getAll());
+      setDayTasks(dayTaskRepo.getAll());
     }, [refreshEvents])
   );
 
@@ -325,7 +332,7 @@ export function CalendarPage() {
   );
 
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; checklist?: EventChecklistItem[]; notifyBefore: number | null; notifyExtra: number[] }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; notifyBefore: number | null; notifyExtra: number[] }) => {
       if (editingEvent) {
         const stored = eventRepo.getById(editingEvent.id);
         const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
@@ -372,7 +379,6 @@ export function CalendarPage() {
           kind: data.kind,
           countInStats: data.countInStats,
           color: data.color,
-          checklist: data.checklist,
           notifyBefore: data.notifyBefore,
           notifyExtra: data.notifyExtra,
         });
@@ -397,7 +403,6 @@ export function CalendarPage() {
             countInStats: data.countInStats,
             color: data.color,
             recurrenceId,
-            checklist: data.checklist?.map((t) => ({ ...t, id: genId() })),
             notifyBefore: data.notifyBefore,
             notifyExtra: data.notifyExtra,
           });
@@ -413,7 +418,6 @@ export function CalendarPage() {
           kind: data.kind,
           countInStats: data.countInStats,
           color: data.color,
-          checklist: data.checklist,
           notifyBefore: data.notifyBefore,
           notifyExtra: data.notifyExtra,
         });
@@ -506,7 +510,6 @@ export function CalendarPage() {
               kind: data.kind,
               countInStats: data.countInStats,
               color: data.color,
-              checklist: data.checklist,
               notifyBefore: data.notifyBefore,
               notifyExtra: data.notifyExtra,
               recurrenceId: null,
@@ -530,7 +533,6 @@ export function CalendarPage() {
               kind: data.kind,
               countInStats: data.countInStats,
               color: data.color,
-              checklist: data.checklist,
               notifyBefore: data.notifyBefore,
               notifyExtra: data.notifyExtra,
             });
@@ -549,7 +551,6 @@ export function CalendarPage() {
               kind: data.kind,
               countInStats: data.countInStats,
               color: data.color,
-              checklist: data.checklist?.map((t) => ({ ...t, id: genId() })),
               notifyBefore: data.notifyBefore,
               notifyExtra: data.notifyExtra,
             });
@@ -579,8 +580,6 @@ export function CalendarPage() {
         countInStats: source.countInStats,
         // A copy starts its own life — never join the source's series.
         recurrenceId: null,
-        // Same tasks as a fresh list: new ids, nothing pre-checked.
-        checklist: source.checklist?.map((t) => ({ ...t, id: genId(), done: false })),
         notifyBefore: source.notifyBefore ?? null,
         notifyExtra: source.notifyExtra ?? [],
       });
@@ -846,7 +845,7 @@ export function CalendarPage() {
               onTouchEnd={panelSwipe.onTouchEnd}
               onTouchCancel={panelSwipe.onTouchCancel}
             >
-              <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} todos={todos} onToggleTodo={handleTodoToggle} />
+              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} todos={todos} onToggleTodo={handleTodoToggle} />
             </div>
           )}
           </div>
@@ -890,7 +889,7 @@ export function CalendarPage() {
                   totalMinutes={stats.totalMinutes}
                 />
               ) : asidePanel === 'tasks' ? (
-                <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} todos={todos} onToggleTodo={handleTodoToggle} />
+                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} todos={todos} onToggleTodo={handleTodoToggle} />
               ) : (
                 <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} />
               )}

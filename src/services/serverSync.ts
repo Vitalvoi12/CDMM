@@ -1,10 +1,11 @@
 import {
-  eventRepo, subjectRepo, todoRepo, tombstoneRepo, settingsRepo, eventEditRepo, dayNoteRepo,
+  eventRepo, subjectRepo, todoRepo, tombstoneRepo, settingsRepo, eventEditRepo, dayNoteRepo, dayTaskRepo,
+  migrateEventChecklists,
   takeDirtySnapshot, clearDirtySnapshot, isSettingsDirty, clearSettingsDirty,
   subscribeRepoChanges, getSettingsRevision,
   type SyncEntity,
 } from './repositories';
-import type { CalendarEvent, Subject, TodoTask, UserSettings, EventTimeEdit, DayNote } from '../types';
+import type { CalendarEvent, Subject, TodoTask, UserSettings, EventTimeEdit, DayNote, DayTaskList } from '../types';
 import { getToken, getCursor, setCursor, apiFetch } from './auth';
 
 export interface ServerChange {
@@ -22,6 +23,7 @@ export interface ServerState {
   todos: TodoTask[];
   eventEdits?: EventTimeEdit[];
   dayNotes?: DayNote[];
+  dayTasks?: DayTaskList[];
   tombstones: { entity: string; key: string }[];
   settings: { data: UserSettings; updatedAt: number } | null;
   cursor: number;
@@ -92,6 +94,7 @@ function collectFullDirty() {
     todos: todoRepo.getAll().map(dirtyTodo),
     eventEdits: eventEditRepo.getAll().map(withTs),
     dayNotes: dayNoteRepo.getAll().map(withTs),
+    dayTasks: dayTaskRepo.getAll().map(withTs),
     tombstones: tombstoneRepo.getAll().map((t) => ({ ...t })),
     settings: { data: settingsRepo.get(), updatedAt: settingsRepo.getWithMeta().updatedAt || 0 },
   };
@@ -105,6 +108,7 @@ function collectDirty() {
     todos: [] as Array<TodoTask & { updatedAt: number }>,
     eventEdits: [] as Array<EventTimeEdit & { updatedAt: number }>,
     dayNotes: [] as Array<DayNote & { updatedAt: number }>,
+    dayTasks: [] as Array<DayTaskList & { updatedAt: number }>,
     tombstones: tombstoneRepo.getAll().map((t) => ({ ...t })),
     settings: undefined as { data: UserSettings; updatedAt: number } | undefined,
   };
@@ -127,6 +131,10 @@ function collectDirty() {
   for (const id of ids.dayNotes) {
     const rec = dayNoteRepo.getAll().find((n) => n.id === id);
     if (rec) dirty.dayNotes.push(withTs(rec));
+  }
+  for (const id of ids.dayTasks) {
+    const rec = dayTaskRepo.getById(id);
+    if (rec) dirty.dayTasks.push(withTs(rec));
   }
   if (isSettingsDirty()) {
     const meta = settingsRepo.getWithMeta();
@@ -160,6 +168,7 @@ function applyChange(change: ServerChange): boolean {
   if (entity === 'todos') return todoRepo.applyRemote(change.payload as TodoTask);
   if (entity === 'eventEdits') return eventEditRepo.applyRemote(change.payload as EventTimeEdit);
   if (entity === 'dayNotes') return dayNoteRepo.applyRemote(change.payload as DayNote);
+  if (entity === 'dayTasks') return dayTaskRepo.applyRemote(change.payload as DayTaskList);
   if (entity === 'settings' && change.payload) {
     const data = change.payload.data as UserSettings;
     const updatedAt = Number(change.payload.updatedAt) || 0;
@@ -178,6 +187,7 @@ function applyState(state: ServerState): boolean {
   }
   // Note ids are dates, which cannot collide with the uuids above.
   const dirtyNoteIds = new Set(dirty.dayNotes);
+  const dirtyTaskDays = new Set(dirty.dayTasks);
   let changed = false;
   for (const s of state.subjects) {
     if (!dirtyIds.has(s.id)) changed = subjectRepo.applyRemote(s) || changed;
@@ -193,6 +203,9 @@ function applyState(state: ServerState): boolean {
   }
   for (const n of state.dayNotes || []) {
     if (!dirtyNoteIds.has(n.id)) changed = dayNoteRepo.applyRemote(n) || changed;
+  }
+  for (const l of state.dayTasks || []) {
+    if (!dirtyTaskDays.has(l.id)) changed = dayTaskRepo.applyRemote(l) || changed;
   }
   for (const tomb of state.tombstones) {
     const entity = tomb.entity as SyncEntity;
@@ -295,7 +308,7 @@ async function runCycle(): Promise<boolean> {
   const { ids, dirty } = collectDirty();
   const hasDirty =
     dirty.subjects.length > 0 || dirty.events.length > 0 || dirty.todos.length > 0 ||
-    dirty.eventEdits.length > 0 || dirty.dayNotes.length > 0 || dirty.tombstones.length > 0 || dirty.settings !== undefined;
+    dirty.eventEdits.length > 0 || dirty.dayNotes.length > 0 || dirty.dayTasks.length > 0 || dirty.tombstones.length > 0 || dirty.settings !== undefined;
   let cursor = getCursor();
   let guard = 0;
   let changed = false;
@@ -316,6 +329,9 @@ async function runCycle(): Promise<boolean> {
     guard++;
     if (!data.hasMore || guard > 10) break;
   }
+  // Tasks still sitting on events (older data or an older client) move to
+  // their day's checklist once the pull is in; the next cycle pushes both.
+  changed = migrateEventChecklists() || changed;
 
   if (hasDirty) {
     clearDirtySnapshot(ids);

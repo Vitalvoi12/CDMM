@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 // Entity names as they travel on the wire (the client mirrors them).
-const ENTITIES = ['subjects', 'events', 'todos', 'eventEdits', 'dayNotes'];
+const ENTITIES = ['subjects', 'events', 'todos', 'eventEdits', 'dayNotes', 'dayTasks'];
 
 /** Wire entity name -> SQL table. Only the plan-stability log differs. */
 const TABLE = {
@@ -13,13 +13,15 @@ const TABLE = {
   todos: 'todos',
   eventEdits: 'event_edits',
   dayNotes: 'day_notes',
+  dayTasks: 'day_tasks',
 };
 
 /**
- * Upsert conflict target. Day notes are keyed by calendar date (the id is
- * "YYYY-MM-DD"), which is shared by every account, so their key is per user.
+ * Upsert conflict target. Day notes and day checklists are keyed by calendar
+ * date (the id is "YYYY-MM-DD"), which is shared by every account, so their
+ * key is per user.
  */
-const CONFLICT_TARGET = { day_notes: 'user_id, id' };
+const CONFLICT_TARGET = { day_notes: 'user_id, id', day_tasks: 'user_id, id' };
 
 export function openDb(dir) {
   mkdirSync(dir, { recursive: true });
@@ -108,6 +110,13 @@ export function openDb(dir) {
       id TEXT NOT NULL,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       content TEXT NOT NULL DEFAULT '',
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, id)
+    );
+    CREATE TABLE IF NOT EXISTS day_tasks (
+      id TEXT NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      tasks TEXT NOT NULL DEFAULT '[]',
       updated_at INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (user_id, id)
     );
@@ -280,6 +289,7 @@ export function getState(db, userId) {
     todos: db.prepare('SELECT * FROM todos WHERE user_id = ?').all(userId).map((r) => rowToPayload('todos', r)),
     eventEdits: db.prepare('SELECT * FROM event_edits WHERE user_id = ?').all(userId).map((r) => rowToPayload('eventEdits', r)),
     dayNotes: db.prepare('SELECT * FROM day_notes WHERE user_id = ?').all(userId).map((r) => rowToPayload('dayNotes', r)),
+    dayTasks: db.prepare('SELECT * FROM day_tasks WHERE user_id = ?').all(userId).map((r) => rowToPayload('dayTasks', r)),
     tombstones: db.prepare('SELECT entity, key FROM tombstones WHERE user_id = ?').all(userId),
     settings,
     cursor: db.prepare('SELECT COALESCE(MAX(seq), 0) AS c FROM change_log WHERE user_id = ?').get(userId).c,
@@ -300,6 +310,9 @@ function rowToPayload(entity, row) {
   }
   if (entity === 'dayNotes') {
     return { id: row.id, content: row.content, updatedAt: row.updated_at };
+  }
+  if (entity === 'dayTasks') {
+    return { id: row.id, tasks: parseDayTasks(row.tasks), updatedAt: row.updated_at };
   }
   if (entity === 'eventEdits') {
     return {
@@ -334,6 +347,7 @@ const COLS = {
   events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'notify_extra', 'created_at'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'due_has_time', 'est_minutes', 'subject_id', 'completed_at', 'reminders', 'completed', 'created_at'],
   dayNotes: ['content'],
+  dayTasks: ['tasks'],
   eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind', 'count_in_stats', 'deleted'],
 };
 
@@ -345,7 +359,7 @@ const FROM_CLIENT = {
   important: 'important', urgent: 'urgent', dueDate: 'due_date', dueHasTime: 'due_has_time', estMinutes: 'est_minutes',
   completedAt: 'completed_at', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
-  content: 'content', eventId: 'event_id', at: 'at', deleted: 'deleted',
+  content: 'content', tasks: 'tasks', eventId: 'event_id', at: 'at', deleted: 'deleted',
   fromStart: 'from_start', fromEnd: 'from_end', toStart: 'to_start', toEnd: 'to_end',
 };
 
@@ -399,6 +413,29 @@ function parseChecklist(value) {
     return items.length > 0 ? items : undefined;
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * A day's checklist: JSON array of {id, text, done, subjectId}. Always reads
+ * back as an array; malformed entries are dropped.
+ */
+function parseDayTasks(value) {
+  if (value == null || value === '') return [];
+  try {
+    const arr = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((t) => t && typeof t === 'object')
+      .map((t) => ({
+        id: String(t.id || ''),
+        text: String(t.text ?? ''),
+        done: t.done === true,
+        subjectId: typeof t.subjectId === 'string' ? t.subjectId : '',
+      }))
+      .filter((t) => t.id && t.text);
+  } catch {
+    return [];
   }
 }
 
@@ -465,6 +502,11 @@ export function applyChanges(db, userId, dirty) {
         else if (v === null) v = null;
         else if (Array.isArray(v)) v = v.length > 0 ? JSON.stringify(v) : null;
         else v = prev[col] === undefined ? null : prev[col];
+      } else if (col === 'tasks') {
+        // A day's checklist, JSON on the wire and in the column. Absent
+        // inherits; anything else is normalized (an empty list is kept).
+        if (v === undefined) v = prev[col] === undefined ? '[]' : prev[col];
+        else v = JSON.stringify(parseDayTasks(v));
       } else if (col === 'notify_before') {
         // Reminder lead in whole minutes; null/absent-on-new/garbage = off.
         const n = v == null || v === '' ? NaN : Number(v);
