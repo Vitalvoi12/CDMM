@@ -27,8 +27,27 @@ interface Group {
   items: DayTask[];
 }
 
-/** Subject picked for the next new task; kept across days and remounts. */
-let lastSubjectId = '';
+/**
+ * Subject of the last task added here, the default for the next one. Kept on
+ * this device so it survives reloads.
+ */
+const LAST_SUBJECT_KEY = 'cdmm.checklist-subject';
+
+function loadLastSubject(): string {
+  try {
+    return localStorage.getItem(LAST_SUBJECT_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function saveLastSubject(id: string): void {
+  try {
+    localStorage.setItem(LAST_SUBJECT_KEY, id);
+  } catch {
+    // storage unavailable — the choice just isn't remembered
+  }
+}
 /** Last V-shortcut request already acted on, so a remount does not reopen. */
 let handledAddRequest = 0;
 
@@ -69,9 +88,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
 
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
-  const [subjectId, setSubjectId] = useState(() =>
-    subjects.some((s) => s.id === lastSubjectId) ? lastSubjectId : ''
-  );
+  const [pickedSubjectId, setSubjectId] = useState(loadLastSubject);
+  // A remembered subject that was deleted since falls back to none.
+  const subjectId = subjects.some((s) => s.id === pickedSubjectId) ? pickedSubjectId : '';
   const inputRef = useRef<HTMLInputElement>(null);
 
   const closeAdd = useCallback(() => {
@@ -88,7 +107,6 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   }, [addRequest]);
 
   const pickSubject = (id: string) => {
-    lastSubjectId = id;
     setSubjectId(id);
     inputRef.current?.focus();
   };
@@ -116,6 +134,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     const trimmed = text.trim();
     if (!trimmed) return;
     onAddTask(trimmed, subjectId);
+    saveLastSubject(subjectId);
     // Stay open for the next one.
     setText('');
     inputRef.current?.focus();
