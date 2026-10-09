@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState, type RefObject } from 'react';
+import { createPortal, flushSync } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { isSameDay } from '../../utils/time';
 import { isOverdue } from '../todo/TodoRows';
 import { useEscapeOverlay } from '../../services/overlays';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface SubjectTasksPanelProps {
   /** The calendar day being shown — the panel lists that day's checklist. */
@@ -13,8 +15,14 @@ interface SubjectTasksPanelProps {
   onToggleTask: (id: string, done: boolean) => void;
   onAddTask: (text: string, subjectId: string) => void;
   onDeleteTask: (id: string) => void;
-  /** Bumped by the V shortcut: each new value opens the new-task row. */
-  addRequest?: number;
+  /**
+   * Whether the new-task form is open — inline on desktop, a window on the
+   * phone. Owned by the page, which also opens it (V, double tap).
+   */
+  adding: boolean;
+  onAddingChange: (open: boolean) => void;
+  /** The form's text field, so whoever opens the form can focus it. */
+  inputRef: RefObject<HTMLInputElement | null>;
   /** All todo tasks; the ones due on `date` are listed after the subjects. */
   todos?: TodoTask[];
   onToggleTodo?: (id: string, completed: boolean) => void;
@@ -48,15 +56,13 @@ function saveLastSubject(id: string): void {
     // storage unavailable — the choice just isn't remembered
   }
 }
-/** Last V-shortcut request already acted on, so a remount does not reopen. */
-let handledAddRequest = 0;
 
 /**
  * The day's checklist: tasks added here with "+", grouped under their subject
  * (color dot + name), each with a checkbox. A day needs no event of a subject
  * to hold tasks for it.
  */
-export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, addRequest = 0, todos = [], onToggleTodo }: SubjectTasksPanelProps) {
+export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, todos = [], onToggleTodo }: SubjectTasksPanelProps) {
   const groups = useMemo<Group[]>(() => {
     const subjectMap = new Map(subjects.map((s) => [s.id, s]));
     const byKey = new Map<string, Group>();
@@ -86,25 +92,23 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     return ordered;
   }, [tasks, subjects]);
 
-  const [adding, setAdding] = useState(false);
+  const isMobile = useIsMobile();
   const [text, setText] = useState('');
   const [pickedSubjectId, setSubjectId] = useState(loadLastSubject);
   // A remembered subject that was deleted since falls back to none.
   const subjectId = subjects.some((s) => s.id === pickedSubjectId) ? pickedSubjectId : '';
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const closeAdd = useCallback(() => {
-    setAdding(false);
+    onAddingChange(false);
     setText('');
-  }, []);
+  }, [onAddingChange]);
 
-  useEffect(() => {
-    if (addRequest <= handledAddRequest) return;
-    handledAddRequest = addRequest;
-    setAdding(true);
-    // Already open: autoFocus will not run again, so focus explicitly.
+  // Render the form now and focus it inside the same tap: iOS only raises
+  // the keyboard for a focus() made during the user's gesture.
+  const openAdd = () => {
+    flushSync(() => onAddingChange(true));
     inputRef.current?.focus();
-  }, [addRequest]);
+  };
 
   const pickSubject = (id: string) => {
     setSubjectId(id);
@@ -158,47 +162,16 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   const done = tasks.filter((t) => t.done).length + dayTodos.filter((t) => t.completed).length;
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  return (
-    <section
-      aria-label={`Checklist for ${dayLabel}`}
-      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 flex-1 overflow-y-auto animate-fade-in"
-    >
-      <div className="flex items-center justify-between gap-3 mb-4 max-lg:mb-2">
-        <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
-          Checklist
-        </h2>
-        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 tracking-[0.14em] flex-shrink-0">
-          {dayLabel}
-        </span>
-        <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-auto">
-          {total > 0 ? `${done}/${total}` : '0'}
-        </span>
-        <button
-          type="button"
-          onClick={() => (adding ? closeAdd() : setAdding(true))}
-          aria-label={adding ? 'Close new task' : 'Add a task'}
-          aria-expanded={adding}
-          title={adding ? 'Close' : 'Add a task (Shortcut: V)'}
-          className={`w-7 h-7 max-lg:w-6 max-lg:h-6 flex-shrink-0 flex items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-            adding
-              ? 'bg-secondary-container border-secondary-container text-on-secondary-container'
-              : 'border-outline-variant text-on-surface hover:border-primary hover:text-primary'
-          }`}
-        >
-          <span className="material-symbols-outlined text-[18px] max-lg:text-[15px] leading-none">{adding ? 'close' : 'add'}</span>
-        </button>
-      </div>
-
-      {adding && (
+  const addForm = (
         <form
-          className="flex flex-col gap-2 mb-4 max-lg:mb-3 animate-fade-in"
+          className={`flex flex-col animate-fade-in ${isMobile ? 'gap-3' : 'gap-2 mb-4'}`}
           onSubmit={(e) => {
             e.preventDefault();
             submit();
           }}
         >
           <EscapeToClose onClose={closeAdd} />
-          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Subject">
+          <div className={`flex flex-wrap ${isMobile ? 'gap-2' : 'gap-1.5'}`} role="radiogroup" aria-label="Subject">
             {subjectChoices.map((s) => {
               const selected = subjectId === s.id;
               return (
@@ -207,15 +180,19 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                   type="button"
                   role="radio"
                   aria-checked={selected}
+                  // Keep the caret (and the phone keyboard) in the text field.
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => pickSubject(s.id)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 max-lg:px-2 max-lg:py-0.5 rounded-full border font-body-sm text-body-sm max-lg:!text-[10px] transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-full border font-body-sm text-body-sm transition-colors ${
+                    isMobile ? 'px-3 py-1.5 !text-[14px]' : 'px-2.5 py-1'
+                  } ${
                     selected
                       ? 'bg-secondary-container border-secondary-container text-on-secondary-container'
                       : 'border-outline-variant text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   {s.color && (
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                    <span className={`${isMobile ? 'w-2.5 h-2.5' : 'w-2 h-2'} rounded-full flex-shrink-0`} style={{ backgroundColor: s.color }} />
                   )}
                   {s.name}
                 </button>
@@ -233,13 +210,17 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
               placeholder="New task"
               aria-label="New task"
               enterKeyHint="done"
-              className="flex-1 min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2 px-3 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+              // 16px on the phone: iOS zooms into smaller fields on focus.
+              className={`flex-1 min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 ${
+                isMobile ? 'py-3 px-4 !text-[16px]' : 'py-2 px-3'
+              }`}
             />
             <button
               type="submit"
               disabled={!text.trim()}
               aria-label="Add task"
-              className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-primary text-on-primary disabled:opacity-40 transition-opacity"
+              onMouseDown={(e) => e.preventDefault()}
+              className={`${isMobile ? 'w-12 h-12' : 'w-9 h-9'} flex-shrink-0 flex items-center justify-center rounded-xl bg-primary text-on-primary disabled:opacity-40 transition-opacity`}
             >
               <span className="material-symbols-outlined text-[18px] leading-none">check</span>
             </button>
@@ -248,12 +229,82 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             ↑ / ↓ or Tab — change subject · Enter — add · Esc — close
           </p>
         </form>
+  );
+
+  return (
+    <section
+      aria-label={`Checklist for ${dayLabel}`}
+      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 flex-1 overflow-y-auto animate-fade-in"
+    >
+      <div className="flex items-center justify-between gap-3 mb-4 max-lg:mb-2">
+        <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
+          Checklist
+        </h2>
+        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 tracking-[0.14em] flex-shrink-0">
+          {dayLabel}
+        </span>
+        <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-auto">
+          {total > 0 ? `${done}/${total}` : '0'}
+        </span>
+        <button
+          type="button"
+          onClick={() => (adding ? closeAdd() : openAdd())}
+          aria-label={adding ? 'Close new task' : 'Add a task'}
+          aria-expanded={adding}
+          title={adding ? 'Close' : 'Add a task (Shortcut: V)'}
+          className={`w-7 h-7 max-lg:w-6 max-lg:h-6 flex-shrink-0 flex items-center justify-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            adding
+              ? 'bg-secondary-container border-secondary-container text-on-secondary-container'
+              : 'border-outline-variant text-on-surface hover:border-primary hover:text-primary'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[18px] max-lg:text-[15px] leading-none">{adding ? 'close' : 'add'}</span>
+        </button>
+      </div>
+
+      {adding && !isMobile && addForm}
+      {adding && isMobile && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-scrim animate-fade-in"
+          onClick={closeAdd}
+          // React bubbles portal events to the page behind: keep its day
+          // swipe and double tap from seeing touches made in this window.
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onTouchCancel={(e) => e.stopPropagation()}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="New checklist task"
+            // Pinned to the top so the keyboard never covers it.
+            className="absolute inset-x-0 top-0 bg-surface-container-lowest rounded-b-2xl border-b border-outline-variant px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] shadow-elev-3 flex flex-col gap-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-headline-md text-headline-md !text-[16px] text-on-surface">
+                New task <span className="text-on-surface-variant font-normal">· {dayLabel}</span>
+              </h2>
+              <button
+                type="button"
+                onClick={closeAdd}
+                aria-label="Close new task"
+                className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined text-[22px] leading-none">close</span>
+              </button>
+            </div>
+            {addForm}
+          </div>
+        </div>,
+        document.body
       )}
 
       {groups.length === 0 && dayTodos.length === 0 ? (
         !adding && (
           <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
-            Nothing to check for {dayLabel} — tap + to add a task
+            Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
           </p>
         )
       ) : (

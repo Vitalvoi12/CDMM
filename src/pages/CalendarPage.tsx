@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DateHeader } from '../components/calendar/DateHeader';
 import { Timeline } from '../components/calendar/Timeline';
@@ -143,8 +143,13 @@ export function CalendarPage() {
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
   const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks' | 'notes'>('stats');
-  // Bumped by the V shortcut; the Checklist panel opens its new-task row.
-  const [addTaskRequest, setAddTaskRequest] = useState(0);
+  // The Checklist's new-task form (inline on desktop, a window on the phone).
+  const [taskAdding, setTaskAdding] = useState(false);
+  const taskInputRef = useRef<HTMLInputElement | null>(null);
+  // Leaving the Checklist closes the form, so it does not pop back up later.
+  useEffect(() => {
+    if ((isMobile ? dayPanel : asidePanel) !== 'tasks' || view !== 'day') setTaskAdding(false);
+  }, [isMobile, dayPanel, asidePanel, view]);
   // Which event kinds the calendars show. 'all' splits timeline days into
   // Real|Plan halves and lists the month cells in one column; 'real'/'plan'
   // renders a single full-width column. Persisted.
@@ -224,10 +229,14 @@ export function CalendarPage() {
       // V opens a new task in the shown day's Checklist.
       else if (key === 'v') {
         e.preventDefault();
-        if (view !== 'day') setView('day');
-        if (isMobile) setDayPanel('tasks');
-        else setAsidePanel('tasks');
-        setAddTaskRequest((n) => n + 1);
+        flushSync(() => {
+          if (view !== 'day') setView('day');
+          if (isMobile) setDayPanel('tasks');
+          else setAsidePanel('tasks');
+          setTaskAdding(true);
+        });
+        // Also when the form was already open: autoFocus runs only on mount.
+        taskInputRef.current?.focus();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -730,6 +739,39 @@ export function CalendarPage() {
     },
   });
 
+  // Phone: a double tap anywhere in the Checklist view opens the new-task
+  // window. Taps on controls (checkboxes, delete, +) don't count, nor does a
+  // finger that moved (a scroll or a swipe).
+  const tapRef = useRef<{ x: number; y: number; at: number } | null>(null);
+  const lastTapRef = useRef<{ x: number; y: number; at: number } | null>(null);
+  const onChecklistTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    tapRef.current = e.touches.length === 1 ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+  }, []);
+  const onChecklistTouchEnd = useCallback((e: React.TouchEvent) => {
+    const start = tapRef.current;
+    tapRef.current = null;
+    const t = e.changedTouches[0];
+    const onControl = (e.target as HTMLElement).closest('button, input, a, form');
+    if (!start || !t || onControl || Math.hypot(t.clientX - start.x, t.clientY - start.y) > 10 || Date.now() - start.at > 300) {
+      lastTapRef.current = null;
+      return;
+    }
+    const tap = { x: t.clientX, y: t.clientY, at: Date.now() };
+    const prev = lastTapRef.current;
+    if (prev && tap.at - prev.at < 350 && Math.hypot(tap.x - prev.x, tap.y - prev.y) < 40) {
+      lastTapRef.current = null;
+      // No synthesized click (or zoom) after the second tap.
+      e.preventDefault();
+      // Render the window and focus its field inside this tap, or iOS won't
+      // raise the keyboard.
+      flushSync(() => setTaskAdding(true));
+      taskInputRef.current?.focus();
+      return;
+    }
+    lastTapRef.current = tap;
+  }, []);
+
   // Swipes that start on the view-settings button (mobile): left/right go to
   // the previous/next day, 3 days, week or month (opposite of the timeline
   // swipe). In the day view only, up/down also walk the day panels in tab
@@ -850,12 +892,18 @@ export function CalendarPage() {
           ) : (
             <div
               className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40 [touch-action:pan-y]"
-              onTouchStart={panelSwipe.onTouchStart}
+              onTouchStart={(e) => {
+                panelSwipe.onTouchStart(e);
+                onChecklistTouchStart(e);
+              }}
               onTouchMove={panelSwipe.onTouchMove}
-              onTouchEnd={panelSwipe.onTouchEnd}
+              onTouchEnd={(e) => {
+                panelSwipe.onTouchEnd(e);
+                onChecklistTouchEnd(e);
+              }}
               onTouchCancel={panelSwipe.onTouchCancel}
             >
-              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} addRequest={addTaskRequest} todos={todos} onToggleTodo={handleTodoToggle} />
+              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} />
             </div>
           )}
           </div>
@@ -899,7 +947,7 @@ export function CalendarPage() {
                   totalMinutes={stats.totalMinutes}
                 />
               ) : asidePanel === 'tasks' ? (
-                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} addRequest={addTaskRequest} todos={todos} onToggleTodo={handleTodoToggle} />
+                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} />
               ) : (
                 <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} />
               )}
