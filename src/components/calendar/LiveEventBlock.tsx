@@ -61,7 +61,7 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject,
 
   return (
     <div
-      className="absolute right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto overflow-hidden pointer-events-none"
+      className="absolute left-0 right-[6px] overflow-hidden pointer-events-none"
       style={{
         top: `${top}px`,
         height: `${height}px`,
