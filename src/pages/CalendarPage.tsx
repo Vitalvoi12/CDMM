@@ -17,14 +17,14 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { useSwipeNav } from '../hooks/useSwipeNav';
 import { useButtonSwipe } from '../hooks/useViewSwipe';
-import { eventRepo, subjectRepo, tombstoneRepo, genId } from '../services/repositories';
+import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
 import { expandRecurrence, dateKey } from '../utils/time';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
 import { ViewSettingsSheet } from '../components/calendar/ViewSettingsSheet';
 import { checkpoint } from '../services/history';
-import type { CalendarEvent, EventChecklistItem, EventFilter } from '../types';
+import type { CalendarEvent, EventChecklistItem, EventFilter, TodoTask } from '../types';
 
 /** Mobile day panels in tab order (the vertical swipe walks this list). */
 const DAY_PANELS = ['timeline', 'stats', 'tasks', 'notes'] as const;
@@ -106,6 +106,8 @@ export function CalendarPage() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
+  // Todo tasks due on the shown day are listed at the end of the Checklist.
+  const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const { isActive, subjectId, title: sessionTitle, color: sessionColor, startTime, elapsed } = useActiveSession();
   // When the last panel swipe was decided — see panelSwipe below.
   const panelSwipeAtRef = useRef(0);
@@ -274,9 +276,19 @@ export function CalendarPage() {
     [refreshEvents]
   );
 
+  // Checkbox on a todo task in the Checklist panel.
+  const handleTodoToggle = useCallback((id: string, completed: boolean) => {
+    // Same swipe guard as the event tasks above.
+    if (Date.now() - panelSwipeAtRef.current < 400) return;
+    checkpoint(completed ? 'Complete task' : 'Reopen task');
+    todoRepo.update(id, { completed });
+    setTodos(todoRepo.getAll());
+  }, []);
+
   useSyncRefresh(
     useCallback(() => {
       refreshEvents();
+      setTodos(todoRepo.getAll());
     }, [refreshEvents])
   );
 
@@ -834,7 +846,7 @@ export function CalendarPage() {
               onTouchEnd={panelSwipe.onTouchEnd}
               onTouchCancel={panelSwipe.onTouchCancel}
             >
-              <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
+              <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} todos={todos} onToggleTodo={handleTodoToggle} />
             </div>
           )}
           </div>
@@ -878,7 +890,7 @@ export function CalendarPage() {
                   totalMinutes={stats.totalMinutes}
                 />
               ) : asidePanel === 'tasks' ? (
-                <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} />
+                <SubjectTasksPanel date={currentDate} events={dayEvents} subjects={subjects} onToggleTask={handleChecklistToggle} todos={todos} onToggleTodo={handleTodoToggle} />
               ) : (
                 <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} />
               )}

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
-import type { CalendarEvent, EventChecklistItem, Subject } from '../../types';
+import type { CalendarEvent, EventChecklistItem, Subject, TodoTask } from '../../types';
+import { isSameDay } from '../../utils/time';
+import { isOverdue } from '../todo/TodoRows';
 
 interface SubjectTasksPanelProps {
   /** The calendar day being shown — the panel lists that day's event tasks. */
@@ -8,6 +10,9 @@ interface SubjectTasksPanelProps {
   events: CalendarEvent[];
   subjects: Subject[];
   onToggleTask: (eventId: string, itemId: string, done: boolean) => void;
+  /** All todo tasks; the ones due on `date` are listed after the subjects. */
+  todos?: TodoTask[];
+  onToggleTodo?: (id: string, completed: boolean) => void;
 }
 
 interface GroupItem {
@@ -27,7 +32,7 @@ interface Group {
  * events, grouped under its subject (color dot + name), each with a checkbox.
  * Replaces the old Urgent & Important card in the day tab.
  */
-export function SubjectTasksPanel({ date, events, subjects, onToggleTask }: SubjectTasksPanelProps) {
+export function SubjectTasksPanel({ date, events, subjects, onToggleTask, todos = [], onToggleTodo }: SubjectTasksPanelProps) {
   const groups = useMemo<Group[]>(() => {
     const subjectMap = new Map(subjects.map((s) => [s.id, s]));
     const byKey = new Map<string, Group>();
@@ -62,8 +67,24 @@ export function SubjectTasksPanel({ date, events, subjects, onToggleTask }: Subj
     return ordered;
   }, [events, subjects]);
 
-  const total = groups.reduce((n, g) => n + g.items.length, 0);
-  const done = groups.reduce((n, g) => n + g.items.filter((i) => i.item.done).length, 0);
+  // Todo tasks due on the shown day. Today also carries the open ones that
+  // are still overdue from earlier days, so nothing slips out of sight.
+  const dayTodos = useMemo(() => {
+    const today = isSameDay(date, new Date());
+    return todos
+      .filter((t) => {
+        if (!t.dueDate) return false;
+        const due = new Date(t.dueDate);
+        if (Number.isNaN(due.getTime())) return false;
+        return isSameDay(due, date) || (today && isOverdue(t) && due.getTime() < date.getTime());
+      })
+      .sort((a, b) => Date.parse(a.dueDate!) - Date.parse(b.dueDate!));
+  }, [todos, date]);
+
+  const total = groups.reduce((n, g) => n + g.items.length, 0) + dayTodos.length;
+  const done =
+    groups.reduce((n, g) => n + g.items.filter((i) => i.item.done).length, 0) +
+    dayTodos.filter((t) => t.completed).length;
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   return (
@@ -83,7 +104,7 @@ export function SubjectTasksPanel({ date, events, subjects, onToggleTask }: Subj
         </span>
       </div>
 
-      {groups.length === 0 ? (
+      {groups.length === 0 && dayTodos.length === 0 ? (
         <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
           Nothing to check for {dayLabel} — open an event to add items
         </p>
@@ -131,6 +152,66 @@ export function SubjectTasksPanel({ date, events, subjects, onToggleTask }: Subj
               </ul>
             </li>
           ))}
+          {dayTodos.length > 0 && (
+            <li className="min-w-0">
+              <p className="flex items-center gap-2 mb-1.5">
+                <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
+                  checklist
+                </span>
+                <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface font-semibold truncate">
+                  Todo
+                </span>
+              </p>
+              <ul className="flex flex-col gap-1">
+                {dayTodos.map((task) => {
+                  const due = new Date(task.dueDate!);
+                  const overdue = isOverdue(task);
+                  // Earlier day: show the date; same day: the picked time, if any.
+                  const when = !isSameDay(due, date)
+                    ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : task.dueHasTime
+                      ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}`
+                      : null;
+                  return (
+                    <li key={task.id} className="flex items-start gap-2.5 max-lg:gap-2 py-1">
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={task.completed}
+                        aria-label={task.completed ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
+                        onClick={() => onToggleTodo?.(task.id, !task.completed)}
+                        className={`w-5 h-5 max-lg:w-4 max-lg:h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-px transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                          task.completed
+                            ? 'bg-primary border-primary text-on-primary'
+                            : 'border-outline hover:border-primary bg-transparent'
+                        }`}
+                      >
+                        {task.completed && (
+                          <span className="material-symbols-outlined text-[11px] max-lg:text-[9px] leading-none">check</span>
+                        )}
+                      </button>
+                      <span
+                        className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words ${
+                          task.completed ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
+                        }`}
+                      >
+                        {task.title}
+                      </span>
+                      {when && (
+                        <span
+                          className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
+                            overdue ? 'text-error' : 'text-on-surface-variant'
+                          }`}
+                        >
+                          {when}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </li>
+          )}
         </ul>
       )}
     </section>
