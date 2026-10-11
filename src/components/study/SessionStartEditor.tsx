@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatTimerDuration } from '../../utils/time';
 import { useEscapeOverlay } from '../../services/overlays';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { Sheet } from '../mobile/Sheet';
+import { formatClock } from '../mobile/SessionDock';
 
 interface SessionStartEditorProps {
   /** Current wall-clock start of the live session, ISO. */
@@ -34,7 +37,86 @@ function toLocalInputValue(ms: number): string {
  * only the beginning of the block moves — the moment the user pressed Finish
  * is preserved.
  */
-export function SessionStartEditor({ startTime, elapsed, onApply, onCancel }: SessionStartEditorProps) {
+export function SessionStartEditor(props: SessionStartEditorProps) {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileSessionStartEditor {...props} /> : <DesktopSessionStartEditor {...props} />;
+}
+
+/**
+ * Phone sheet: the quick backdates preview into the field and the timer
+ * below it; Apply commits (on the desktop they apply straight away).
+ */
+function MobileSessionStartEditor({ startTime, elapsed, onApply, onCancel }: SessionStartEditorProps) {
+  const [now] = useState(() => Date.now());
+  const base = startTime ? new Date(startTime).getTime() : now;
+  const [value, setValue] = useState(() => toLocalInputValue(base));
+  const [quick, setQuick] = useState<number | null>(null);
+  const parsed = new Date(value).getTime();
+  const clamped = Number.isFinite(parsed) ? Math.min(parsed, now) : null;
+  const preview = Math.max(0, elapsed - (clamped !== null ? clamped - base : 0));
+
+  return (
+    <Sheet label="Change session start" onClose={onCancel} z={110} className="!gap-4">
+      <form
+        className="contents"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (clamped !== null) onApply(clamped);
+        }}
+      >
+        <div className="m-shd">
+          <h2 className="m-h2">When did you start?</h2>
+          <button type="button" className="m-ib" aria-label="Close" onClick={onCancel}>
+            <span className="material-symbols-outlined m-ic">close</span>
+          </button>
+        </div>
+        <p className="m-mut" style={{ margin: 0 }}>
+          Started tracking late? Move the start back. The session keeps its length from that moment on.
+        </p>
+        <div className="m-fld">
+          <label className="m-lbl m-mut" htmlFor="m-session-start">Started at</label>
+          <input
+            id="m-session-start"
+            type="datetime-local"
+            className="m-in"
+            value={value}
+            max={toLocalInputValue(now)}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setQuick(null);
+            }}
+          />
+        </div>
+        <div className="flex" style={{ gap: 8 }}>
+          {QUICK_BACKDATE.map((q) => (
+            <button
+              key={q.label}
+              type="button"
+              className={`m-chip flex-1 justify-center ${quick === q.minutes ? 'on' : ''}`}
+              aria-pressed={quick === q.minutes}
+              onClick={() => {
+                setQuick(q.minutes);
+                setValue(toLocalInputValue(Math.min(now, base - q.minutes * 60000)));
+              }}
+            >
+              {q.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="m-lbl m-mut">Time on task</span>
+          <span className="m-h2 m-num" style={{ fontSize: 26, lineHeight: '32px' }}>{formatClock(preview)}</span>
+        </div>
+        <div className="flex" style={{ gap: 8 }}>
+          <button type="button" className="m-btn" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="m-btn pri flex-1" disabled={clamped === null}>Apply</button>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
+function DesktopSessionStartEditor({ startTime, elapsed, onApply, onCancel }: SessionStartEditorProps) {
   const dialogRef = useRef<HTMLFormElement>(null);
   // Frozen at open: the ceiling for the field and the baseline of the preview.
   // A live clock would drift under the user's cursor and re-run impure code on

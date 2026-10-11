@@ -112,6 +112,25 @@ export function useActiveSession() {
   );
 
   /**
+   * Bring back a session that was just finished (the phone's Undo toast). It
+   * gets a fresh id: the old one names the event Finish wrote, which the undo
+   * tombstones.
+   */
+  const resumeSession = useCallback(
+    (prev: { subjectId: string; title?: string; color?: string; start: string }) => {
+      mutate(() => ({
+        id: genId(),
+        subjectId: prev.subjectId,
+        ...(prev.title ? { title: prev.title } : {}),
+        ...(prev.color ? { color: prev.color } : {}),
+        start: prev.start,
+        updatedAt: 0,
+      }));
+    },
+    [mutate]
+  );
+
+  /**
    * Move the wall-clock start of the running session.
    *
    * Everything downstream is derived from `start` — the ticking elapsed, the
@@ -173,6 +192,7 @@ export function useActiveSession() {
     /** Focus ms, ticking every second. */
     elapsed: session ? elapsed : 0,
     startSession,
+    resumeSession,
     /** Move the session's origin, e.g. to count work that began before tracking. */
     setStartTime,
     stopSession,

@@ -5,12 +5,12 @@ import { useSyncRefresh } from '../../hooks/useServerSync';
 import { hasTodoDueToday } from '../todo/TodoRows';
 
 // No Focus Room on the phone either: the live session is started and finished
-// from the panel at the top of Stats.
+// from the session bar right above this nav.
 const navItems = [
   { path: '/', label: 'Calendar', icon: 'calendar_today' },
   { path: '/todo', label: 'Todo', icon: 'checklist' },
   { path: '/statistics', label: 'Stats', icon: 'bar_chart' },
-  { path: '/subjects', label: 'Subjects', icon: 'category' },
+  { path: '/subjects', label: 'Subjects', icon: 'layers' },
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
@@ -20,33 +20,37 @@ export function MobileNav() {
   const todoDueToday = hasTodoDueToday(todos);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-surface-container-lowest border-t border-outline-variant z-50 lg:hidden safe-area-bottom">
-      <div className="flex items-center justify-around h-16">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === '/'}
-            className={({ isActive }) =>
-              `relative flex flex-col items-center justify-center gap-1 px-1.5 py-1 transition-colors ${
-                isActive ? 'text-on-surface' : 'text-on-surface-variant'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <span className={`relative flex items-center justify-center px-4 py-1 rounded-full transition-colors ${isActive ? 'bg-secondary-container' : ''}`}>
-                  <span className="material-symbols-outlined max-lg:!text-[17px]">{item.icon}</span>
-                  {item.path === '/todo' && todoDueToday && (
-                    <span aria-label="Tasks due today" className="absolute top-0 right-2.5 w-2 h-2 rounded-full bg-error ring-1 ring-background" />
-                  )}
-                </span>
-                <span className="font-label-sm text-label-sm max-lg:!text-[8px] max-lg:leading-none max-[400px]:!text-[8px] uppercase tracking-[0.08em]">{item.label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </div>
+    <nav aria-label="Sections" className="flex-none flex bg-surface-container-lowest border-t border-outline-variant lg:hidden safe-area-bottom" style={{ paddingInline: 4 }}>
+      {navItems.map((item) => (
+        <NavLink
+          key={item.path}
+          to={item.path}
+          end={item.path === '/'}
+          className={({ isActive }) =>
+            `relative flex-1 flex flex-col items-center justify-center ${isActive ? 'text-on-surface' : 'text-on-surface-variant'}`
+          }
+          style={{ height: 56, gap: 2 }}
+        >
+          {({ isActive }) => (
+            <>
+              <span
+                className={`relative flex items-center justify-center ${isActive ? 'bg-secondary-container text-on-secondary-container' : ''}`}
+                style={{ width: 56, height: 30, borderRadius: 9.6 }}
+              >
+                <span className="material-symbols-outlined m-ic">{item.icon}</span>
+                {item.path === '/todo' && todoDueToday && (
+                  <span
+                    aria-label="Tasks due today"
+                    className="absolute rounded-full bg-error"
+                    style={{ top: 2, right: 12, width: 8, height: 8, boxShadow: '0 0 0 2px var(--color-surface-container-lowest)' }}
+                  />
+                )}
+              </span>
+              <span className="m-lbl">{item.label}</span>
+            </>
+          )}
+        </NavLink>
+      ))}
     </nav>
   );
 }

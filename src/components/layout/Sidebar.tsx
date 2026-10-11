@@ -5,6 +5,7 @@ import { useSyncRefresh } from '../../hooks/useServerSync';
 import { hasTodoDueToday } from '../todo/TodoRows';
 import { LiveSessionCard } from './LiveSessionCard';
 import { WeeklyGoalsCard } from './WeeklyGoalsCard';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 // No FOCUS ROOM: on a PC the live session is driven from the panel at the
 // bottom of this sidebar, so a tab for it would be a second place to look.
@@ -27,6 +28,8 @@ export function Sidebar() {
   const [todos, setTodos] = useState(() => todoRepo.getAll());
   useSyncRefresh(() => setTodos(todoRepo.getAll()));
   const todoDueToday = hasTodoDueToday(todos);
+  // Below lg the sidebar is hidden and the phone's session bar answers F / B.
+  const isMobile = useIsMobile();
 
   return (
     <aside className="fixed left-0 top-0 h-full w-[19rem] bg-surface-dim border-r border-outline-variant z-50 flex flex-col max-lg:hidden">
@@ -52,7 +55,7 @@ export function Sidebar() {
         ))}
         <div className="mt-auto pb-6 flex flex-col gap-3">
           <WeeklyGoalsCard />
-          <LiveSessionCard />
+          <LiveSessionCard shortcuts={!isMobile} />
           <NavLink to="/settings" className={navClass}>
             {({ isActive }) => (
               <>

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEscapeOverlay } from '../../services/overlays';
 import { FOCUS_LABELS, type FocusRating } from '../../utils/analytics';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { Sheet } from '../mobile/Sheet';
+import { formatDuration } from '../../utils/time';
 
 interface SessionRatingPromptProps {
   subjectName: string;
@@ -8,6 +11,8 @@ interface SessionRatingPromptProps {
   minutes: number;
   onRate: (rating: FocusRating, note: string) => void;
   onSkip: () => void;
+  /** Phone: "Session saved" toast with Undo above the sheet. */
+  onUndo?: () => void;
 }
 
 const OPTIONS: { rating: FocusRating; icon: string }[] = [
@@ -22,7 +27,63 @@ const OPTIONS: { rating: FocusRating; icon: string }[] = [
  * Skip / Escape leaves the session unrated. Keys 1–3 rate on a keyboard while
  * the note field is not focused.
  */
-export function SessionRatingPrompt({ subjectName, minutes, onRate, onSkip }: SessionRatingPromptProps) {
+export function SessionRatingPrompt(props: SessionRatingPromptProps) {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileSessionRatingPrompt {...props} /> : <DesktopSessionRatingPrompt {...props} />;
+}
+
+function MobileSessionRatingPrompt({ subjectName, minutes, onRate, onSkip, onUndo }: SessionRatingPromptProps) {
+  const [note, setNote] = useState('');
+  const rate = (rating: FocusRating) => onRate(rating, note.trim());
+  return (
+    <Sheet
+      label="Rate your focus"
+      onClose={onSkip}
+      z={110}
+      className="!gap-4"
+      above={
+        onUndo && (
+          <div className="m-toast animate-pop-in" role="status" style={{ top: 16 }}>
+            <span className="flex-1 m-tr">Session saved to the calendar</span>
+            <button type="button" className="m-btn" onClick={onUndo}>Undo</button>
+          </div>
+        )
+      }
+    >
+      <div className="m-shd">
+        <div className="flex flex-col min-w-0">
+          <h2 className="m-h2">How was your focus?</h2>
+          <span className="m-sm m-mut m-tr">{subjectName} · {formatDuration(minutes)}</span>
+        </div>
+        <button type="button" className="m-btn" style={{ border: 0 }} onClick={onSkip}>Skip</button>
+      </div>
+      <div className="grid grid-cols-3" style={{ gap: 8 }} role="group" aria-label="Focus quality">
+        {OPTIONS.map(({ rating, icon }) => (
+          <button
+            key={rating}
+            type="button"
+            onClick={() => rate(rating)}
+            className="flex flex-col items-center justify-center"
+            style={{ gap: 8, height: 104, border: '1px solid var(--color-outline-variant)', borderRadius: 12, background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)' }}
+          >
+            <span className="material-symbols-outlined m-ic l">{icon}</span>
+            <span className="m-lbl">{FOCUS_LABELS[rating]}</span>
+          </button>
+        ))}
+      </div>
+      <input
+        type="text"
+        className="m-in"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Note (optional), then tap a rating"
+        aria-label="Session note"
+      />
+    </Sheet>
+  );
+}
+
+function DesktopSessionRatingPrompt({ subjectName, minutes, onRate, onSkip }: SessionRatingPromptProps) {
   const [note, setNote] = useState('');
   const dialogRef = useRef<HTMLDivElement>(null);
 

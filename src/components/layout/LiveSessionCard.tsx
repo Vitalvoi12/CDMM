@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useActiveSession } from '../../hooks/useActiveSession';
-import { eventRepo, subjectRepo } from '../../services/repositories';
+import { eventRepo, subjectRepo, tombstoneRepo } from '../../services/repositories';
 import { checkpoint } from '../../services/history';
 import { subscribeSessionStart, subscribeSessionStartEdit } from '../../services/liveSession';
 import { formatTimerDuration, timeFromDate } from '../../utils/time';
@@ -10,6 +10,7 @@ import { SessionStartEditor } from '../study/SessionStartEditor';
 import { SessionFinishConfirm } from '../study/SessionFinishConfirm';
 import { SessionRatingPrompt } from '../study/SessionRatingPrompt';
 import { rateSession } from '../../services/sessionRating';
+import { SessionDock, SessionSheet } from '../mobile/SessionDock';
 
 /**
  * The live session panel pinned above Settings in the desktop sidebar, and the
@@ -22,15 +23,28 @@ import { rateSession } from '../../services/sessionRating';
  * Only the sidebar copy answers the keyboard shortcuts (`shortcuts`), so F
  * never opens two pickers at once.
  *
+ * On the phone (`variant="dock"`) the same logic drives the session bar
+ * pinned above the bottom nav: Start / Finish in the bar, a tap opens the
+ * full session sheet with slide-to-finish, and the rating sheet after Finish
+ * carries an Undo.
+ *
  * Inverse-surface so it stands out in both themes; English labels.
  */
-export function LiveSessionCard({ shortcuts = true }: { shortcuts?: boolean } = {}) {
-  const { isActive, subjectId, title, color, startTime, elapsed, startSession, setStartTime, stopSession } = useActiveSession();
+export function LiveSessionCard({ shortcuts = true, variant = 'card' }: { shortcuts?: boolean; variant?: 'card' | 'dock' } = {}) {
+  const { isActive, subjectId, title, color, startTime, elapsed, startSession, resumeSession, setStartTime, stopSession } = useActiveSession();
   const [showPicker, setShowPicker] = useState(false);
   const [showStartEditor, setShowStartEditor] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
-  // The session just saved, waiting for its focus rating.
-  const [rating, setRating] = useState<{ id: string; name: string; minutes: number } | null>(null);
+  // Phone: the expanded session sheet.
+  const [expanded, setExpanded] = useState(false);
+  // The session just saved, waiting for its focus rating. `resume` is what
+  // the phone's Undo needs to bring the session back.
+  const [rating, setRating] = useState<{
+    id: string;
+    name: string;
+    minutes: number;
+    resume: { subjectId: string; title?: string; color?: string; start: string };
+  } | null>(null);
 
   const subject = (subjectId ? subjectRepo.getById(subjectId) : undefined) ?? (title ? { name: title, color: color || DEFAULT_CUSTOM_COLOR } : undefined);
 
@@ -66,14 +80,37 @@ export function LiveSessionCard({ shortcuts = true }: { shortcuts?: boolean } = 
       kind: 'real',
       countInStats: true,
     });
+    setExpanded(false);
     setRating({
       id: event.id,
       name: subject?.name || event.title,
       minutes: Math.round((new Date(event.end).getTime() - new Date(event.start).getTime()) / 60000),
+      resume: { subjectId: event.subjectId, title: title || undefined, color: color || undefined, start: event.start },
     });
-  }, [stopSession, subject]);
+  }, [stopSession, subject, title, color]);
 
-  const card = (
+  /** Phone Undo after Finish: drop the saved event, keep the session running. */
+  const undoFinish = useCallback(() => {
+    if (!rating) return;
+    checkpoint('Undo stop session');
+    tombstoneRepo.add('events', rating.id);
+    eventRepo.delete(rating.id);
+    resumeSession(rating.resume);
+    setRating(null);
+  }, [rating, resumeSession]);
+
+  const card = variant === 'dock' ? (
+    <SessionDock
+      active={isActive}
+      name={subject?.name || 'Studying'}
+      color={subject?.color}
+      startTime={startTime}
+      elapsed={elapsed}
+      onStart={() => setShowPicker(true)}
+      onFinish={finish}
+      onExpand={() => setExpanded(true)}
+    />
+  ) : (
     <div
       key={isActive ? 'live' : 'idle'}
       className="rounded-2xl bg-surface-container-lowest text-on-surface border border-outline-variant px-5 py-4 flex flex-col gap-2 animate-fade-in"
@@ -142,6 +179,18 @@ export function LiveSessionCard({ shortcuts = true }: { shortcuts?: boolean } = 
     <>
       {card}
 
+      {expanded && isActive && (
+        <SessionSheet
+          name={subject?.name || 'Studying'}
+          color={subject?.color}
+          startTime={startTime}
+          elapsed={elapsed}
+          onEditStart={() => setShowStartEditor(true)}
+          onFinish={finish}
+          onClose={() => setExpanded(false)}
+        />
+      )}
+
       {showPicker && (
         <SubjectPickerModal
           subjects={subjectRepo.getAll()}
@@ -186,6 +235,7 @@ export function LiveSessionCard({ shortcuts = true }: { shortcuts?: boolean } = 
             setRating(null);
           }}
           onSkip={() => setRating(null)}
+          onUndo={variant === 'dock' ? undoFinish : undefined}
         />
       )}
     </>

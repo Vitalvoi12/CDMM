@@ -9,7 +9,6 @@ import { YearView } from '../components/calendar/YearView';
 import { StatsSidebar } from '../components/calendar/StatsSidebar';
 import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
 import { DayNotesPanel } from '../components/calendar/DayNotesPanel';
-import { LiveSessionCard } from '../components/layout/LiveSessionCard';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { EventForm } from '../components/calendar/EventForm';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
@@ -953,9 +952,6 @@ export function CalendarPage() {
                 totalMinutes={stats.totalMinutes}
                 goals={weekGoals}
               />
-              {/* No Focus Room on the phone: today's Stat tab is where the
-                  live session is started and finished. */}
-              {dateKey(currentDate) === dateKey(new Date()) && <LiveSessionCard shortcuts={false} />}
             </div>
           ) : dayPanel === 'notes' ? (
             <div className="flex-1 min-h-0 flex flex-col pb-40">

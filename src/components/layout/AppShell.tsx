@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
+import { LiveSessionCard } from './LiveSessionCard';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { NotificationPrompt } from './NotificationPrompt';
 import { requestSessionStart, requestSessionStartEdit } from '../../services/liveSession';
 import { settingsRepo } from '../../services/repositories';
@@ -11,6 +13,7 @@ import { startEventNotifications } from '../../services/notifications';
 export function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const isMobile = useIsMobile();
 
   // Event reminders run while the app is open in any tab or as the PWA.
   useEffect(() => {
@@ -53,10 +56,13 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [navigate]);
 
+  // Phone: the shell is pinned to the viewport with insets rather than sized
+  // with dvh — under the 0.8 body zoom 100dvh would fill only 80% of the
+  // screen. The session bar and the nav sit in the column under the page.
   return (
-    <div className="h-dvh bg-background flex flex-col overflow-hidden">
+    <div className="h-dvh max-lg:h-auto max-lg:fixed max-lg:inset-0 bg-background flex flex-col overflow-hidden">
       <Sidebar />
-      <div className="pl-[19rem] max-lg:pl-0 max-lg:pb-16 flex flex-col flex-1 min-h-0">
+      <div className="pl-[19rem] max-lg:pl-0 flex flex-col flex-1 min-h-0">
         <main className="px-10 max-lg:px-4 py-8 max-lg:py-4 flex-1 flex flex-col min-h-0 overflow-y-auto max-lg:overflow-hidden">
           {/* Keyed by route so every page switch replays the enter animation. */}
           <div key={pathname} className="animate-view-enter flex flex-col flex-1 min-h-0">
@@ -64,6 +70,7 @@ export function AppShell() {
           </div>
         </main>
       </div>
+      {isMobile && <LiveSessionCard variant="dock" shortcuts />}
       <MobileNav />
       <NotificationPrompt />
     </div>
