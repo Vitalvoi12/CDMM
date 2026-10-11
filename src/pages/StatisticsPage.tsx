@@ -11,6 +11,8 @@ import { TaskStatsPanel } from '../components/stats/TaskStatsPanel';
 import { PlanStabilityPanel } from '../components/stats/PlanStabilityPanel';
 import { GoalsPanel } from '../components/stats/GoalsPanel';
 import { FocusQualityPanel } from '../components/stats/FocusQualityPanel';
+import { Statistics } from '../components/mobile/Statistics';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 /**
  * One screen, one period. The header picks the range and every block below
@@ -44,6 +46,44 @@ export function StatisticsPage() {
     goals,
     focus,
   } = useStatisticsPeriod();
+  const isMobile = useIsMobile();
+
+  const panels = {
+    subjects: (
+      <SubjectBreakdown
+        rows={subjectRows}
+        metric={metric}
+        onMetricChange={setMetric}
+        totalMinutes={totalMinutes}
+        totalSessions={totalSessions}
+        periodLabel={period.label}
+      />
+    ),
+    goals: <GoalsPanel goals={goals} days={period.days} />,
+    rhythm: <TimeHeatmap rhythm={rhythm} periodLabel={period.label} />,
+    focus: <FocusQualityPanel stats={focus} periodLabel={period.label} />,
+    streak: <ConsistencyPanel stats={consistency} days={days} periodLabel={period.label} />,
+    tasks: <TaskStatsPanel stats={tasks} periodLabel={period.label} />,
+    plan: <PlanStabilityPanel stats={stability} subjectMap={subjectMap} periodLabel={period.label} />,
+  };
+
+  if (isMobile) {
+    return (
+      <Statistics
+        summary={
+          totalMinutes > 0
+            ? `${formatDurationLong(totalMinutes)} of focus · ${totalSessions} session${totalSessions === 1 ? '' : 's'} · ${period.label}`
+            : period.label
+        }
+        preset={preset}
+        onPreset={setPreset}
+        customFrom={customFrom}
+        customTo={customTo}
+        onCustom={setCustom}
+        panels={panels}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-hidden">
@@ -75,26 +115,13 @@ export function StatisticsPage() {
           onCustomChange={setCustom}
         />
       </div>
-      <SubjectBreakdown
-        rows={subjectRows}
-        metric={metric}
-        onMetricChange={setMetric}
-        totalMinutes={totalMinutes}
-        totalSessions={totalSessions}
-        periodLabel={period.label}
-      />
-
-      <GoalsPanel goals={goals} days={period.days} />
-
-      <TimeHeatmap rhythm={rhythm} periodLabel={period.label} />
-
-      <FocusQualityPanel stats={focus} periodLabel={period.label} />
-
-      <ConsistencyPanel stats={consistency} days={days} periodLabel={period.label} />
-
-      <TaskStatsPanel stats={tasks} periodLabel={period.label} />
-
-      <PlanStabilityPanel stats={stability} subjectMap={subjectMap} periodLabel={period.label} />
+      {panels.subjects}
+      {panels.goals}
+      {panels.rhythm}
+      {panels.focus}
+      {panels.streak}
+      {panels.tasks}
+      {panels.plan}
       </div>
     </div>
   );

@@ -18,11 +18,11 @@ interface SectionProps {
 export function Section({ title, aside, children, delay = 0, still = false }: SectionProps) {
   return (
     <section
-      className={`mb-12 ${still ? '' : 'animate-fade-up'}`}
+      className={`mb-12 max-lg:mb-[26px] ${still ? '' : 'animate-fade-up'}`}
       style={still ? undefined : { animationDelay: `${delay}ms` }}
     >
-      <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
-        <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">
+      <div className="flex justify-between items-end mb-6 max-lg:mb-3 flex-wrap gap-3">
+        <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest max-lg:m-lbl max-lg:m-mut">
           {title}
         </h2>
         {aside}
