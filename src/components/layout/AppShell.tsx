@@ -11,7 +11,7 @@ import { hasOpenOverlay } from '../../services/overlays';
 import { startEventNotifications } from '../../services/notifications';
 
 /** Routes whose phone layout comes from the mobile redesign. */
-const FULL_BLEED = new Set(['/', '/todo', '/subjects', '/statistics']);
+const FULL_BLEED = new Set(['/', '/todo', '/subjects', '/statistics', '/settings']);
 
 export function AppShell() {
   const navigate = useNavigate();

@@ -7,6 +7,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { SettingsNav } from '../components/settings/SettingsNav';
 import type { ThemeMode } from '../types';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { ensurePushSubscription, notificationPermission, pushEndpoint, requestNotificationPermission, sendTestPush, showNotification, type NotifyPermission } from '../services/notifications';
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
@@ -19,6 +20,7 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onLogout }: SettingsPageProps) {
+  const isMobile = useIsMobile();
   const springRef = useOverscrollSpring<HTMLDivElement>();
   const [searchParams] = useSearchParams();
   const [activeSection, setActiveSection] = useState(
@@ -79,6 +81,126 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
       }
     })();
   }, []);
+
+  // Phone: every section in one grouped list instead of a section menu.
+  if (isMobile) {
+    const reminderStatus =
+      permission === 'granted'
+        ? pushOn
+          ? 'Push is on for this device.'
+          : 'Allowed, but push is unavailable here: reminders show only while CDMM is open.'
+        : permission === 'denied'
+          ? 'Blocked. Allow notifications for this site in the browser settings.'
+          : permission === 'unsupported'
+            ? 'This browser does not support notifications.'
+            : 'Off. Turn on to get reminders even when CDMM is closed.';
+    const remindersOn = permission === 'granted';
+    const row = 'm-li w-full text-left !bg-transparent border-0 border-b border-outline-variant last:border-b-0';
+    const group = 'flex flex-col overflow-hidden';
+    const groupStyle = { border: '1px solid var(--color-outline-variant)', borderRadius: 12, background: 'var(--color-surface-container-lowest)' };
+    return (
+      <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
+        <header className="m-hdr" style={{ paddingLeft: 16 }}>
+          <h1 className="m-h1 flex-1">Settings</h1>
+        </header>
+        <div ref={springRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col" style={{ padding: '8px 16px 16px', gap: 18 }}>
+          <section className="flex flex-col" style={{ gap: 8 }}>
+            <span className="m-lbl m-mut" id="m-set-theme">Theme</span>
+            <div className="m-seg" role="radiogroup" aria-labelledby="m-set-theme">
+              {THEME_OPTIONS.map((o) => (
+                <button key={o.value} type="button" role="radio" aria-checked={theme === o.value} className={theme === o.value ? 'on' : ''} onClick={() => setTheme(o.value)}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="flex flex-col" style={{ gap: 8 }}>
+            <span className="m-lbl m-mut">Synchronization</span>
+            <div className={group} style={groupStyle}>
+              <div className={row}>
+                <span className="material-symbols-outlined m-ic s m-mut">person</span>
+                <div className="flex flex-col flex-1 min-w-0" style={{ padding: '8px 0' }}>
+                  <span className="m-tr">{getUsername() ?? '—'}</span>
+                  <span className="m-sm m-mut">Your data syncs across devices under this account.</span>
+                </div>
+              </div>
+              <button type="button" className={row} onClick={handleSync} disabled={syncing}>
+                <span className={`material-symbols-outlined m-ic s m-mut ${syncing ? 'animate-spin' : ''}`}>sync</span>
+                <div className="flex flex-col flex-1 min-w-0" style={{ padding: '8px 0' }}>
+                  <span>{syncing ? 'Syncing…' : 'Sync now'}</span>
+                  {syncError ? (
+                    <span role="alert" className="m-sm" style={{ color: 'var(--color-error)' }}>{syncError}</span>
+                  ) : syncMessage ? (
+                    <span className="m-sm" style={{ color: 'var(--color-now)' }}>{syncMessage}</span>
+                  ) : (
+                    <span className="m-sm m-mut">Push and pull all local changes right now.</span>
+                  )}
+                </div>
+                <span className="material-symbols-outlined m-ic s m-mut">chevron_right</span>
+              </button>
+            </div>
+          </section>
+
+          <section className="flex flex-col" style={{ gap: 8 }}>
+            <span className="m-lbl m-mut">Notifications</span>
+            <div className={group} style={groupStyle}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={remindersOn}
+                className={row}
+                disabled={permission !== 'default'}
+                onClick={() => void requestNotificationPermission().then(setPermission)}
+              >
+                <span className="material-symbols-outlined m-ic s m-mut">notifications</span>
+                <div className="flex flex-col flex-1 min-w-0" style={{ padding: '8px 0' }}>
+                  <span>Event reminders</span>
+                  <span className="m-sm m-mut">{reminderStatus}</span>
+                </div>
+                <span
+                  className="material-symbols-outlined flex-none"
+                  style={{ fontSize: 40, width: 40, height: 40, lineHeight: 1, color: remindersOn ? 'var(--color-primary)' : 'var(--color-outline)' }}
+                  aria-hidden="true"
+                >
+                  {remindersOn ? 'toggle_on' : 'toggle_off'}
+                </span>
+              </button>
+              {remindersOn && (
+                <button type="button" className={row} onClick={() => void handleTestNotification()}>
+                  <span className="material-symbols-outlined m-ic s m-mut">send</span>
+                  <div className="flex flex-col flex-1 min-w-0" style={{ padding: '8px 0' }}>
+                    <span>Send a test reminder</span>
+                    {testMessage && <span className="m-sm m-mut">{testMessage}</span>}
+                  </div>
+                  <span className="material-symbols-outlined m-ic s m-mut">chevron_right</span>
+                </button>
+              )}
+            </div>
+            <span className="m-sm m-mut">
+              Pick a reminder per event in the event editor, or per task in the task editor.
+            </span>
+          </section>
+
+          <section className="flex flex-col" style={{ gap: 8 }}>
+            <span className="m-lbl m-mut">Study preferences</span>
+            <div className={group} style={groupStyle}>
+              <div className={row} aria-disabled="true">
+                <span className="material-symbols-outlined m-ic s m-mut">tune</span>
+                <span className="flex-1">Study preferences</span>
+                <span className="m-sm m-mut">Coming soon</span>
+              </div>
+            </div>
+          </section>
+
+          <button type="button" className="m-btn err wide" style={{ marginTop: 'auto' }} onClick={handleLogout}>
+            <span className="material-symbols-outlined m-ic s">logout</span>
+            Logout
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full h-full relative overflow-anchor-none flex-1 min-h-0 overflow-hidden lg:flex-none lg:h-[calc(100dvh-4rem)]">
