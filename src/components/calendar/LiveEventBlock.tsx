@@ -54,7 +54,7 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject,
   if (height <= 1) return null;
 
   const colorBar = subject?.color || 'var(--color-on-surface-variant)';
-  const shellRadius = `${Math.max(2, Math.min(isMobile ? 5 : 7, height / 6))}px`;
+  const shellRadius = `${Math.max(3, Math.min(isMobile ? 8 : 10, height / 4))}px`;
   // Laid out exactly like a saved event so the running block does not jump to
   // a different position the moment it is turned into a real event.
   const layout = eventLayout(height, isMobile);

@@ -50,7 +50,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
 
   // Height-adaptive corners: short/compressed boxes get visibly smaller radii,
   // while taller boxes can keep the reference radius. Mobile caps lower.
-  const shellRadiusPx = `${Math.max(2, Math.min(isMobile ? 4 : 7, boxHeight / 6))}px`;
+  const shellRadiusPx = `${Math.max(3, Math.min(isMobile ? 8 : 10, boxHeight / 4))}px`;
   const spineStyle: React.CSSProperties = {
     backgroundColor: spineColor,
     borderTopLeftRadius: shellRadiusPx,
