@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getToken } from '../services/auth';
+import { getCursor, getToken } from '../services/auth';
 import { initialSync, syncOnce } from '../services/serverSync';
 import { subscribeSync } from '../services/serverSync';
 
@@ -38,6 +38,10 @@ export function useServerSync() {
       setReady(true);
       return;
     }
+    // A device that has synced before already holds its data locally: open at
+    // once and let the sync catch up, so a slow or missing connection never
+    // keeps the app on the loading screen.
+    if (getCursor() > 0) setReady(true);
     void (async () => {
       try {
         await initialSync();

@@ -5,6 +5,12 @@ export interface Subject {
   icon?: string;
   modules?: number;
   progress?: number;
+  /**
+   * Weekly study goal in minutes ("Linear Algebra — 6 h/week"). Progress is
+   * real focus time in the Monday–Sunday week. Absent = no goal; null is sent
+   * to the server to clear it.
+   */
+  weeklyGoalMinutes?: number | null;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;
 }
@@ -71,6 +77,17 @@ export interface CalendarEvent {
    * reads it: statistics and sync are unaffected.
    */
   createdAt?: string;
+  /**
+   * Focus quality of a finished session, rated right after Finish:
+   * 1 = scattered, 2 = okay, 3 = deep. Real events only. Absent = not rated;
+   * null is sent to the server to clear it.
+   */
+  focus?: 1 | 2 | 3 | null;
+  /**
+   * Checklist or todo task this planned block was dragged from. Lets the
+   * checklist show when the task is scheduled. Absent = not from a task.
+   */
+  taskId?: string;
   /** Last local modification, ms epoch. Used for last-write-wins sync. */
   updatedAt: number;
 }
@@ -257,6 +274,11 @@ export interface DayTask {
   done: boolean;
   /** Subject it is grouped under, or '' for none. */
   subjectId: string;
+  /**
+   * Rough time the task takes, in minutes. Absent = not estimated. Becomes the
+   * length of the planned block when the task is dragged onto the timeline.
+   */
+  estMinutes?: number;
 }
 
 /**

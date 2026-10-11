@@ -641,3 +641,134 @@ export function calculatePlanStability(
     trackedSince,
   };
 }
+
+// ---- focus quality ----
+
+export type FocusRating = 1 | 2 | 3;
+
+export const FOCUS_LABELS: Record<FocusRating, string> = {
+  1: 'Scattered',
+  2: 'Okay',
+  3: 'Deep',
+};
+
+export interface FocusGroup {
+  label: string;
+  /** Rated sessions in the group. */
+  count: number;
+  /** Mean rating 1-3, or null when the group has no rated session. */
+  average: number | null;
+}
+
+export interface FocusQuality {
+  /** Real, counted sessions that started in the period. */
+  sessions: number;
+  rated: number;
+  average: number | null;
+  /** How many sessions got each rating. */
+  distribution: Record<FocusRating, number>;
+  byTimeOfDay: FocusGroup[];
+  byWeekday: FocusGroup[];
+  byLength: FocusGroup[];
+  /**
+   * The best-rated group across all three splits, or null while too few
+   * sessions are rated to say anything (each candidate needs MIN_FOCUS_SAMPLE).
+   */
+  best: { dimension: 'time' | 'weekday' | 'length'; group: FocusGroup } | null;
+}
+
+/** A group needs this many rated sessions before it can be called "best". */
+export const MIN_FOCUS_SAMPLE = 3;
+
+const TIME_OF_DAY: { label: string; from: number; to: number }[] = [
+  { label: 'Early', from: 5, to: 9 },
+  { label: 'Morning', from: 9, to: 12 },
+  { label: 'Afternoon', from: 12, to: 17 },
+  { label: 'Evening', from: 17, to: 21 },
+  { label: 'Night', from: 21, to: 29 },
+];
+
+const LENGTHS: { label: string; max: number }[] = [
+  { label: '< 30m', max: 30 },
+  { label: '30–60m', max: 60 },
+  { label: '1–1.5h', max: 90 },
+  { label: '1.5h+', max: Infinity },
+];
+
+/**
+ * When the user actually works best: the focus ratings given after Finish,
+ * averaged by the hour the session started, its weekday and its length.
+ * A session belongs to the day and hour it started in — a rating describes the
+ * whole sitting, so it is not sliced at midnight like focus minutes are.
+ */
+export function calculateFocusQuality(events: CalendarEvent[], from: Date, to: Date): FocusQuality {
+  const fromMs = startOfDay(from).getTime();
+  const toMs = endOfDay(to).getTime();
+  const tod = TIME_OF_DAY.map(() => ({ sum: 0, count: 0 }));
+  const wd = WEEKDAY_LABELS.map(() => ({ sum: 0, count: 0 }));
+  const len = LENGTHS.map(() => ({ sum: 0, count: 0 }));
+  const distribution: Record<FocusRating, number> = { 1: 0, 2: 0, 3: 0 };
+  let sessions = 0;
+  let rated = 0;
+  let sum = 0;
+
+  for (const e of events) {
+    if (!countsTowardStats(e)) continue;
+    const s = new Date(e.start).getTime();
+    const en = new Date(e.end).getTime();
+    if (!Number.isFinite(s) || !Number.isFinite(en) || s < fromMs || s > toMs) continue;
+    sessions++;
+    const r = e.focus;
+    if (r !== 1 && r !== 2 && r !== 3) continue;
+    rated++;
+    sum += r;
+    distribution[r]++;
+    const at = new Date(s);
+    // Hours after midnight belong to the night that started the evening before.
+    const hour = at.getHours() < 5 ? at.getHours() + 24 : at.getHours();
+    const t = TIME_OF_DAY.findIndex((b) => hour >= b.from && hour < b.to);
+    if (t !== -1) {
+      tod[t].sum += r;
+      tod[t].count++;
+    }
+    const w = (at.getDay() + 6) % 7;
+    wd[w].sum += r;
+    wd[w].count++;
+    const minutes = (en - s) / 60000;
+    const l = LENGTHS.findIndex((b) => minutes < b.max);
+    len[l].sum += r;
+    len[l].count++;
+  }
+
+  const groups = (acc: { sum: number; count: number }[], labels: string[]): FocusGroup[] =>
+    acc.map((a, i) => ({ label: labels[i], count: a.count, average: a.count > 0 ? a.sum / a.count : null }));
+
+  const byTimeOfDay = groups(tod, TIME_OF_DAY.map((b) => b.label));
+  const byWeekday = groups(wd, WEEKDAY_LABELS);
+  const byLength = groups(len, LENGTHS.map((b) => b.label));
+
+  let best: FocusQuality['best'] = null;
+  const consider = (dimension: 'time' | 'weekday' | 'length', list: FocusGroup[]) => {
+    for (const g of list) {
+      if (g.count < MIN_FOCUS_SAMPLE || g.average === null) continue;
+      const cur = best?.group;
+      if (!cur || g.average > (cur.average ?? 0) || (g.average === cur.average && g.count > cur.count)) {
+        best = { dimension, group: g };
+      }
+    }
+  };
+  consider('time', byTimeOfDay);
+  consider('weekday', byWeekday);
+  consider('length', byLength);
+
+  return {
+    sessions,
+    rated,
+    average: rated > 0 ? sum / rated : null,
+    distribution,
+    byTimeOfDay,
+    byWeekday,
+    byLength,
+    best,
+  };
+}

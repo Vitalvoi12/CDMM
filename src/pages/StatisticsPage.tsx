@@ -9,6 +9,8 @@ import { TimeHeatmap } from '../components/stats/TimeHeatmap';
 import { ConsistencyPanel } from '../components/stats/ConsistencyPanel';
 import { TaskStatsPanel } from '../components/stats/TaskStatsPanel';
 import { PlanStabilityPanel } from '../components/stats/PlanStabilityPanel';
+import { GoalsPanel } from '../components/stats/GoalsPanel';
+import { FocusQualityPanel } from '../components/stats/FocusQualityPanel';
 
 /**
  * One screen, one period. The header picks the range and every block below
@@ -39,6 +41,8 @@ export function StatisticsPage() {
     consistency,
     tasks,
     stability,
+    goals,
+    focus,
   } = useStatisticsPeriod();
 
   return (
@@ -80,7 +84,11 @@ export function StatisticsPage() {
         periodLabel={period.label}
       />
 
+      <GoalsPanel goals={goals} days={period.days} />
+
       <TimeHeatmap rhythm={rhythm} periodLabel={period.label} />
+
+      <FocusQualityPanel stats={focus} periodLabel={period.label} />
 
       <ConsistencyPanel stats={consistency} days={days} periodLabel={period.label} />
 

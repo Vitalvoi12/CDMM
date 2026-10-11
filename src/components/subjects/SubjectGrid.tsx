@@ -1,3 +1,4 @@
+import { formatGoal } from '../../utils/goals';
 import type { Subject } from '../../types';
 
 interface SubjectGridProps {
@@ -33,6 +34,7 @@ export function SubjectGrid({ subjects, onEdit }: SubjectGridProps) {
                 <p className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant mt-1 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[11px] max-lg:text-[8px]">{subject.icon || 'school'}</span>
                   {subject.modules ?? 0} modules
+                  {subject.weeklyGoalMinutes ? ` · ${formatGoal(subject.weeklyGoalMinutes)}/week goal` : ''}
                 </p>
               </div>
             </div>

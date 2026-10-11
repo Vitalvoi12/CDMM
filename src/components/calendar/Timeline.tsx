@@ -12,6 +12,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { useDragToCreate, type DragCreateDraft } from '../../hooks/useDragToCreate';
+import { draggedTask, endTaskDrag, type TaskDragPayload } from '../../services/taskDrag';
 
 interface TimelineProps {
   events: CalendarEvent[];
@@ -32,6 +33,8 @@ interface TimelineProps {
   /** Mobile swipe navigation (wired by the parent only on mobile). */
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
+  /** A Checklist task dropped on the grid: becomes a planned block at `start`. */
+  onTaskDrop?: (task: TaskDragPayload, start: Date, end: Date) => void;
 }
 
 const START_HOUR = 0;
@@ -80,7 +83,7 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight }: TimelineProps) {
+export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight, onTaskDrop }: TimelineProps) {
   const isMobile = useIsMobile();
   const TOTAL_HOURS = END_HOUR - START_HOUR;
   // Single-column mode ('real' or 'plan'): the day is not split — one
@@ -471,6 +474,64 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     [date, MINUTES_PER_PIXEL, onBackgroundClick]
   );
 
+  // Ghost of a Checklist task hovering over the grid, in minutes from the top.
+  const [taskDrop, setTaskDrop] = useState<{ startMin: number; minutes: number } | null>(null);
+
+  /**
+   * Drop target for Checklist tasks. Both columns accept the drop — a task
+   * always becomes a planned block, so the ghost is painted where plans live —
+   * and the block starts where the pointer is, snapped like every other edit.
+   */
+  const makeColumnDropHandlers = (enabled: boolean) => {
+    if (!enabled || !onTaskDrop) return {};
+    const slotOf = (e: React.DragEvent, task: TaskDragPayload) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const minutes = snapToGrid(Math.round(((e.clientY - rect.top) / bodyZoom()) * MINUTES_PER_PIXEL));
+      const length = Math.max(SNAP, Math.min(task.minutes, TOTAL_HOURS * 60));
+      return { startMin: Math.max(0, Math.min(minutes, TOTAL_HOURS * 60 - length)), minutes: length };
+    };
+    return {
+      onDragOver: (e: React.DragEvent) => {
+        const task = draggedTask(e);
+        if (!task) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        const slot = slotOf(e, task);
+        setTaskDrop((cur) => (cur && cur.startMin === slot.startMin && cur.minutes === slot.minutes ? cur : slot));
+      },
+      onDragLeave: (e: React.DragEvent) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setTaskDrop(null);
+      },
+      onDrop: (e: React.DragEvent) => {
+        const task = draggedTask(e);
+        setTaskDrop(null);
+        if (!task) return;
+        e.preventDefault();
+        const { startMin, minutes } = slotOf(e, task);
+        const at = (m: number) => {
+          const d = new Date(date);
+          d.setHours(START_HOUR + Math.floor(m / 60), m % 60, 0, 0);
+          return d;
+        };
+        endTaskDrag();
+        onTaskDrop(task, at(startMin), at(startMin + minutes));
+      },
+    };
+  };
+
+  const renderTaskDrop = () =>
+    taskDrop && (
+      <DraftEventBlock
+        top={(taskDrop.startMin / 60) * HOUR_HEIGHT}
+        height={(taskDrop.minutes / 60) * HOUR_HEIGHT}
+        startMinutes={START_HOUR * 60 + taskDrop.startMin}
+        endMinutes={START_HOUR * 60 + taskDrop.startMin + taskDrop.minutes}
+        isMobile={isMobile}
+        className="right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)]"
+      />
+    );
+
   const renderDraft = (kind: 'real' | 'plan') => {
     const d = dragCreate.draft;
     if (!d || d.kind !== kind) return null;
@@ -589,9 +650,10 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           {/* Single-kind mode: one full-width column, no split. The live
               session block is real — hidden in plan-only mode. */}
           {single ? (
-            <div className="absolute left-0 right-0 top-0 bottom-0 overflow-hidden" onClick={makeColumnTapHandler(singleKind)} onMouseDown={(e) => dragCreate.onMouseDown(singleKind, singleKind, e)}>
+            <div className="absolute left-0 right-0 top-0 bottom-0 overflow-hidden" onClick={makeColumnTapHandler(singleKind)} onMouseDown={(e) => dragCreate.onMouseDown(singleKind, singleKind, e)} {...makeColumnDropHandlers(!isMobile)}>
               {renderEventBlocks(singleKind === 'real' ? realBlocks : planBlocks)}
               {renderDraft(singleKind)}
+              {renderTaskDrop()}
               {isToday(date) && activeSession && singleKind === 'real' && (
                 <LiveEventBlock
                   start={activeSession.start}
@@ -606,7 +668,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           ) : (
             <>
               {/* Left column: real events */}
-              <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('real')} onMouseDown={(e) => dragCreate.onMouseDown('real', 'real', e)}>
+              <div className="absolute left-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('real')} onMouseDown={(e) => dragCreate.onMouseDown('real', 'real', e)} {...makeColumnDropHandlers(!isMobile)}>
                 {renderEventBlocks(realBlocks)}
                 {renderDraft('real')}
                 {isToday(date) && activeSession && (
@@ -625,9 +687,10 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
               <div className="absolute left-1/2 top-0 bottom-0 w-px bg-outline-variant" />
 
               {/* Right column: plan events */}
-              <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('plan')} onMouseDown={(e) => dragCreate.onMouseDown('plan', 'plan', e)}>
+              <div className="absolute right-0 top-0 bottom-0 w-1/2 overflow-hidden" onClick={makeColumnTapHandler('plan')} onMouseDown={(e) => dragCreate.onMouseDown('plan', 'plan', e)} {...makeColumnDropHandlers(!isMobile)}>
                 {renderEventBlocks(planBlocks)}
                 {renderDraft('plan')}
+                {renderTaskDrop()}
               </div>
             </>
           )}

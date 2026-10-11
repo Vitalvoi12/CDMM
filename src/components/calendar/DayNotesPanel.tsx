@@ -12,6 +12,9 @@ interface DayNotesPanelProps {
   /** Calendar day the note belongs to. Remount (key) per day. */
   date: Date;
   dateKey: string;
+  /** Focus the editor (cursor at the end) once it is ready, then report back. */
+  autoFocus?: boolean;
+  onAutoFocused?: () => void;
 }
 
 /** Idle time after the last keystroke before the note is written to the repo. */
@@ -42,7 +45,7 @@ const BUTTONS: ToolbarButton[] = [
  * syncs as plain text) and autosaved shortly after typing stops, and again when
  * the panel goes away (day change, tab switch) so no keystroke is lost.
  */
-export function DayNotesPanel({ date, dateKey }: DayNotesPanelProps) {
+export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused }: DayNotesPanelProps) {
   // Markdown last seen in the repo for this day; the editor's own saves update
   // it, so only genuinely remote changes differ from it.
   const [initial] = useState(() => dayNoteRepo.getContent(dateKey));
@@ -97,6 +100,13 @@ export function DayNotesPanel({ date, dateKey }: DayNotesPanelProps) {
       editor.commands.setContent(stored, { contentType: 'markdown' });
     });
   }, [editor, dateKey]);
+
+  // I shortcut: start editing. Also covers a panel that mounts with the request.
+  useEffect(() => {
+    if (!editor || !autoFocus) return;
+    editor.commands.focus('end');
+    onAutoFocused?.();
+  }, [editor, autoFocus, onAutoFocused]);
 
   // Save on the way out; the editor's `onUpdate` timer would otherwise be lost.
   useEffect(() => flush, [flush]);

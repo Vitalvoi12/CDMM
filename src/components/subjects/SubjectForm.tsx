@@ -5,7 +5,8 @@ import { useEscapeOverlay } from '../../services/overlays';
 
 interface SubjectFormProps {
   subject: Subject | null;
-  onSave: (data: { name: string; color: string }) => void;
+  /** `weeklyGoalMinutes` is null when the goal was left empty (clears it). */
+  onSave: (data: { name: string; color: string; weeklyGoalMinutes: number | null }) => void;
   onCancel: () => void;
   onDelete?: (id: string) => void;
 }
@@ -13,11 +14,17 @@ interface SubjectFormProps {
 export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectFormProps) {
   const [name, setName] = useState(subject?.name || '');
   const [color, setColor] = useState(subject?.color || COLORS[0].value);
+  // Hours per week as typed; '' = no goal.
+  const [goalHours, setGoalHours] = useState(() =>
+    subject?.weeklyGoalMinutes ? String(Math.round((subject.weeklyGoalMinutes / 60) * 100) / 100) : ''
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim()) {
-      onSave({ name: name.trim(), color });
+      const hours = Number(goalHours.replace(',', '.'));
+      const weeklyGoalMinutes = Number.isFinite(hours) && hours > 0 ? Math.round(hours * 60) : null;
+      onSave({ name: name.trim(), color, weeklyGoalMinutes });
     }
   };
 
@@ -55,6 +62,26 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
               className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:py-2 max-lg:px-3 font-body-md text-body-md max-lg:!text-[10px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
               autoFocus
             />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="subject-goal" className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
+              Weekly goal
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                id="subject-goal"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={168}
+                step={0.5}
+                value={goalHours}
+                onChange={(e) => setGoalHours(e.target.value)}
+                placeholder="No goal"
+                className="w-28 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:py-2 max-lg:px-3 font-body-md text-body-md max-lg:!text-[10px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 tabular-nums"
+              />
+              <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface-variant">hours / week</span>
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <label className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">

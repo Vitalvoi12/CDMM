@@ -2,14 +2,17 @@ import type { Subject } from '../../types';
 import { formatDuration } from '../../utils/time';
 import { calculateSubjectStats } from '../../utils/stats';
 import type { CalendarEvent } from '../../types';
+import { formatGoal, type GoalProgress } from '../../utils/goals';
 
 interface StatsSidebarProps {
   events: CalendarEvent[];
   subjects: Subject[];
   totalMinutes: number;
+  /** Weekly goal progress for the week of the displayed day (empty = no goals set). */
+  goals?: GoalProgress[];
 }
 
-export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarProps) {
+export function StatsSidebar({ events, subjects, totalMinutes, goals = [] }: StatsSidebarProps) {
   const subjectMap: Record<string, Subject> = {};
   subjects.forEach((s) => (subjectMap[s.id] = s));
 
@@ -63,6 +66,49 @@ export function StatsSidebar({ events, subjects, totalMinutes }: StatsSidebarPro
         </div>
 
         <hr className="border-t border-outline-variant" />
+
+        {/* Weekly goals: real time this week against each subject's goal */}
+        {goals.length > 0 && (
+          <>
+            <div>
+              <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em] mb-4 max-lg:mb-2">
+                Weekly goals
+              </h2>
+              <ul className="flex flex-col gap-4 max-lg:gap-2">
+                {goals.map((g) => (
+                  <li key={g.subjectId}>
+                    <div className="flex justify-between items-baseline mb-1.5 max-lg:mb-1">
+                      <span className="font-body-md text-body-md max-lg:!text-[10px] max-lg:leading-none text-on-surface flex items-center gap-2 min-w-0">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: g.color }} />
+                        <span className="truncate">{g.name}</span>
+                      </span>
+                      <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0">
+                        {formatDuration(g.minutes)} / {formatGoal(g.goalMinutes)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1 bg-surface-container-high rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 ease-out"
+                          style={{ width: `${Math.min(100, g.percent)}%`, backgroundColor: g.color }}
+                        />
+                      </div>
+                      <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tabular-nums w-10 text-right flex-shrink-0">
+                        {g.percent >= 100 ? (
+                          <span className="material-symbols-outlined text-[14px] max-lg:text-[10px] leading-none align-middle" aria-label="Goal reached">check</span>
+                        ) : (
+                          `${Math.round(g.percent)}%`
+                        )}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <hr className="border-t border-outline-variant" />
+          </>
+        )}
 
         {/* Plan vs real for the displayed day */}
         {planStats.length > 0 && (

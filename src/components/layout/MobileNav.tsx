@@ -4,9 +4,10 @@ import { todoRepo } from '../../services/repositories';
 import { useSyncRefresh } from '../../hooks/useServerSync';
 import { hasTodoDueToday } from '../todo/TodoRows';
 
+// No Focus Room on the phone either: the live session is started and finished
+// from the panel at the top of Stats.
 const navItems = [
   { path: '/', label: 'Calendar', icon: 'calendar_today' },
-  { path: '/study', label: 'Focus Room', icon: 'menu_book' },
   { path: '/todo', label: 'Todo', icon: 'checklist' },
   { path: '/statistics', label: 'Stats', icon: 'bar_chart' },
   { path: '/subjects', label: 'Subjects', icon: 'category' },

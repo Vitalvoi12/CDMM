@@ -6,6 +6,7 @@ import {
   buildFocusBuckets,
   buildRhythm,
   calculateConsistency,
+  calculateFocusQuality,
   calculatePlanStability,
   calculateTaskStats,
   resolvePeriod,
@@ -14,6 +15,7 @@ import {
   type PeriodPreset,
 } from '../utils/analytics';
 import { addDays, endOfDay, startOfDay } from '../utils/time';
+import { goalProgress } from '../utils/goals';
 import type { Subject } from '../types';
 
 export type SubjectMetric = 'time' | 'share';
@@ -177,6 +179,23 @@ export function useStatisticsPeriod() {
     [period]
   );
 
+  // Weekly goals stretched to the period: a 6h/week goal asks 12h of 14 days.
+  const goals = useMemo(
+    () =>
+      goalProgress(
+        eventRepo.getAll(),
+        subjects,
+        period.from.getTime(),
+        endOfDay(period.to).getTime() + 1,
+        period.days / 7
+      ),
+    [subjects, period]
+  );
+  const focus = useMemo(
+    () => calculateFocusQuality(eventRepo.getAll(), period.from, period.to),
+    [period]
+  );
+
   const setCustom = useCallback((from: string, to: string) => {
     setCustomFrom(from);
     setCustomTo(to);
@@ -203,5 +222,7 @@ export function useStatisticsPeriod() {
     consistency,
     tasks,
     stability,
+    goals,
+    focus,
   };
 }

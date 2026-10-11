@@ -1,10 +1,13 @@
-import { useCallback, useMemo, useState, type RefObject } from 'react';
+import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
-import { isSameDay } from '../../utils/time';
+import { formatDuration, isSameDay } from '../../utils/time';
 import { isOverdue } from '../todo/TodoRows';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { beginTaskDrag, endTaskDrag, DEFAULT_TASK_MINUTES } from '../../services/taskDrag';
+import { EST_PRESETS, stepEstimate } from '../../utils/estimate';
+import { ChecklistTaskDialog } from './ChecklistTaskDialog';
 
 interface SubjectTasksPanelProps {
   /** The calendar day being shown — the panel lists that day's checklist. */
@@ -13,7 +16,9 @@ interface SubjectTasksPanelProps {
   tasks: DayTask[];
   subjects: Subject[];
   onToggleTask: (id: string, done: boolean) => void;
-  onAddTask: (text: string, subjectId: string) => void;
+  onAddTask: (text: string, subjectId: string, estMinutes?: number) => void;
+  /** Rename / re-subject / re-estimate a task; `estMinutes: undefined` clears it. */
+  onEditTask?: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
   onDeleteTask: (id: string) => void;
   /**
    * Whether the new-task form is open — inline on desktop, a window on the
@@ -26,6 +31,30 @@ interface SubjectTasksPanelProps {
   /** All todo tasks; the ones due on `date` are listed after the subjects. */
   todos?: TodoTask[];
   onToggleTodo?: (id: string, completed: boolean) => void;
+  /**
+   * Start of the planned block each task was dragged into, by task id. Open
+   * tasks can be dragged onto the timeline (desktop) when this is passed.
+   */
+  scheduled?: Record<string, string>;
+}
+
+/** "14:00", or "Oct 12 14:00" when the block is on another day than `date`. */
+function scheduledLabel(startIso: string, date: Date): string {
+  const d = new Date(startIso);
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return isSameDay(d, date) ? time : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`;
+}
+
+function ScheduledChip({ start, date }: { start: string; date: Date }) {
+  return (
+    <span
+      className="flex items-center gap-1 font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums text-on-surface-variant flex-shrink-0 mt-px"
+      title="Scheduled in the plan"
+    >
+      <span className="material-symbols-outlined text-[13px] max-lg:text-[10px] leading-none">event</span>
+      {scheduledLabel(start, date)}
+    </span>
+  );
 }
 
 interface Group {
@@ -62,7 +91,7 @@ function saveLastSubject(id: string): void {
  * (color dot + name), each with a checkbox. A day needs no event of a subject
  * to hold tasks for it.
  */
-export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, todos = [], onToggleTodo }: SubjectTasksPanelProps) {
+export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, todos = [], onToggleTodo, scheduled, onEditTask }: SubjectTasksPanelProps) {
   const groups = useMemo<Group[]>(() => {
     const subjectMap = new Map(subjects.map((s) => [s.id, s]));
     const byKey = new Map<string, Group>();
@@ -93,8 +122,46 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   }, [tasks, subjects]);
 
   const isMobile = useIsMobile();
+  // Drag-to-schedule is a mouse gesture; the phone shows the checklist on its
+  // own tab, away from the timeline, so there is nothing to drop on.
+  const canDrag = !!scheduled && !isMobile;
+  const dragProps = (taskId: string, text: string, subjectId: string, minutes: number, done: boolean) =>
+    canDrag && !done
+      ? {
+          draggable: true,
+          onDragStart: (e: React.DragEvent) => beginTaskDrag(e, { taskId, text, subjectId, minutes }),
+          onDragEnd: endTaskDrag,
+          title: 'Drag onto the timeline to plan it',
+          className: 'cursor-grab active:cursor-grabbing',
+        }
+      : { className: '' };
   const [text, setText] = useState('');
   const [pickedSubjectId, setSubjectId] = useState(loadLastSubject);
+  // Estimate for the next task; cleared after each add, since it rarely repeats.
+  const [est, setEst] = useState<number | undefined>(undefined);
+  // Task open in the edit window.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingTask = editingId ? tasks.find((t) => t.id === editingId) : undefined;
+  // A day swipe that ends on a task's text is followed by a synthesized click
+  // there; only a touch that stayed put opens the editor.
+  const touchRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const editTouch = {
+    onTouchStart: (e: React.TouchEvent) => {
+      const t = e.touches[0];
+      touchRef.current = { x: t.clientX, y: t.clientY, moved: false };
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      const t = e.touches[0];
+      const start = touchRef.current;
+      if (start && Math.hypot(t.clientX - start.x, t.clientY - start.y) > 10) start.moved = true;
+    },
+  };
+  const openEdit = (id: string) => {
+    const touch = touchRef.current;
+    touchRef.current = null;
+    if (touch?.moved) return;
+    setEditingId(id);
+  };
   // A remembered subject that was deleted since falls back to none.
   const subjectId = subjects.some((s) => s.id === pickedSubjectId) ? pickedSubjectId : '';
 
@@ -121,8 +188,15 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   // Keyboard subject choice while typing: ↓ / Tab step to the next chip,
   // ↑ / Shift+Tab to the previous one. (Alt+digit was tried first, but
   // browsers on Linux/Windows switch tabs on it before the page sees it.)
+  // Shift+← / Shift+→ step the estimate: plain arrows must keep moving the
+  // caret, and Alt/Ctrl+arrows belong to the browser and word jumps.
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      e.preventDefault();
+      setEst((cur) => stepEstimate(cur, e.key === 'ArrowRight' ? 1 : -1));
+      return;
+    }
     const step =
       e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey) ? 1
       : e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey) ? -1
@@ -137,10 +211,11 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   const submit = () => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    onAddTask(trimmed, subjectId);
+    onAddTask(trimmed, subjectId, est);
     saveLastSubject(subjectId);
     // Stay open for the next one.
     setText('');
+    setEst(undefined);
     inputRef.current?.focus();
   };
 
@@ -158,6 +233,10 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
       .sort((a, b) => Date.parse(a.dueDate!) - Date.parse(b.dueDate!));
   }, [todos, date]);
 
+  // Rough time still ahead: estimates of the open tasks (todos included).
+  const openEstimate =
+    tasks.reduce((sum, t) => sum + (t.done ? 0 : t.estMinutes || 0), 0) +
+    dayTodos.reduce((sum, t) => sum + (t.completed ? 0 : t.estMinutes || 0), 0);
   const total = tasks.length + dayTodos.length;
   const done = tasks.filter((t) => t.done).length + dayTodos.filter((t) => t.completed).length;
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -225,8 +304,37 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
               );
             })}
           </div>
+          <div className={`flex flex-wrap items-center ${isMobile ? 'gap-2' : 'gap-1.5'}`} role="radiogroup" aria-label="Estimated time">
+            <span className={`material-symbols-outlined text-on-surface-variant leading-none ${isMobile ? 'text-[18px]' : 'text-[15px]'}`} aria-hidden="true">timer</span>
+            {EST_PRESETS.map((m) => {
+              const selected = est === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onMouseDown={(e) => e.preventDefault()}
+                  // A second tap on the chosen estimate clears it.
+                  onClick={() => {
+                    setEst(selected ? undefined : m);
+                    inputRef.current?.focus();
+                  }}
+                  className={`rounded-full border font-body-sm text-body-sm tabular-nums transition-colors ${
+                    isMobile ? 'px-3 py-1.5 !text-[14px]' : 'px-2.5 py-1'
+                  } ${
+                    selected
+                      ? 'bg-secondary-container border-secondary-container text-on-secondary-container'
+                      : 'border-outline-variant text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  ~{formatDuration(m)}
+                </button>
+              );
+            })}
+          </div>
           <p className="max-lg:hidden font-body-sm text-[11px] text-on-surface-variant/70">
-            ↑ / ↓ or Tab — change subject · Enter — add · Esc — close
+            ↑ / ↓ or Tab — subject · Shift+← / → — estimate · Enter — add · Esc — close
           </p>
         </form>
   );
@@ -244,6 +352,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
           {dayLabel}
         </span>
         <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-auto">
+          {openEstimate > 0 && <span className="text-on-surface-variant/70" title="Estimated time of the open tasks">~{formatDuration(openEstimate)} · </span>}
           {total > 0 ? `${done}/${total}` : '0'}
         </span>
         <button
@@ -300,6 +409,24 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         document.body
       )}
 
+      {editingTask && onEditTask && (
+        <ChecklistTaskDialog
+          key={editingTask.id}
+          task={editingTask}
+          subjects={subjects}
+          dayLabel={dayLabel}
+          onSave={(patch) => {
+            onEditTask(editingTask.id, patch);
+            setEditingId(null);
+          }}
+          onDelete={() => {
+            onDeleteTask(editingTask.id);
+            setEditingId(null);
+          }}
+          onClose={() => setEditingId(null)}
+        />
+      )}
+
       {groups.length === 0 && dayTodos.length === 0 ? (
         !adding && (
           <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
@@ -320,8 +447,10 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                 </span>
               </p>
               <ul className="flex flex-col gap-1">
-                {group.items.map((item) => (
-                  <li key={item.id} className="group flex items-start gap-2.5 max-lg:gap-2 py-1">
+                {group.items.map((item) => {
+                  const { className: dragClass, ...drag } = dragProps(item.id, item.text, group.key === '__other__' ? '' : group.key, item.estMinutes || DEFAULT_TASK_MINUTES, item.done);
+                  return (
+                  <li key={item.id} className={`group flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
                     <button
                       type="button"
                       role="checkbox"
@@ -338,13 +467,43 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                         <span className="material-symbols-outlined text-[11px] max-lg:text-[9px] leading-none">check</span>
                       )}
                     </button>
-                    <span
-                      className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words ${
+                    {/* Click / tap the text to rename it or change its estimate. */}
+                    <button
+                      type="button"
+                      disabled={!onEditTask}
+                      onClick={() => openEdit(item.id)}
+                      {...editTouch}
+                      title={onEditTask ? 'Edit task' : undefined}
+                      className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words text-left focus:outline-none focus-visible:underline ${
                         item.done ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
-                      }`}
+                      } ${onEditTask ? 'cursor-pointer hover:underline decoration-outline-variant underline-offset-2' : ''}`}
                     >
                       {item.text}
-                    </span>
+                    </button>
+                    {scheduled?.[item.id] && <ScheduledChip start={scheduled[item.id]} date={date} />}
+                    {/* Estimate: opens the edit window. Unset, the button only
+                        appears on hover (desktop). */}
+                    {(item.estMinutes || (onEditTask && !isMobile)) && (
+                      <button
+                        type="button"
+                        disabled={!onEditTask}
+                        onClick={() => openEdit(item.id)}
+                        {...editTouch}
+                        aria-label={item.estMinutes ? `Estimate ${formatDuration(item.estMinutes)}, change` : `Add an estimate to "${item.text}"`}
+                        title={item.estMinutes ? 'Estimated time — click to edit' : 'Add an estimate'}
+                        className={`flex items-center gap-0.5 flex-shrink-0 mt-px font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums rounded-full transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                          item.estMinutes
+                            ? item.done ? 'text-on-surface-variant/50' : 'text-on-surface-variant hover:text-on-surface'
+                            : 'text-on-surface-variant/50 hover:text-on-surface lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100'
+                        }`}
+                      >
+                        {item.estMinutes ? (
+                          `~${formatDuration(item.estMinutes)}`
+                        ) : (
+                          <span className="material-symbols-outlined text-[15px] leading-none">timer</span>
+                        )}
+                      </button>
+                    )}
                     {/* Always visible on touch screens; on desktop it shows on hover. */}
                     <button
                       type="button"
@@ -356,7 +515,8 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                       <span className="material-symbols-outlined text-[16px] max-lg:text-[13px] leading-none">close</span>
                     </button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </li>
           ))}
@@ -380,8 +540,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                     : task.dueHasTime
                       ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}`
                       : null;
+                  const { className: dragClass, ...drag } = dragProps(task.id, task.title, '', task.estMinutes || DEFAULT_TASK_MINUTES, task.completed);
                   return (
-                    <li key={task.id} className="flex items-start gap-2.5 max-lg:gap-2 py-1">
+                    <li key={task.id} className={`flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
                       <button
                         type="button"
                         role="checkbox"
@@ -405,6 +566,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                       >
                         {task.title}
                       </span>
+                      {scheduled?.[task.id] && <ScheduledChip start={scheduled[task.id]} date={date} />}
                       {when && (
                         <span
                           className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${

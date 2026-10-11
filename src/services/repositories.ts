@@ -885,6 +885,19 @@ class DayTaskRepository {
     this.set(date, this.getTasks(date).map((t) => (t.id === id ? { ...t, done } : t)));
   }
 
+  /** Rename / re-subject / re-estimate a task. `estMinutes: undefined` clears it. */
+  edit(date: string, id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }): void {
+    this.set(
+      date,
+      this.getTasks(date).map((t) => {
+        if (t.id !== id) return t;
+        const { estMinutes: _old, ...rest } = t;
+        const next = { ...rest, text: patch.text, subjectId: patch.subjectId };
+        return patch.estMinutes ? { ...next, estMinutes: patch.estMinutes } : next;
+      })
+    );
+  }
+
   remove(date: string, id: string): void {
     this.set(date, this.getTasks(date).filter((t) => t.id !== id));
   }

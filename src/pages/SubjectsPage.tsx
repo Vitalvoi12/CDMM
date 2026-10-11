@@ -35,7 +35,7 @@ export function SubjectsPage() {
   }, [refresh]);
 
   const handleSave = useCallback(
-    (data: { name: string; color: string }) => {
+    (data: { name: string; color: string; weeklyGoalMinutes: number | null }) => {
       if (editingSubject) {
         subjectRepo.update(editingSubject.id, data);
       } else {

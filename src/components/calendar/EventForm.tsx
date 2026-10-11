@@ -5,6 +5,7 @@ import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
 import { NotifyList, isPresetLead, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
 import { eventLeads } from '../../services/notifications';
+import { FOCUS_LABELS, type FocusRating } from '../../utils/analytics';
 
 export interface EventRecurrence {
   freq: RepeatFreq;
@@ -34,6 +35,8 @@ interface EventFormProps {
     notifyBefore: number | null;
     /** Further leads after the first; [] = none. */
     notifyExtra: number[];
+    /** Focus rating of a finished session; null = unrated. Absent for new or planned events. */
+    focus?: FocusRating | null;
   }) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
@@ -75,6 +78,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   const [title, setTitle] = useState(event?.title || '');
   const [color, setColor] = useState(event?.color || DEFAULT_CUSTOM_COLOR);
   const [description, setDescription] = useState(event?.description || '');
+  const [focus, setFocus] = useState<FocusRating | null>(event?.focus ?? null);
   const [startDate, setStartDate] = useState(toLocalInputValue(initialStart, 'date'));
   const [startTime, setStartTime] = useState(toLocalInputValue(initialStart, 'time'));
   const [endDate, setEndDate] = useState(toLocalInputValue(initialEnd, 'date'));
@@ -179,6 +183,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
       color: isCustom ? color : undefined,
       notifyBefore: leads[0] ?? null,
       notifyExtra: leads.slice(1),
+      ...(!isNew && kind === 'real' ? { focus } : {}),
     });
   };
 
@@ -343,6 +348,31 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               Count in stats?
             </span>
           </button>
+          {/* Focus rating of a finished session — set after Finish, fixable here. */}
+          {!isNew && kind === 'real' && (
+            <div className="flex flex-col gap-2">
+              <label className={labelClass}>Focus</label>
+              <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low" role="radiogroup" aria-label="Focus quality">
+                {([1, 2, 3] as const).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    role="radio"
+                    aria-checked={focus === r}
+                    // A second tap on the chosen rating clears it.
+                    onClick={() => setFocus((cur) => (cur === r ? null : r))}
+                    className={`flex-1 py-2 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
+                      focus === r
+                        ? 'bg-secondary-container text-on-secondary-container'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    {FOCUS_LABELS[r]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex flex-col gap-2">
             <label className={labelClass}>
               Description

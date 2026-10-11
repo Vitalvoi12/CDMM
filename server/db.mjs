@@ -245,6 +245,24 @@ export function openDb(dir) {
   } catch {
     // column already exists — ignore
   }
+  // Migration for subject weekly goals (minutes per week, NULL = no goal).
+  try {
+    db.exec('ALTER TABLE subjects ADD COLUMN weekly_goal INTEGER');
+  } catch {
+    // column already exists — ignore
+  }
+  // Migration for the post-session focus rating (1-3, NULL = not rated).
+  try {
+    db.exec('ALTER TABLE events ADD COLUMN focus INTEGER');
+  } catch {
+    // column already exists — ignore
+  }
+  // Migration for the checklist/todo task a planned block was dragged from.
+  try {
+    db.exec('ALTER TABLE events ADD COLUMN task_id TEXT');
+  } catch {
+    // column already exists — ignore
+  }
   return db;
 }
 
@@ -306,7 +324,7 @@ export function importSnapshot(db, userId, data) {
 
 function rowToPayload(entity, row) {
   if (entity === 'subjects') {
-    return { id: row.id, name: row.name, color: row.color, icon: row.icon, progress: row.progress, updatedAt: row.updated_at };
+    return { id: row.id, name: row.name, color: row.color, icon: row.icon, progress: row.progress, weeklyGoalMinutes: row.weekly_goal == null ? undefined : row.weekly_goal, updatedAt: row.updated_at };
   }
   if (entity === 'dayNotes') {
     return { id: row.id, content: row.content, updatedAt: row.updated_at };
@@ -326,7 +344,7 @@ function rowToPayload(entity, row) {
     };
   }
   if (entity === 'events') {
-    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, createdAt: row.created_at || undefined, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), notifyBefore: row.notify_before == null ? undefined : row.notify_before, notifyExtra: parseLeads(row.notify_extra), updatedAt: row.updated_at };
+    return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, createdAt: row.created_at || undefined, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), notifyBefore: row.notify_before == null ? undefined : row.notify_before, notifyExtra: parseLeads(row.notify_extra), focus: row.focus == null ? undefined : row.focus, taskId: row.task_id || undefined, updatedAt: row.updated_at };
   }
   return {
     id: row.id, title: row.title, description: row.description,
@@ -343,8 +361,8 @@ function rowToPayload(entity, row) {
 }
 
 const COLS = {
-  subjects: ['name', 'color', 'icon', 'progress'],
-  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'notify_extra', 'created_at'],
+  subjects: ['name', 'color', 'icon', 'progress', 'weekly_goal'],
+  events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'notify_extra', 'created_at', 'focus', 'task_id'],
   todos: ['title', 'description', 'important', 'urgent', 'due_date', 'due_has_time', 'est_minutes', 'subject_id', 'completed_at', 'reminders', 'completed', 'created_at'],
   dayNotes: ['content'],
   dayTasks: ['tasks'],
@@ -352,7 +370,8 @@ const COLS = {
 };
 
 const FROM_CLIENT = {
-  name: 'name', color: 'color', icon: 'icon', progress: 'progress',
+  name: 'name', color: 'color', icon: 'icon', progress: 'progress', weeklyGoalMinutes: 'weekly_goal',
+  focus: 'focus', taskId: 'task_id',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
   start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id',
   countInStats: 'count_in_stats', checklist: 'checklist', notifyBefore: 'notify_before', notifyExtra: 'notify_extra', reminders: 'reminders',
@@ -417,7 +436,7 @@ function parseChecklist(value) {
 }
 
 /**
- * A day's checklist: JSON array of {id, text, done, subjectId}. Always reads
+ * A day's checklist: JSON array of {id, text, done, subjectId, estMinutes?}. Always reads
  * back as an array; malformed entries are dropped.
  */
 function parseDayTasks(value) {
@@ -432,6 +451,8 @@ function parseDayTasks(value) {
         text: String(t.text ?? ''),
         done: t.done === true,
         subjectId: typeof t.subjectId === 'string' ? t.subjectId : '',
+        // Estimated minutes; dropped when absent or not a positive number.
+        ...(Number(t.estMinutes) > 0 ? { estMinutes: Math.round(Number(t.estMinutes)) } : {}),
       }))
       .filter((t) => t.id && t.text);
   } catch {
@@ -507,6 +528,16 @@ export function applyChanges(db, userId, dirty) {
         // inherits; anything else is normalized (an empty list is kept).
         if (v === undefined) v = prev[col] === undefined ? '[]' : prev[col];
         else v = JSON.stringify(parseDayTasks(v));
+      } else if (col === 'weekly_goal') {
+        // Whole minutes per week; null/absent-on-new/garbage = no goal.
+        const n = v == null || v === '' ? NaN : Number(v);
+        v = Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+      } else if (col === 'focus') {
+        // Focus rating 1-3; anything else (null included) = not rated.
+        const n = Number(v);
+        v = n === 1 || n === 2 || n === 3 ? n : null;
+      } else if (col === 'task_id') {
+        v = typeof v === 'string' && v ? v : null;
       } else if (col === 'notify_before') {
         // Reminder lead in whole minutes; null/absent-on-new/garbage = off.
         const n = v == null || v === '' ? NaN : Number(v);

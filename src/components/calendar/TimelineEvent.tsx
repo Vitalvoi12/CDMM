@@ -26,7 +26,10 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   const statsTitle = excludedFromStats ? 'Excluded from statistics' : undefined;
 
   const color = eventFillColor(event, subject, 'var(--color-on-surface-variant)');
-  const displayName = subject?.name || event.title || 'Untitled';
+  // A block planned from a Checklist task also names the task.
+  const taskText = event.taskId && subject ? event.description : undefined;
+  const baseName = subject?.name || event.title || 'Untitled';
+  const displayName = taskText ? `${baseName} · ${taskText}` : baseName;
   // Apple-Calendar look: solid muted fill with a brighter spine on the
   // left. Real events mute the subject color; plans keep full fill.
   const fill = eventFillColor(event, subject);

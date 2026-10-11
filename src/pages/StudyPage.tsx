@@ -8,6 +8,8 @@ import { SubjectPickerModal } from '../components/subjects/SubjectPickerModal';
 import { FocusRoom } from '../components/study/FocusRoom';
 import { SessionStartEditor } from '../components/study/SessionStartEditor';
 import { TodaySessions } from '../components/study/TodaySessions';
+import { SessionRatingPrompt } from '../components/study/SessionRatingPrompt';
+import { rateSession } from '../services/sessionRating';
 import type { CalendarEvent, Subject } from '../types';
 
 export function StudyPage() {
@@ -23,6 +25,8 @@ export function StudyPage() {
   } = useActiveSession();
   const [showSubjectPicker, setShowSubjectPicker] = useState(false);
   const [showStartEditor, setShowStartEditor] = useState(false);
+  // The session just saved, waiting for its focus rating.
+  const [rating, setRating] = useState<{ id: string; name: string; minutes: number } | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
   // Subjects live in state (not a bare getAll() during render) so the object
   // identity is stable between refreshes — the session-save callback below
@@ -74,6 +78,11 @@ export function StudyPage() {
       end: event.end,
       kind: 'real',
       countInStats: true,
+    });
+    setRating({
+      id: event.id,
+      name: subject?.name || event.title,
+      minutes: Math.round((new Date(event.end).getTime() - new Date(event.start).getTime()) / 60000),
     });
     refresh();
   }, [stopSession, refresh, subject]);
@@ -161,6 +170,19 @@ export function StudyPage() {
             setShowStartEditor(false);
           }}
           onCancel={() => setShowStartEditor(false)}
+        />
+      )}
+
+      {rating && (
+        <SessionRatingPrompt
+          subjectName={rating.name}
+          minutes={rating.minutes}
+          onRate={(value, note) => {
+            rateSession(rating.id, value, note);
+            setRating(null);
+            refresh();
+          }}
+          onSkip={() => setRating(null)}
         />
       )}
     </div>

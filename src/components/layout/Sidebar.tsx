@@ -4,6 +4,7 @@ import { todoRepo } from '../../services/repositories';
 import { useSyncRefresh } from '../../hooks/useServerSync';
 import { hasTodoDueToday } from '../todo/TodoRows';
 import { LiveSessionCard } from './LiveSessionCard';
+import { WeeklyGoalsCard } from './WeeklyGoalsCard';
 
 // No FOCUS ROOM: on a PC the live session is driven from the panel at the
 // bottom of this sidebar, so a tab for it would be a second place to look.
@@ -50,6 +51,7 @@ export function Sidebar() {
           </NavLink>
         ))}
         <div className="mt-auto pb-6 flex flex-col gap-3">
+          <WeeklyGoalsCard />
           <LiveSessionCard />
           <NavLink to="/settings" className={navClass}>
             {({ isActive }) => (

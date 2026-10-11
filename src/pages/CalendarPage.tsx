@@ -9,6 +9,7 @@ import { YearView } from '../components/calendar/YearView';
 import { StatsSidebar } from '../components/calendar/StatsSidebar';
 import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
 import { DayNotesPanel } from '../components/calendar/DayNotesPanel';
+import { LiveSessionCard } from '../components/layout/LiveSessionCard';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { EventForm } from '../components/calendar/EventForm';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
@@ -20,10 +21,12 @@ import { useButtonSwipe } from '../hooks/useViewSwipe';
 import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, dayTaskRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
 import { expandRecurrence, dateKey } from '../utils/time';
+import { weeklyGoalProgress } from '../utils/goals';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
 import { ViewSettingsSheet } from '../components/calendar/ViewSettingsSheet';
 import { checkpoint } from '../services/history';
+import type { TaskDragPayload } from '../services/taskDrag';
 import type { CalendarEvent, DayTaskList, EventFilter, TodoTask } from '../types';
 
 /** Mobile day panels in tab order (the vertical swipe walks this list). */
@@ -146,6 +149,8 @@ export function CalendarPage() {
   // The Checklist's new-task form (inline on desktop, a window on the phone).
   const [taskAdding, setTaskAdding] = useState(false);
   const taskInputRef = useRef<HTMLInputElement | null>(null);
+  // Set by the I shortcut; the notes panel focuses its editor once it is up.
+  const [noteFocusPending, setNoteFocusPending] = useState(false);
   // Leaving the Checklist closes the form, so it does not pop back up later.
   useEffect(() => {
     if ((isMobile ? dayPanel : asidePanel) !== 'tasks' || view !== 'day') setTaskAdding(false);
@@ -171,7 +176,10 @@ export function CalendarPage() {
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
         target.tagName === 'SELECT' ||
-        target.isContentEditable
+        target.isContentEditable ||
+        // Keys pressed inside a window (e.g. on a chip of the checklist task
+        // editor) belong to that window, not to the calendar behind it.
+        target.closest('[role="dialog"]')
       );
       if (isEditing || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
 
@@ -238,6 +246,14 @@ export function CalendarPage() {
         // Also when the form was already open: autoFocus runs only on mount.
         taskInputRef.current?.focus();
       }
+      // I opens the shown day's Notes and starts editing.
+      else if (key === 'i') {
+        e.preventDefault();
+        if (view !== 'day') setView('day');
+        if (isMobile) setDayPanel('notes');
+        else setAsidePanel('notes');
+        setNoteFocusPending(true);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -268,6 +284,14 @@ export function CalendarPage() {
     return live ? [...dayEvents, live] : dayEvents;
   }, [dayEvents, currentDate, activeSession, elapsed]);
 
+  // Weekly goals of the displayed day's week. The running session counts
+  // toward today, like everywhere else on this screen.
+  const weekGoals = useMemo(() => {
+    const now = activeSession ? new Date(activeSession.start).getTime() + elapsed : Date.now();
+    const live = liveEventForDate(activeSession, new Date(now), now);
+    return weeklyGoalProgress(live ? [...events, live] : events, subjectRepo.getAll(), currentDate);
+  }, [events, currentDate, activeSession, elapsed]);
+
   const stats = useMemo(
     () => calculateDailyStats(statsEvents, currentDate),
     [statsEvents, currentDate]
@@ -288,11 +312,20 @@ export function CalendarPage() {
     setDayTasks(dayTaskRepo.getAll());
   }, [currentDate]);
 
-  const handleDayTaskAdd = useCallback((text: string, subjectId: string) => {
+  const handleDayTaskAdd = useCallback((text: string, subjectId: string, estMinutes?: number) => {
     checkpoint('Add checklist task');
-    dayTaskRepo.add(dateKey(currentDate), { text, subjectId });
+    dayTaskRepo.add(dateKey(currentDate), { text, subjectId, ...(estMinutes ? { estMinutes } : {}) });
     setDayTasks(dayTaskRepo.getAll());
   }, [currentDate]);
+
+  const handleDayTaskEdit = useCallback(
+    (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => {
+      checkpoint('Edit checklist task');
+      dayTaskRepo.edit(dateKey(currentDate), id, patch);
+      setDayTasks(dayTaskRepo.getAll());
+    },
+    [currentDate]
+  );
 
   const handleDayTaskDelete = useCallback((id: string) => {
     if (Date.now() - panelSwipeAtRef.current < 400) return;
@@ -300,6 +333,43 @@ export function CalendarPage() {
     dayTaskRepo.remove(dateKey(currentDate), id);
     setDayTasks(dayTaskRepo.getAll());
   }, [currentDate]);
+
+  // A Checklist task dropped on the day timeline becomes a planned block of
+  // its subject (a custom block when it has none), linked back by `taskId` so
+  // the checklist can show when it is scheduled. The task text rides in the
+  // description: subject blocks are titled by their subject, and the editor
+  // keeps the description through later edits.
+  const handleTaskDrop = useCallback(
+    (task: TaskDragPayload, start: Date, end: Date) => {
+      const subject = subjectRepo.getById(task.subjectId);
+      checkpoint('Plan task');
+      eventRepo.create({
+        subjectId: subject ? subject.id : '',
+        title: subject ? subject.name : task.text,
+        description: subject ? task.text : undefined,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        kind: 'plan',
+        countInStats: true,
+        taskId: task.taskId,
+      });
+      // The new block is a plan — make sure the timeline is showing plans.
+      if (eventFilter === 'real') setEventFilter('all');
+      refreshEvents();
+    },
+    [eventFilter, setEventFilter, refreshEvents]
+  );
+
+  // Earliest planned block per task, for the checklist's "scheduled" chip.
+  const scheduledTasks = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const e of events) {
+      if (e.kind !== 'plan' || !e.taskId) continue;
+      const cur = out[e.taskId];
+      if (!cur || Date.parse(e.start) < Date.parse(cur)) out[e.taskId] = e.start;
+    }
+    return out;
+  }, [events]);
 
   // Checkbox on a todo task in the Checklist panel.
   const handleTodoToggle = useCallback((id: string, completed: boolean) => {
@@ -351,7 +421,7 @@ export function CalendarPage() {
   );
 
   const handleEventSave = useCallback(
-    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; notifyBefore: number | null; notifyExtra: number[] }) => {
+    (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; notifyBefore: number | null; notifyExtra: number[]; focus?: 1 | 2 | 3 | null }) => {
       if (editingEvent) {
         const stored = eventRepo.getById(editingEvent.id);
         const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
@@ -400,6 +470,7 @@ export function CalendarPage() {
           color: data.color,
           notifyBefore: data.notifyBefore,
           notifyExtra: data.notifyExtra,
+          ...(data.focus !== undefined ? { focus: data.focus } : {}),
         });
       } else if (data.recurrence && data.recurrence.freq !== 'none') {
         const occurrences = expandRecurrence(
@@ -772,10 +843,9 @@ export function CalendarPage() {
     lastTapRef.current = tap;
   }, []);
 
-  // Swipes that start on the view-settings button (mobile): left/right go to
-  // the previous/next day, 3 days, week or month (opposite of the timeline
-  // swipe). In the day view only, up/down also walk the day panels in tab
-  // order (up → next, down → previous).
+  // Swipes that start on the view-settings button (mobile), day view only:
+  // up/down walk the day panels in tab order (up → next, down → previous).
+  // There is no left/right here — days are changed by swiping the content.
   // The handle's drag feedback is written straight to the DOM: it changes
   // every touchmove, and a re-render per move would be wasted work.
   const handleBarRef = useRef<HTMLSpanElement>(null);
@@ -792,25 +862,25 @@ export function CalendarPage() {
       icon.style.opacity = '';
       return;
     }
-    // Only the dominant axis moves, matching how the swipe resolves. The
+    // Only a vertical drag moves the bar, matching how the swipe resolves. The
     // offset is rubber-banded so the bar strains toward the finger but stays
-    // put near home (at most ~12px).
-    // Outside the day view there is no up/down, so a vertical drag stays put.
-    const horizontal = Math.abs(offset.dx) > Math.abs(offset.dy);
-    const d = horizontal ? offset.dx : view === 'day' ? offset.dy : 0;
+    // put near home (at most ~12px). A sideways drag does nothing, so it stays
+    // put too.
+    const vertical = Math.abs(offset.dy) >= Math.abs(offset.dx);
+    const d = vertical && view === 'day' ? offset.dy : 0;
     const pull = Math.sign(d) * 12 * (1 - Math.exp(-Math.abs(d) / 50));
     // Past the swipe threshold (40px) the bar grows and firms up: letting go
     // here will do something.
     const armed = Math.abs(d) >= 40;
     bar.style.transition = 'width 150ms, opacity 150ms';
-    bar.style.transform = horizontal ? `translateX(${pull}px)` : `translateY(${pull}px)`;
+    bar.style.transform = `translateY(${pull}px)`;
     bar.style.opacity = armed ? '0.9' : '0.55';
     bar.style.width = armed ? '72px' : '';
     icon.style.opacity = armed ? '0' : '1';
   }, [view]);
 
   const buttonSwipe = useButtonSwipe({
-    enabled: isMobile && (view === 'day' || view === '3day' || view === 'week' || view === 'month'),
+    enabled: isMobile && view === 'day',
     onDrag: onHandleDrag,
     onSwipeUp: view === 'day'
       ? () => setDayPanel((p) => DAY_PANELS[Math.min(DAY_PANELS.length - 1, DAY_PANELS.indexOf(p) + 1)])
@@ -818,8 +888,6 @@ export function CalendarPage() {
     onSwipeDown: view === 'day'
       ? () => setDayPanel((p) => DAY_PANELS[Math.max(0, DAY_PANELS.indexOf(p) - 1)])
       : undefined,
-    onSwipeLeft: goToPrevious,
-    onSwipeRight: goToNext,
   });
 
   const swipeHandlers = {
@@ -883,11 +951,15 @@ export function CalendarPage() {
                 events={statsEvents}
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
+                goals={weekGoals}
               />
+              {/* No Focus Room on the phone: today's Stat tab is where the
+                  live session is started and finished. */}
+              {dateKey(currentDate) === dateKey(new Date()) && <LiveSessionCard shortcuts={false} />}
             </div>
           ) : dayPanel === 'notes' ? (
             <div className="flex-1 min-h-0 flex flex-col pb-40">
-              <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} />
+              <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
             </div>
           ) : (
             <div
@@ -903,7 +975,7 @@ export function CalendarPage() {
               }}
               onTouchCancel={panelSwipe.onTouchCancel}
             >
-              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} />
+              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} />
             </div>
           )}
           </div>
@@ -919,6 +991,7 @@ export function CalendarPage() {
               onEventResize={handleEventResize}
               onBackgroundClick={handleTimelineBackgroundClick}
               mode={eventFilter}
+              onTaskDrop={handleTaskDrop}
             />
             {/* Right column: statistics or per-subject tasks, switched like Real/Plan. */}
             {/* Bottom clearance: the action bar floats over this corner, so the
@@ -929,7 +1002,7 @@ export function CalendarPage() {
                   <button
                     key={p}
                     onClick={() => setAsidePanel(p)}
-                    title="Switch Stat/Check/Notes (Shortcut: D, ↑/↓)"
+                    title="Switch Stat/Check/Notes (Shortcut: D, ↑/↓; I edits the note)"
                     className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
                       asidePanel === p
                         ? 'bg-secondary-container text-on-secondary-container'
@@ -945,11 +1018,12 @@ export function CalendarPage() {
                   events={statsEvents}
                   subjects={subjects}
                   totalMinutes={stats.totalMinutes}
+                  goals={weekGoals}
                 />
               ) : asidePanel === 'tasks' ? (
-                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} />
+                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} />
               ) : (
-                <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} />
+                <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
               )}
             </aside>
           </div>

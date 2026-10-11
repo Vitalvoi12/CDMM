@@ -8,6 +8,8 @@ import { DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { SubjectPickerModal } from '../subjects/SubjectPickerModal';
 import { SessionStartEditor } from '../study/SessionStartEditor';
 import { SessionFinishConfirm } from '../study/SessionFinishConfirm';
+import { SessionRatingPrompt } from '../study/SessionRatingPrompt';
+import { rateSession } from '../../services/sessionRating';
 
 /**
  * The live session panel pinned above Settings in the desktop sidebar, and the
@@ -15,29 +17,36 @@ import { SessionFinishConfirm } from '../study/SessionFinishConfirm';
  * forgotten start, finish it. The Focus Room tab is gone from the desktop nav,
  * so everything needed has to live here.
  *
+ * On the phone the sidebar is hidden, so the calendar's Stat tab (today only)
+ * mounts a second copy.
+ * Only the sidebar copy answers the keyboard shortcuts (`shortcuts`), so F
+ * never opens two pickers at once.
+ *
  * Inverse-surface so it stands out in both themes; English labels.
  */
-export function LiveSessionCard() {
+export function LiveSessionCard({ shortcuts = true }: { shortcuts?: boolean } = {}) {
   const { isActive, subjectId, title, color, startTime, elapsed, startSession, setStartTime, stopSession } = useActiveSession();
   const [showPicker, setShowPicker] = useState(false);
   const [showStartEditor, setShowStartEditor] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  // The session just saved, waiting for its focus rating.
+  const [rating, setRating] = useState<{ id: string; name: string; minutes: number } | null>(null);
 
   const subject = (subjectId ? subjectRepo.getById(subjectId) : undefined) ?? (title ? { name: title, color: color || DEFAULT_CUSTOM_COLOR } : undefined);
 
   // F comes from the app shell, which cannot render dialogs itself. Idle: open
   // the subject picker. Running: ask before ending the session — there is only
   // ever one live session per account, so there is nothing to switch to.
-  useEffect(
-    () => subscribeSessionStart(() => (isActive ? setShowFinishConfirm(true) : setShowPicker(true))),
-    [isActive]
-  );
+  useEffect(() => {
+    if (!shortcuts) return;
+    return subscribeSessionStart(() => (isActive ? setShowFinishConfirm(true) : setShowPicker(true)));
+  }, [isActive, shortcuts]);
 
   // C opens the start editor while a session runs.
   useEffect(() => {
-    if (!isActive) return;
+    if (!isActive || !shortcuts) return;
     return subscribeSessionStartEdit(() => setShowStartEditor(true));
-  }, [isActive]);
+  }, [isActive, shortcuts]);
 
   /**
    * Close the session and persist it as a real event — the same write the
@@ -56,6 +65,11 @@ export function LiveSessionCard() {
       end: event.end,
       kind: 'real',
       countInStats: true,
+    });
+    setRating({
+      id: event.id,
+      name: subject?.name || event.title,
+      minutes: Math.round((new Date(event.end).getTime() - new Date(event.start).getTime()) / 60000),
     });
   }, [stopSession, subject]);
 
@@ -160,6 +174,18 @@ export function LiveSessionCard() {
             setShowStartEditor(false);
           }}
           onCancel={() => setShowStartEditor(false)}
+        />
+      )}
+
+      {rating && (
+        <SessionRatingPrompt
+          subjectName={rating.name}
+          minutes={rating.minutes}
+          onRate={(value, note) => {
+            rateSession(rating.id, value, note);
+            setRating(null);
+          }}
+          onSkip={() => setRating(null)}
         />
       )}
     </>
