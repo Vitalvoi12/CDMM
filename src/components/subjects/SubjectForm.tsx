@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Subject } from '../../types';
 import { SUBJECT_COLORS as COLORS, SUBJECT_COLOR_GROUPS as COLOR_GROUPS } from '../../utils/color';
 import { useEscapeOverlay } from '../../services/overlays';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { Sheet } from '../mobile/Sheet';
 
 interface SubjectFormProps {
   subject: Subject | null;
@@ -12,12 +14,15 @@ interface SubjectFormProps {
 }
 
 export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectFormProps) {
+  const isMobile = useIsMobile();
   const [name, setName] = useState(subject?.name || '');
   const [color, setColor] = useState(subject?.color || COLORS[0].value);
   // Hours per week as typed; '' = no goal.
   const [goalHours, setGoalHours] = useState(() =>
     subject?.weeklyGoalMinutes ? String(Math.round((subject.weeklyGoalMinutes / 60) * 100) / 100) : ''
   );
+
+  useEscapeOverlay(onCancel);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +33,75 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
     }
   };
 
-  useEscapeOverlay(onCancel);
+  if (isMobile) {
+    return (
+      <Sheet label={subject ? 'Edit subject' : 'Add subject'} onClose={onCancel} focusSelf={false}>
+        <form onSubmit={handleSubmit} className="contents">
+          <div className="m-shd">
+            <h2 className="m-h2">{subject ? 'Edit subject' : 'Add subject'}</h2>
+            <button type="button" className="m-ib" aria-label="Close" onClick={onCancel}>
+              <span className="material-symbols-outlined m-ic">close</span>
+            </button>
+          </div>
+          <div className="m-fld">
+            <label className="m-lbl m-mut" htmlFor="m-subject-name">Name</label>
+            <input id="m-subject-name" type="text" className="m-in" value={name} onChange={(e) => setName(e.target.value)} placeholder="Subject name" autoFocus={!subject} />
+          </div>
+          <div className="m-fld">
+            <label className="m-lbl m-mut" htmlFor="m-subject-goal">Weekly goal</label>
+            <div className="flex items-center" style={{ gap: 12 }}>
+              <input
+                id="m-subject-goal"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={168}
+                step={0.5}
+                className="m-in m-num"
+                style={{ width: 120 }}
+                value={goalHours}
+                onChange={(e) => setGoalHours(e.target.value)}
+                placeholder="No goal"
+              />
+              <span className="m-mut">hours / week</span>
+            </div>
+          </div>
+          <div className="m-fld">
+            <span className="m-lbl m-mut">Color</span>
+            <div className="flex flex-wrap" role="radiogroup" aria-label="Color">
+              {COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={color === c.value}
+                  aria-label={c.label}
+                  onClick={() => setColor(c.value)}
+                  className="flex items-center justify-center border-0 bg-transparent"
+                  style={{ width: 44, height: 44 }}
+                >
+                  <span
+                    className="block rounded-full"
+                    style={{ width: 28, height: 28, background: c.value, boxShadow: color === c.value ? '0 0 0 2px var(--color-surface-container-lowest), 0 0 0 4px var(--color-on-surface)' : undefined }}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex" style={{ gap: 8 }}>
+            {subject && onDelete && (
+              <button type="button" className="m-btn err sq" aria-label="Delete subject" onClick={() => onDelete(subject.id)}>
+                <span className="material-symbols-outlined m-ic s">delete</span>
+              </button>
+            )}
+            <button type="submit" className="m-btn pri flex-1" disabled={!name.trim()}>
+              {subject ? 'Save subject' : 'Add subject'}
+            </button>
+          </div>
+        </form>
+      </Sheet>
+    );
+  }
 
   return (
     <div className="overlay-root z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>

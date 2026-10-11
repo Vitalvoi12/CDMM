@@ -5,8 +5,11 @@ import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import type { Subject } from '../types';
 import { SubjectGrid } from '../components/subjects/SubjectGrid';
 import { SubjectForm } from '../components/subjects/SubjectForm';
+import { SubjectList } from '../components/mobile/SubjectList';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 export function SubjectsPage() {
+  const isMobile = useIsMobile();
   const springRef = useOverscrollSpring<HTMLDivElement>();
   const [subjects, setSubjects] = useState<Subject[]>(subjectRepo.getAll());
   const [showForm, setShowForm] = useState(false);
@@ -53,6 +56,19 @@ export function SubjectsPage() {
     setEditingSubject(null);
   }, []);
 
+  const form = showForm && (
+    <SubjectForm subject={editingSubject} onSave={handleSave} onCancel={handleCancel} onDelete={handleDelete} />
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
+        <SubjectList subjects={subjects} onEdit={handleEdit} onAdd={handleAdd} />
+        {form}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-hidden">
       <div className="flex items-end justify-between mb-8 max-lg:mb-3 flex-shrink-0">
@@ -74,14 +90,7 @@ export function SubjectsPage() {
         <SubjectGrid subjects={subjects} onEdit={handleEdit} />
       </div>
 
-      {showForm && (
-        <SubjectForm
-          subject={editingSubject}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          onDelete={handleDelete}
-        />
-      )}
+      {form}
     </div>
   );
 }

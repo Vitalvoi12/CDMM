@@ -48,3 +48,27 @@ export function subscribeSessionStartEdit(fn: Listener): () => void {
     editListeners.delete(fn);
   };
 }
+
+const finishListeners = new Set<Listener>();
+
+/**
+ * Ask the session panel to finish the running session — save it and ask for
+ * the focus rating, exactly as its own Finish does (the phone's Subjects
+ * rows use this).
+ */
+export function requestSessionFinish(): void {
+  for (const fn of finishListeners) {
+    try {
+      fn();
+    } catch {
+      // ignore listener errors
+    }
+  }
+}
+
+export function subscribeSessionFinish(fn: Listener): () => void {
+  finishListeners.add(fn);
+  return () => {
+    finishListeners.delete(fn);
+  };
+}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useActiveSession } from '../../hooks/useActiveSession';
 import { eventRepo, subjectRepo, tombstoneRepo } from '../../services/repositories';
 import { checkpoint } from '../../services/history';
-import { subscribeSessionStart, subscribeSessionStartEdit } from '../../services/liveSession';
+import { subscribeSessionFinish, subscribeSessionStart, subscribeSessionStartEdit } from '../../services/liveSession';
 import { formatTimerDuration, timeFromDate } from '../../utils/time';
 import { DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { SubjectPickerModal } from '../subjects/SubjectPickerModal';
@@ -88,6 +88,13 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card' }: { shortc
       resume: { subjectId: event.subjectId, title: title || undefined, color: color || undefined, start: event.start },
     });
   }, [stopSession, subject, title, color]);
+
+  // Finish asked for from elsewhere (the phone's Subjects rows). Only the
+  // copy that answers shortcuts listens, so one Finish saves one event.
+  useEffect(() => {
+    if (!shortcuts) return;
+    return subscribeSessionFinish(finish);
+  }, [shortcuts, finish]);
 
   /** Phone Undo after Finish: drop the saved event, keep the session running. */
   const undoFinish = useCallback(() => {
@@ -235,7 +242,8 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card' }: { shortc
             setRating(null);
           }}
           onSkip={() => setRating(null)}
-          onUndo={variant === 'dock' ? undoFinish : undefined}
+          // No Undo once another session took over (Subjects: switch subject).
+          onUndo={variant === 'dock' && !isActive ? undoFinish : undefined}
         />
       )}
     </>
