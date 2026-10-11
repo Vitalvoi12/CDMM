@@ -16,7 +16,6 @@ import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { useSwipeNav } from '../hooks/useSwipeNav';
-import { useButtonSwipe } from '../hooks/useViewSwipe';
 import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, dayTaskRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
 import { expandRecurrence, dateKey } from '../utils/time';
@@ -24,6 +23,9 @@ import { weeklyGoalProgress } from '../utils/goals';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
 import { ViewSettingsSheet } from '../components/calendar/ViewSettingsSheet';
+import { QuickCreateSheet } from '../components/mobile/QuickCreateSheet';
+import { DayStats } from '../components/mobile/DayStats';
+import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
 import type { TaskDragPayload } from '../services/taskDrag';
 import type { CalendarEvent, DayTaskList, EventFilter, TodoTask } from '../types';
@@ -129,7 +131,9 @@ export function CalendarPage() {
   const subjects = subjectRepo.getAll();
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [creatingEvent, setCreatingEvent] = useState<{ start: Date; end?: Date; kind: 'real' | 'plan' } | null>(null);
+  // `quick`: the phone's quick-create sheet instead of the full form;
+  // `custom`: the full form opens on a custom (subject-less) event.
+  const [creatingEvent, setCreatingEvent] = useState<{ start: Date; end?: Date; kind: 'real' | 'plan'; quick?: boolean; custom?: boolean } | null>(null);
   const [pendingRecurrence, setPendingRecurrence] = useState<PendingRecurrence | null>(null);
   // Snapshot of the event before a drag/resize committed it, so the editor's
   // Cancel can roll the change back — and so a series-wide edit can measure
@@ -141,7 +145,7 @@ export function CalendarPage() {
     recurrenceId?: string | null;
   } | null>(null);
   const [dayPanel, setDayPanel] = useState<(typeof DAY_PANELS)[number]>('timeline');
-  // Mobile view-settings sheet (tune icon next to Today).
+  // Mobile view sheet (the date title or the tune icon).
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
   const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks' | 'notes'>('stats');
@@ -296,6 +300,20 @@ export function CalendarPage() {
     [statsEvents, currentDate]
   );
 
+  // Phone Stat tab: the running session's share of the day, and the streak
+  // up to the shown day (recomputed once a minute, not every timer tick).
+  const liveMinutes = useMemo(() => {
+    const live = statsEvents.find((e) => e.id === '__live__');
+    return live ? Math.round((new Date(live.end).getTime() - new Date(live.start).getTime()) / 60000) : 0;
+  }, [statsEvents]);
+  const elapsedMinute = Math.floor(elapsed / 60000);
+  const streak = useMemo(() => {
+    if (!isMobile) return 0;
+    const now = activeSession ? new Date(activeSession.start).getTime() + elapsedMinute * 60000 : Date.now();
+    const live = liveEventForDate(activeSession, new Date(now), now);
+    return focusStreak(live ? [...events, live] : events, currentDate);
+  }, [isMobile, events, activeSession, elapsedMinute, currentDate]);
+
   const refreshEvents = useCallback(() => {
     setEvents(eventRepo.getAll());
   }, []);
@@ -412,12 +430,23 @@ export function CalendarPage() {
     [setCurrentDate, setView]
   );
 
+  // On the phone a tap on an empty slot opens the quick-create sheet, an
+  // hour long by default; the desktop keeps the full form.
   const handleTimelineBackgroundClick = useCallback(
     (start: Date, kind: 'real' | 'plan', end?: Date) => {
-      setCreatingEvent({ start, end, kind });
+      if (isMobile) setCreatingEvent({ start, end: end ?? new Date(start.getTime() + 60 * 60000), kind, quick: true });
+      else setCreatingEvent({ start, end, kind });
     },
-    []
+    [isMobile]
   );
+
+  /** The phone's + button: the next quarter hour of the shown day. */
+  const openQuickCreate = useCallback(() => {
+    const now = new Date();
+    const start = new Date(currentDate);
+    start.setHours(now.getHours(), Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
+    setCreatingEvent({ start, end: new Date(start.getTime() + 60 * 60000), kind: eventFilter === 'all' ? 'plan' : eventFilter, quick: true });
+  }, [currentDate, eventFilter]);
 
   const handleEventSave = useCallback(
     (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; notifyBefore: number | null; notifyExtra: number[]; focus?: 1 | 2 | 3 | null }) => {
@@ -842,53 +871,6 @@ export function CalendarPage() {
     lastTapRef.current = tap;
   }, []);
 
-  // Swipes that start on the view-settings button (mobile), day view only:
-  // up/down walk the day panels in tab order (up → next, down → previous).
-  // There is no left/right here — days are changed by swiping the content.
-  // The handle's drag feedback is written straight to the DOM: it changes
-  // every touchmove, and a re-render per move would be wasted work.
-  const handleBarRef = useRef<HTMLSpanElement>(null);
-  const handleIconRef = useRef<HTMLSpanElement>(null);
-  const onHandleDrag = useCallback((offset: { dx: number; dy: number } | null) => {
-    const bar = handleBarRef.current;
-    const icon = handleIconRef.current;
-    if (!bar || !icon) return;
-    if (!offset) {
-      bar.style.transition = '';
-      bar.style.transform = '';
-      bar.style.opacity = '';
-      bar.style.width = '';
-      icon.style.opacity = '';
-      return;
-    }
-    // Only a vertical drag moves the bar, matching how the swipe resolves. The
-    // offset is rubber-banded so the bar strains toward the finger but stays
-    // put near home (at most ~12px). A sideways drag does nothing, so it stays
-    // put too.
-    const vertical = Math.abs(offset.dy) >= Math.abs(offset.dx);
-    const d = vertical && view === 'day' ? offset.dy : 0;
-    const pull = Math.sign(d) * 12 * (1 - Math.exp(-Math.abs(d) / 50));
-    // Past the swipe threshold (40px) the bar grows and firms up: letting go
-    // here will do something.
-    const armed = Math.abs(d) >= 40;
-    bar.style.transition = 'width 150ms, opacity 150ms';
-    bar.style.transform = `translateY(${pull}px)`;
-    bar.style.opacity = armed ? '0.9' : '0.55';
-    bar.style.width = armed ? '72px' : '';
-    icon.style.opacity = armed ? '0' : '1';
-  }, [view]);
-
-  const buttonSwipe = useButtonSwipe({
-    enabled: isMobile && view === 'day',
-    onDrag: onHandleDrag,
-    onSwipeUp: view === 'day'
-      ? () => setDayPanel((p) => DAY_PANELS[Math.min(DAY_PANELS.length - 1, DAY_PANELS.indexOf(p) + 1)])
-      : undefined,
-    onSwipeDown: view === 'day'
-      ? () => setDayPanel((p) => DAY_PANELS[Math.max(0, DAY_PANELS.indexOf(p) - 1)])
-      : undefined,
-  });
-
   const swipeHandlers = {
     onTouchStart: panelSwipe.onTouchStart,
     onTouchMove: panelSwipe.onTouchMove,
@@ -896,25 +878,85 @@ export function CalendarPage() {
     onTouchCancel: panelSwipe.onTouchCancel,
   };
 
+  const todayKey = dateKey(new Date());
+  const shownTasks = dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? [];
+  const openTaskCount = shownTasks.filter((t) => !t.done).length;
+
+  // Phone header: ‹ title › Today, tune. The title names the shown range and,
+  // like the tune icon, opens the view sheet.
+  const mobileTitle = (() => {
+    if (view === 'day') return currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    if (view === '3day') {
+      const end = new Date(currentDate);
+      end.setDate(end.getDate() + 2);
+      const sameMonth = end.getMonth() === currentDate.getMonth();
+      const from = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `${from} - ${sameMonth ? end.getDate() : end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    }
+    if (view === 'month') return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return String(currentDate.getFullYear());
+  })();
+  const unit = view === 'day' ? 'day' : view === '3day' ? 'days' : view === 'month' ? 'month' : 'year';
+
   return (
     <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
-      <DateHeader
-        currentDate={currentDate}
-        onPrev={goToPrevious}
-        onNext={goToNext}
-        onToday={goToToday}
-        view={view}
-        center={!isMobile ? renderViewSegmented() : undefined}
-        right={!isMobile && view !== 'year' ? renderEventFilter() : undefined}
-      />
+      {isMobile ? (
+        <>
+          <header className="m-hdr">
+            <button type="button" className="m-ib" aria-label={`Previous ${unit}`} onClick={goToPrevious}>
+              <span className="material-symbols-outlined m-ic">chevron_left</span>
+            </button>
+            <button type="button" className="m-ttl" aria-label={`${mobileTitle}. Open view settings`} onClick={() => setViewSettingsOpen(true)}>
+              <span className="m-tr">{mobileTitle}</span>
+              <span className="material-symbols-outlined m-ic s m-mut">{viewSettingsOpen ? 'expand_less' : 'expand_more'}</span>
+            </button>
+            <button type="button" className="m-ib" aria-label={`Next ${unit}`} onClick={goToNext}>
+              <span className="material-symbols-outlined m-ic">chevron_right</span>
+            </button>
+            <button type="button" className="m-pill m-lbm" onClick={goToToday}>Today</button>
+            <button type="button" className="m-ib" aria-label="View settings" onClick={() => setViewSettingsOpen(true)}>
+              <span className="material-symbols-outlined m-ic">tune</span>
+            </button>
+          </header>
+          {view === 'day' && (
+            <div className="flex-none" style={{ padding: '8px 12px' }}>
+              <div className="m-seg" role="tablist" aria-label="Day panel">
+                {DAY_PANELS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    role="tab"
+                    aria-selected={dayPanel === p}
+                    className={dayPanel === p ? 'on' : ''}
+                    onClick={() => setDayPanel(p)}
+                  >
+                    {p === 'timeline' ? 'Day' : p === 'stats' ? 'Stat' : p === 'tasks' ? 'Check' : 'Notes'}
+                    {p === 'tasks' && openTaskCount > 0 && <span className="m-badge">{openTaskCount}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <DateHeader
+          currentDate={currentDate}
+          onPrev={goToPrevious}
+          onNext={goToNext}
+          onToday={goToToday}
+          view={view}
+          center={renderViewSegmented()}
+          right={view !== 'year' ? renderEventFilter() : undefined}
+        />
+      )}
       {viewSettingsOpen && (
         <ViewSettingsSheet
           view={view}
           onViewChange={setView}
-          dayPanel={dayPanel}
-          onDayPanelChange={setDayPanel}
           eventFilter={eventFilter}
           onEventFilterChange={setEventFilter}
+          date={currentDate}
+          onDateChange={setCurrentDate}
           onClose={() => setViewSettingsOpen(false)}
         />
       )}
@@ -923,6 +965,7 @@ export function CalendarPage() {
         (isMobile ? (
           <div className="flex-1 min-h-0 flex flex-col">
           {dayPanel === 'timeline' ? (
+            <div className="relative flex-1 min-h-0 flex flex-col">
             <div ref={springRef} className="flex-1 min-h-0 overflow-y-auto">
               <Timeline
                 events={dayEvents}
@@ -936,30 +979,39 @@ export function CalendarPage() {
                 mode={eventFilter}
                 onSwipeLeft={swipeNext}
                 onSwipeRight={swipePrev}
+                draft={creatingEvent?.quick && creatingEvent.end && dateKey(creatingEvent.start) === dateKey(currentDate) ? { start: creatingEvent.start, end: creatingEvent.end, kind: creatingEvent.kind } : null}
               />
+            </div>
+            <button type="button" className="m-fab" aria-label="New event" onClick={openQuickCreate}>
+              <span className="material-symbols-outlined m-ic l">add</span>
+            </button>
             </div>
           ) : dayPanel === 'stats' ? (
             <div
-              className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40 [touch-action:pan-y]"
+              className="flex-1 min-h-0 overflow-y-auto flex flex-col [touch-action:pan-y]"
               onTouchStart={panelSwipe.onTouchStart}
               onTouchMove={panelSwipe.onTouchMove}
               onTouchEnd={panelSwipe.onTouchEnd}
               onTouchCancel={panelSwipe.onTouchCancel}
             >
-              <StatsSidebar
+              <DayStats
                 events={statsEvents}
                 subjects={subjects}
                 totalMinutes={stats.totalMinutes}
                 goals={weekGoals}
+                liveMinutes={liveMinutes}
+                liveSubjectId={activeSession ? activeSession.subjectId : null}
+                streak={streak}
+                isToday={dateKey(currentDate) === todayKey}
               />
             </div>
           ) : dayPanel === 'notes' ? (
-            <div className="flex-1 min-h-0 flex flex-col pb-40">
+            <div className="flex-1 min-h-0 flex flex-col">
               <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
             </div>
           ) : (
             <div
-              className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-40 [touch-action:pan-y]"
+              className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-6 [touch-action:pan-y]"
               onTouchStart={(e) => {
                 panelSwipe.onTouchStart(e);
                 onChecklistTouchStart(e);
@@ -1025,6 +1077,12 @@ export function CalendarPage() {
           </div>
         ))}
 
+      {isMobile && (view === '3day' || view === 'month') && (
+        <button type="button" className="m-fab" aria-label="New event" onClick={openQuickCreate}>
+          <span className="material-symbols-outlined m-ic l">add</span>
+        </button>
+      )}
+
       {view === '3day' && (
         <MultiDayView days={3} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} activeSession={activeSession} onSwipeLeft={swipeNext} onSwipeRight={swipePrev} />
       )}
@@ -1054,67 +1112,56 @@ export function CalendarPage() {
         </div>
       )}
 
-      {/* Portalled to body: the page-enter animation transforms an ancestor,
-          which would re-anchor `fixed` to it mid-animation and snap the bar
-          back to the viewport once the animation ends.
-
-          On mobile every view carries this bar for the tune button alone — it
-          is the only way back to another view from there, since the day
-          panel's own actions do not exist outside the day view. */}
-      {(view === 'day' || isMobile) &&
+      {/* Desktop day view: the floating New event button. Portalled to body:
+          the page-enter animation transforms an ancestor, which would
+          re-anchor `fixed` to it mid-animation and snap the button back to
+          the viewport once the animation ends. The phone has its own + in
+          the timeline. */}
+      {view === 'day' && !isMobile &&
         createPortal(
-          <div
-            className="mt-auto pt-8 max-lg:pt-2 flex items-center gap-4 z-20 max-lg:fixed max-lg:bottom-28 max-lg:left-0 max-lg:right-0 max-lg:px-4 max-lg:pb-4 max-lg:justify-end max-lg:pointer-events-none lg:fixed lg:bottom-14 lg:right-8 lg:z-10"
-          >
-            {/* Desktop only. On a phone this bar is the tune button alone, so
-                the bar has no backing and lets taps through to the timeline
-                around it — see the container's pointer-events above. */}
-            {view === 'day' && (
-              <button
-                onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
-                title="New event (Shortcut: N)"
-                aria-label="New event"
-                className="hidden lg:flex items-center justify-center bg-surface-container-high text-on-surface rounded-full hover:bg-surface-container-highest transition-colors w-16 h-16"
-              >
-                <span className="material-symbols-outlined text-[26px] leading-none">add</span>
-              </button>
-            )}
+          <div className="mt-auto pt-8 flex items-center gap-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10">
             <button
-              type="button"
-              {...buttonSwipe.handlers}
-              onClick={() => {
-                if (!buttonSwipe.wasSwipe()) setViewSettingsOpen(true);
-              }}
-              aria-label="View settings"
-              title="View settings"
-              // A grab handle at the bottom right: the visible bar is small, the
-              // touch area around it is much larger so swipes are easy to
-              // start. No backing — the bar sits straight on the timeline. The
-              // tune icon shows while a finger is down, hinting that a tap
-              // opens view settings.
-              className="group lg:hidden pointer-events-auto [touch-action:none] [-webkit-tap-highlight-color:transparent] w-40 h-20 flex items-center justify-end flex-shrink-0"
+              onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
+              title="New event (Shortcut: N)"
+              aria-label="New event"
+              className="hidden lg:flex items-center justify-center bg-surface-container-high text-on-surface rounded-full hover:bg-surface-container-highest transition-colors w-16 h-16"
             >
-              <span className="flex flex-col items-center gap-1.5">
-                <span
-                  ref={handleIconRef}
-                  className="material-symbols-outlined text-[20px] leading-none text-on-surface-variant opacity-0 group-active:opacity-100 transition-opacity"
-                >
-                  tune
-                </span>
-                <span
-                  ref={handleBarRef}
-                  className="block w-16 h-[7px] rounded-full bg-on-surface-variant opacity-40 group-active:opacity-55 transition-[transform,width,opacity] duration-300 ease-[cubic-bezier(.34,1.56,.64,1)]"
-                />
-              </span>
+              <span className="material-symbols-outlined text-[26px] leading-none">add</span>
             </button>
           </div>,
           document.body
         )}
 
-      {creatingEvent && (
+      {creatingEvent?.quick && creatingEvent.end && (
+        <QuickCreateSheet
+          start={creatingEvent.start}
+          end={creatingEvent.end}
+          kind={creatingEvent.kind}
+          subjects={subjects}
+          onChange={({ end, kind }) => setCreatingEvent((c) => (c ? { ...c, end, kind } : c))}
+          onPick={(id) => {
+            const subject = subjects.find((s) => s.id === id);
+            if (!subject || !creatingEvent.end) return;
+            handleEventSave({
+              subjectId: subject.id,
+              title: subject.name,
+              start: creatingEvent.start,
+              end: creatingEvent.end,
+              kind: creatingEvent.kind,
+              countInStats: true,
+              notifyBefore: null,
+              notifyExtra: [],
+            });
+          }}
+          onMore={(custom) => setCreatingEvent((c) => (c ? { ...c, quick: false, custom } : c))}
+          onClose={() => setCreatingEvent(null)}
+        />
+      )}
+
+      {creatingEvent && !creatingEvent.quick && (
         <EventForm
           event={null}
-          defaultSubjectId={subjects[0]?.id || ''}
+          defaultSubjectId={creatingEvent.custom ? '' : subjects[0]?.id || ''}
           defaultDate={creatingEvent.start}
           defaultEnd={creatingEvent.end}
           defaultKind={creatingEvent.kind}

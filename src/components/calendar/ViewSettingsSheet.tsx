@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import type { CalendarView, EventFilter } from '../../types';
-import { useEscapeOverlay } from '../../services/overlays';
+import { Sheet } from '../mobile/Sheet';
+import { redo, redoLabel, undo, undoLabel } from '../../services/history';
+import { dateKey } from '../../utils/time';
 
 interface ViewSettingsSheetProps {
   view: CalendarView;
   onViewChange: (view: CalendarView) => void;
-  dayPanel: 'timeline' | 'stats' | 'tasks' | 'notes';
-  onDayPanelChange: (panel: 'timeline' | 'stats' | 'tasks' | 'notes') => void;
   eventFilter: EventFilter;
   onEventFilterChange: (filter: EventFilter) => void;
+  date: Date;
+  onDateChange: (date: Date) => void;
   onClose: () => void;
 }
 
@@ -20,96 +23,99 @@ const MOBILE_VIEWS = ['day', '3day', 'month', 'year'] as const;
 
 const VIEW_LABELS: Record<(typeof MOBILE_VIEWS)[number], string> = {
   day: 'Day',
-  '3day': '3D',
+  '3day': '3 days',
   month: 'Month',
   year: 'Year',
 };
 
-function pill(active: boolean): string {
-  return `px-4 py-2 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
-    active
-      ? 'bg-secondary-container text-on-secondary-container'
-      : 'text-on-surface-variant hover:text-on-surface'
-  }`;
-}
-
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
-        {label}
-      </span>
-      <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low self-start">
-        {children}
-      </div>
-    </div>
-  );
-}
-
 /**
- * Mobile-only bottom sheet replacing the three toolbar pill rows
- * (view, day panel, event filter). Opens from the tune icon next to Today.
+ * Phone view sheet, opened from the date title or the tune icon: range, which
+ * kinds are shown, a date to jump to, and Undo / Redo (the phone has no
+ * Ctrl+Z) with the name of the action they would revert.
  */
-export function ViewSettingsSheet({
-  view,
-  onViewChange,
-  dayPanel,
-  onDayPanelChange,
-  eventFilter,
-  onEventFilterChange,
-  onClose,
-}: ViewSettingsSheetProps) {
-  useEscapeOverlay(onClose);
+export function ViewSettingsSheet({ view, onViewChange, eventFilter, onEventFilterChange, date, onDateChange, onClose }: ViewSettingsSheetProps) {
+  // Re-read the history labels after each Undo / Redo press.
+  const [, setTick] = useState(0);
+  const undoName = undoLabel();
+  const redoName = redoLabel();
 
   return (
-    <div className="overlay-root z-[100] lg:hidden animate-fade-in" onClick={onClose}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="View settings"
-        className="absolute inset-x-0 bottom-0 bg-surface-container-lowest rounded-t-2xl border-t border-outline-variant p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] shadow-elev-3 flex flex-col gap-5 animate-slide-up"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="font-headline-md text-headline-md !text-[16px] text-on-surface">
-            View settings
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close view settings"
-            className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-surface-container transition-colors text-on-surface-variant hover:text-on-surface"
-          >
-            <span className="material-symbols-outlined text-[18px]">close</span>
-          </button>
-        </div>
+    <Sheet label="View settings" onClose={onClose}>
+      <div className="m-shd">
+        <h2 className="m-h2">View</h2>
+        <button type="button" className="m-ib" aria-label="Close view settings" onClick={onClose}>
+          <span className="material-symbols-outlined m-ic">close</span>
+        </button>
+      </div>
 
-        <Section label="View">
+      <div className="m-fld">
+        <span className="m-lbl m-mut" id="m-view-range">Range</span>
+        <div className="m-seg" role="radiogroup" aria-labelledby="m-view-range">
           {MOBILE_VIEWS.map((v) => (
-            <button key={v} type="button" onClick={() => onViewChange(v)} className={pill(view === v)}>
+            <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => onViewChange(v)}>
               {VIEW_LABELS[v]}
             </button>
           ))}
-        </Section>
+        </div>
+      </div>
 
-        {view === 'day' && (
-          <Section label="Panel">
-            {(['timeline', 'stats', 'tasks', 'notes'] as const).map((p) => (
-              <button key={p} type="button" onClick={() => onDayPanelChange(p)} className={pill(dayPanel === p)}>
-                {p === 'timeline' ? 'Day' : p === 'stats' ? 'Stat' : p === 'tasks' ? 'Check' : 'Notes'}
+      {view !== 'year' && (
+        <div className="m-fld">
+          <span className="m-lbl m-mut" id="m-view-show">Show</span>
+          <div className="m-seg" role="radiogroup" aria-labelledby="m-view-show">
+            {(['real', 'plan', 'all'] as const).map((f) => (
+              <button key={f} type="button" role="radio" aria-checked={eventFilter === f} className={eventFilter === f ? 'on' : ''} onClick={() => onEventFilterChange(f)}>
+                {f === 'real' ? 'Real' : f === 'plan' ? 'Plan' : 'All'}
               </button>
             ))}
-          </Section>
-        )}
+          </div>
+        </div>
+      )}
 
-        <Section label="Show">
-          {(['real', 'plan', 'all'] as const).map((f) => (
-            <button key={f} type="button" onClick={() => onEventFilterChange(f)} className={pill(eventFilter === f)}>
-              {f === 'real' ? 'Real' : f === 'plan' ? 'Plan' : 'All'}
-            </button>
-          ))}
-        </Section>
+      <div className="m-fld">
+        <label className="m-lbl m-mut" htmlFor="m-view-date">Go to date</label>
+        <input
+          id="m-view-date"
+          type="date"
+          className="m-in"
+          value={dateKey(date)}
+          onChange={(e) => {
+            const [y, m, d] = e.target.value.split('-').map(Number);
+            if (y && m && d) onDateChange(new Date(y, m - 1, d, date.getHours(), date.getMinutes()));
+          }}
+        />
       </div>
-    </div>
+
+      <div className="m-fld">
+        <span className="m-lbl m-mut">History</span>
+        <div className="flex" style={{ gap: 8 }}>
+          <button
+            type="button"
+            className="m-btn flex-1 justify-start min-w-0"
+            disabled={!undoName}
+            onClick={() => {
+              undo();
+              setTick((t) => t + 1);
+            }}
+          >
+            <span className="material-symbols-outlined m-ic s">undo</span>
+            <span className="m-tr">{undoName ? `Undo: ${undoName.toLowerCase()}` : 'Nothing to undo'}</span>
+          </button>
+          <button
+            type="button"
+            className="m-btn"
+            disabled={!redoName}
+            aria-label={redoName ? `Redo: ${redoName.toLowerCase()}` : 'Redo'}
+            onClick={() => {
+              redo();
+              setTick((t) => t + 1);
+            }}
+          >
+            <span className="material-symbols-outlined m-ic s">redo</span>
+            Redo
+          </button>
+        </div>
+      </div>
+    </Sheet>
   );
 }

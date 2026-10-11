@@ -159,3 +159,13 @@ export function clearHistory(): void {
   undoStack = [];
   redoStack = [];
 }
+
+/** Label of the action Undo would revert, if any (the phone's view sheet shows it). */
+export function undoLabel(): string | null {
+  return undoStack[undoStack.length - 1]?.label ?? null;
+}
+
+/** Label of the action Redo would re-apply, if any. */
+export function redoLabel(): string | null {
+  return redoStack[redoStack.length - 1]?.label ?? null;
+}

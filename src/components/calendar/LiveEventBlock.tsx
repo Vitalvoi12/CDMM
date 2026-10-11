@@ -81,11 +81,11 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject,
           justifyContent: layout.align === 'center' ? 'center' : 'flex-start',
         }}
       >
-        <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[8px] max-lg:leading-none truncate font-semibold tracking-tight min-w-0 max-w-full text-on-surface">
+        <span className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[12px] max-lg:!leading-[15px] truncate font-semibold tracking-tight min-w-0 max-w-full text-on-surface">
           {subject?.name || 'Studying'}
         </span>
         {layout.showTime && (
-          <span className="font-body-sm text-body-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant tabular-nums truncate max-w-full mt-0.5">
+          <span className="font-body-sm text-body-sm max-lg:!text-[11px] max-lg:!leading-[14px] text-on-surface-variant tabular-nums truncate max-w-full mt-0.5">
             {formatClock(startMs)} – now
           </span>
         )}

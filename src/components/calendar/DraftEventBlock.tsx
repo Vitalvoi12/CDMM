@@ -23,10 +23,10 @@ export function DraftEventBlock({ top, height, startMinutes, endMinutes, isMobil
     >
       {/* Two spans so narrow (week) columns wrap onto two centred lines
           instead of truncating the end time. */}
-      <span className={`font-['Inter'] font-semibold text-on-surface tabular-nums whitespace-nowrap ${isMobile ? 'text-[10px] leading-none' : 'text-[16px] leading-5'}`}>
+      <span className={`font-['Inter'] font-semibold text-on-surface tabular-nums whitespace-nowrap ${isMobile ? 'text-[12px] leading-[15px]' : 'text-[16px] leading-5'}`}>
         {hhmm(startMinutes)} –
       </span>
-      <span className={`font-['Inter'] font-semibold text-on-surface tabular-nums whitespace-nowrap ${isMobile ? 'text-[10px] leading-none' : 'text-[16px] leading-5'}`}>
+      <span className={`font-['Inter'] font-semibold text-on-surface tabular-nums whitespace-nowrap ${isMobile ? 'text-[12px] leading-[15px]' : 'text-[16px] leading-5'}`}>
         {hhmm(endMinutes)}
       </span>
     </div>

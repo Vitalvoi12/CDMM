@@ -10,6 +10,9 @@ import { settingsRepo } from '../../services/repositories';
 import { hasOpenOverlay } from '../../services/overlays';
 import { startEventNotifications } from '../../services/notifications';
 
+/** Routes whose phone layout comes from the mobile redesign. */
+const FULL_BLEED = new Set(['/']);
+
 export function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -63,7 +66,8 @@ export function AppShell() {
     <div className="h-dvh max-lg:h-auto max-lg:fixed max-lg:inset-0 bg-background flex flex-col overflow-hidden">
       <Sidebar />
       <div className="pl-[19rem] max-lg:pl-0 flex flex-col flex-1 min-h-0">
-        <main className="px-10 max-lg:px-4 py-8 max-lg:py-4 flex-1 flex flex-col min-h-0 overflow-y-auto max-lg:overflow-hidden">
+        {/* Redesigned phone pages draw their own full-bleed header and gutters. */}
+        <main className={`px-10 py-8 flex-1 flex flex-col min-h-0 overflow-y-auto max-lg:overflow-hidden ${FULL_BLEED.has(pathname) ? 'max-lg:p-0' : 'max-lg:px-4 max-lg:py-4'}`}>
           {/* Keyed by route so every page switch replays the enter animation. */}
           <div key={pathname} className="animate-view-enter flex flex-col flex-1 min-h-0">
             <Outlet />

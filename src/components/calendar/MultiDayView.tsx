@@ -42,7 +42,7 @@ const HOUR_HEIGHT_DESKTOP = 48;
  *  window height. */
 const MIN_HOUR_HEIGHT = 24;
 /** Phones: a fixed, readable hour height — the grid scrolls instead of squeezing to fit. */
-const MOBILE_HOUR_HEIGHT = 40;
+const MOBILE_HOUR_HEIGHT = 56;
 const MOBILE_SCALE = 2.5;
 const TOTAL_HOURS = END_HOUR - START_HOUR;
 const SNAP = 15;
@@ -515,7 +515,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
           horizontal overflow). Sticky day headers keep working inside it. */}
       <div className="flex-1 min-h-0 overflow-auto [touch-action:pan-y]">
       {/* max-lg:pb-40: scroll room below 24:00 so the last hour clears the floating button. */}
-      <div className="min-w-[448px] max-lg:min-w-0 max-lg:pb-40 flex flex-col">
+      <div className="min-w-[448px] max-lg:min-w-0 max-lg:pb-24 flex flex-col">
         {/* Header row: corner cell + clickable day headers. Single compact
             line ("MON 14") — the old stacked layout with the static
             Real/Plan filler cost ~70px of vertical space. */}
@@ -554,7 +554,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
               {hourTicks.filter((hour) => hour !== START_HOUR).map((hour) => (
                 <span
                   key={hour}
-                  className="absolute right-1 -translate-y-1/2 max-lg:!text-[7px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant tabular-nums"
+                  className="absolute right-1 -translate-y-1/2 max-lg:!text-[10px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant tabular-nums"
                   style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
                 >
                   {String(hour).padStart(2, '0')}
@@ -675,14 +675,14 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                           }}
                         >
                           <span
-                            className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[7px] max-lg:leading-none font-semibold tracking-tight text-on-surface truncate"
+                            className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[10px] max-lg:!leading-[13px] font-semibold tracking-tight text-on-surface truncate"
                             style={planFg}
                           >
                             {displayName}
                           </span>
                           {layout.showTime && (
                             <span
-                              className="font-body-sm text-body-sm max-lg:!text-[6px] max-lg:leading-none text-on-surface-variant block truncate"
+                              className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:!leading-[12px] text-on-surface-variant block truncate"
                               style={planFg}
                             >
                               {timeFromDate(liveStart)} - {timeFromDate(liveEnd)}

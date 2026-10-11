@@ -1,3 +1,4 @@
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -21,6 +22,8 @@ interface DayNotesPanelProps {
 const SAVE_DELAY_MS = 600;
 
 interface ToolbarButton {
+  /** Phone toolbar glyph (Material Symbols). */
+  icon: string;
   label: string;
   title: string;
   active: (e: Editor) => boolean;
@@ -28,16 +31,16 @@ interface ToolbarButton {
 }
 
 const BUTTONS: ToolbarButton[] = [
-  { label: 'B', title: 'Bold (Ctrl+B)', active: (e) => e.isActive('bold'), run: (e) => e.chain().focus().toggleBold().run() },
-  { label: 'I', title: 'Italic (Ctrl+I)', active: (e) => e.isActive('italic'), run: (e) => e.chain().focus().toggleItalic().run() },
-  { label: 'S', title: 'Strikethrough', active: (e) => e.isActive('strike'), run: (e) => e.chain().focus().toggleStrike().run() },
-  { label: 'H1', title: 'Heading', active: (e) => e.isActive('heading', { level: 1 }), run: (e) => e.chain().focus().toggleHeading({ level: 1 }).run() },
-  { label: 'H2', title: 'Subheading', active: (e) => e.isActive('heading', { level: 2 }), run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run() },
-  { label: '•', title: 'Bulleted list', active: (e) => e.isActive('bulletList'), run: (e) => e.chain().focus().toggleBulletList().run() },
-  { label: '1.', title: 'Numbered list', active: (e) => e.isActive('orderedList'), run: (e) => e.chain().focus().toggleOrderedList().run() },
-  { label: '☑', title: 'Checklist', active: (e) => e.isActive('taskList'), run: (e) => e.chain().focus().toggleTaskList().run() },
-  { label: '❝', title: 'Quote', active: (e) => e.isActive('blockquote'), run: (e) => e.chain().focus().toggleBlockquote().run() },
-  { label: '</>', title: 'Code block', active: (e) => e.isActive('codeBlock'), run: (e) => e.chain().focus().toggleCodeBlock().run() },
+  { label: 'B', icon: 'format_bold', title: 'Bold (Ctrl+B)', active: (e) => e.isActive('bold'), run: (e) => e.chain().focus().toggleBold().run() },
+  { label: 'I', icon: 'format_italic', title: 'Italic (Ctrl+I)', active: (e) => e.isActive('italic'), run: (e) => e.chain().focus().toggleItalic().run() },
+  { label: 'S', icon: 'strikethrough_s', title: 'Strikethrough', active: (e) => e.isActive('strike'), run: (e) => e.chain().focus().toggleStrike().run() },
+  { label: 'H1', icon: 'format_h1', title: 'Heading', active: (e) => e.isActive('heading', { level: 1 }), run: (e) => e.chain().focus().toggleHeading({ level: 1 }).run() },
+  { label: 'H2', icon: 'format_h2', title: 'Subheading', active: (e) => e.isActive('heading', { level: 2 }), run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run() },
+  { label: '•', icon: 'format_list_bulleted', title: 'Bulleted list', active: (e) => e.isActive('bulletList'), run: (e) => e.chain().focus().toggleBulletList().run() },
+  { label: '1.', icon: 'format_list_numbered', title: 'Numbered list', active: (e) => e.isActive('orderedList'), run: (e) => e.chain().focus().toggleOrderedList().run() },
+  { label: '☑', icon: 'checklist', title: 'Checklist', active: (e) => e.isActive('taskList'), run: (e) => e.chain().focus().toggleTaskList().run() },
+  { label: '❝', icon: 'format_quote', title: 'Quote', active: (e) => e.isActive('blockquote'), run: (e) => e.chain().focus().toggleBlockquote().run() },
+  { label: '</>', icon: 'code', title: 'Code block', active: (e) => e.isActive('codeBlock'), run: (e) => e.chain().focus().toggleCodeBlock().run() },
 ];
 
 /**
@@ -46,6 +49,7 @@ const BUTTONS: ToolbarButton[] = [
  * the panel goes away (day change, tab switch) so no keystroke is lost.
  */
 export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused }: DayNotesPanelProps) {
+  const isMobile = useIsMobile();
   // Markdown last seen in the repo for this day; the editor's own saves update
   // it, so only genuinely remote changes differ from it.
   const [initial] = useState(() => dayNoteRepo.getContent(dateKey));
@@ -117,6 +121,40 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused }: DayNo
   });
 
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  // Phone: the note fills the tab edge to edge, the formatting bar sits at
+  // the bottom (above the keyboard while typing), one 44px icon per action.
+  if (isMobile) {
+    return (
+      <section aria-label={`Notes for ${dayLabel}`} className="flex flex-col min-h-0 flex-1 animate-fade-in">
+        <div className="flex-1 min-h-0 overflow-y-auto cursor-text" style={{ padding: '12px 16px' }} onClick={() => editor?.commands.focus()}>
+          <EditorContent editor={editor} />
+        </div>
+        {editor && (
+          <div
+            role="toolbar"
+            aria-label="Formatting"
+            className="m-scx flex-none bg-surface-container-lowest border-t border-outline-variant"
+            style={{ gap: 2, padding: '6px 8px' }}
+          >
+            {BUTTONS.map((b, i) => (
+              <button
+                key={b.title}
+                type="button"
+                aria-label={b.title.replace(/ \(.*\)$/, '')}
+                aria-pressed={!!state[i]}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => b.run(editor)}
+                className={`m-ib ${state[i] ? 'bg-secondary-container !text-on-secondary-container' : '!text-on-surface'}`}
+              >
+                <span className="material-symbols-outlined m-ic">{b.icon}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section

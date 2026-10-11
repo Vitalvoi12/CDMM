@@ -35,6 +35,8 @@ interface TimelineProps {
   onSwipeRight?: () => void;
   /** A Checklist task dropped on the grid: becomes a planned block at `start`. */
   onTaskDrop?: (task: TaskDragPayload, start: Date, end: Date) => void;
+  /** Phone: the slot the quick-create sheet is filling, drawn as a ghost. */
+  draft?: { start: Date; end: Date; kind: 'real' | 'plan' } | null;
 }
 
 const START_HOUR = 0;
@@ -46,7 +48,7 @@ const HOUR_HEIGHT_DESKTOP = 96;
 const MIN_HOUR_HEIGHT = 24;
 const MOBILE_SCALE = 2.5;
 /** Phones: a fixed, readable hour height — the day scrolls instead of squeezing to fit. */
-const MOBILE_HOUR_HEIGHT = 40;
+const MOBILE_HOUR_HEIGHT = 56;
 const SNAP = 15;
 const LONG_PRESS_MS = 400;
 const TOUCH_MOVE_THRESHOLD = 8;
@@ -83,7 +85,7 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight, onTaskDrop }: TimelineProps) {
+export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight, onTaskDrop, draft }: TimelineProps) {
   const isMobile = useIsMobile();
   const TOTAL_HOURS = END_HOUR - START_HOUR;
   // Single-column mode ('real' or 'plan'): the day is not split — one
@@ -98,9 +100,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const gridAnchorRef = useRef<HTMLDivElement>(null);
   const availPx = useAvailableHeight(gridAnchorRef);
   const BOTTOM_PAD = 51;
-  // Mobile: scroll room below 24:00, so the last hour clears the floating
-  // view-settings button and bottom nav instead of ending under them.
-  const MOBILE_BOTTOM_PAD = 160;
+  // Mobile: scroll room below 24:00, so the last hour clears the + button.
+  const MOBILE_BOTTOM_PAD = 88;
   const baseHourHeight = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
   const HOUR_HEIGHT = isMobile ? MOBILE_HOUR_HEIGHT : availPx > 0
     ? Math.max(MIN_HOUR_HEIGHT, (availPx - BOTTOM_PAD) / TOTAL_HOURS)
@@ -533,6 +534,22 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     );
 
   const renderDraft = (kind: 'real' | 'plan') => {
+    if (draft && draft.kind === kind) {
+      const dayStart = new Date(date);
+      dayStart.setHours(START_HOUR, 0, 0, 0);
+      const startMin = Math.max(0, Math.round((draft.start.getTime() - dayStart.getTime()) / 60000));
+      const endMin = Math.min(TOTAL_HOURS * 60, Math.round((draft.end.getTime() - dayStart.getTime()) / 60000));
+      return (
+        <DraftEventBlock
+          top={(startMin / 60) * HOUR_HEIGHT}
+          height={((endMin - startMin) / 60) * HOUR_HEIGHT}
+          startMinutes={START_HOUR * 60 + startMin}
+          endMinutes={START_HOUR * 60 + endMin}
+          isMobile={isMobile}
+          className="right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)]"
+        />
+      );
+    }
     const d = dragCreate.draft;
     if (!d || d.kind !== kind) return null;
     return (
@@ -606,13 +623,14 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     // from wherever the browser happened to deliver a full touchstart/end pair.
     <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto max-lg:overflow-visible [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
       <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: isMobile ? `${MOBILE_BOTTOM_PAD}px` : `${BOTTOM_PAD}px` }}>
-        <div className={`flex items-center mb-2 pl-4 ${single ? 'justify-center' : 'justify-between'}`}>
+        {/* Phone: the Real | Plan header stays put while the day scrolls. */}
+        <div className={`flex items-center mb-2 pl-4 max-lg:sticky max-lg:top-0 max-lg:z-40 max-lg:bg-background max-lg:mb-0 max-lg:h-[22px] ${single ? 'justify-center' : 'justify-between'}`}>
           {single ? (
-            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">{singleKind === 'real' ? 'Real' : 'Plan'}</span>
+            <span className="font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em]">{singleKind === 'real' ? 'Real' : 'Plan'}</span>
           ) : (
             <>
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">Real</span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">Plan</span>
+              <span className="font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em]">Real</span>
+              <span className="font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em]">Plan</span>
             </>
           )}
         </div>
@@ -628,7 +646,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
               className="absolute left-0 right-0 border-t border-outline-variant/60"
               style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
             >
-              <span className="absolute -top-2.5 -left-12 max-lg:-top-1 max-lg:!text-[7px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant tabular-nums">
+              <span className="absolute -top-2.5 -left-12 max-lg:-top-[6px] max-lg:!text-[10px] max-lg:!leading-[12px] max-lg:font-medium font-label-sm text-label-sm text-on-surface-variant tabular-nums">
                 {String(hour % 24).padStart(2, '0')}:00
               </span>
             </div>
@@ -641,7 +659,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
               className="absolute left-0 w-1/2 flex items-center justify-center pointer-events-none"
               style={{ top: `${gap.top}px`, height: `${gap.height}px` }}
             >
-              <span className="font-label-sm text-label-sm max-lg:!text-[7px] max-lg:leading-none text-on-surface-variant italic">
+              <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none text-on-surface-variant italic">
                 {gap.duration} min gap
               </span>
             </div>

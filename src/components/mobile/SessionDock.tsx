@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { Sheet } from './Sheet';
 import { eventRepo } from '../../services/repositories';
-import { splitStudySlices } from '../../utils/analytics';
-import { liveEventForDate } from '../../utils/stats';
-import { addDays, dateKey, formatDuration, timeFromDate } from '../../utils/time';
+import { focusStreak } from '../../utils/analytics';
+import { calculateDailyStats, liveEventForDate } from '../../utils/stats';
+import { formatDuration, timeFromDate } from '../../utils/time';
 
 /** 0:32:41 — the phone's timer drops the leading zero of the hour. */
 export function formatClock(ms: number): string {
@@ -73,19 +73,12 @@ function useTodayAndStreak(startTime: string | null, elapsed: number) {
   const minute = Math.floor(elapsed / 60000);
   return useMemo(() => {
     const now = startTime ? new Date(startTime).getTime() + minute * 60000 : Date.now();
-    const events = eventRepo.getAll();
     const live = startTime ? liveEventForDate({ subjectId: '', start: startTime }, new Date(now), now) : null;
-    const slices = splitStudySlices(live ? [...events, live] : events);
-    const byDay = new Map<string, number>();
-    for (const s of slices) byDay.set(s.date, (byDay.get(s.date) || 0) + s.minutes);
-    const today = new Date(now);
-    let cursor = byDay.get(dateKey(today)) ? today : addDays(today, -1);
-    let streak = 0;
-    while (byDay.get(dateKey(cursor))) {
-      streak++;
-      cursor = addDays(cursor, -1);
-    }
-    return { todayMinutes: byDay.get(dateKey(today)) || 0, streak };
+    const events = live ? [...eventRepo.getAll(), live] : eventRepo.getAll();
+    return {
+      todayMinutes: calculateDailyStats(events, new Date(now)).totalMinutes,
+      streak: focusStreak(events, new Date(now)),
+    };
   }, [startTime, minute]);
 }
 

@@ -1,3 +1,4 @@
+import { bodyZoom } from '../../utils/zoom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CalendarEvent, EventFilter, Subject } from '../../types';
 import { getMonthGrid, formatDayOfMonth, isSameDay, timeFromDate } from '../../utils/time';
@@ -41,10 +42,8 @@ const FALLBACK_ROW_PX = 96;
 const BUTTON_GAP_PX = 6;
 
 /**
- * How far the floating view-settings button (mobile only, portalled to body)
- * reaches up into the grid. Measured rather than derived from its classes:
- * the bottom nav grows with the safe-area inset while the button is pinned to
- * the viewport, so the overlap differs from phone to phone.
+ * How far the phone's floating + button reaches up into the grid. Measured
+ * rather than derived from its classes, so it holds at any zoom or inset.
  */
 function useButtonClearance(
   gridRef: React.RefObject<HTMLDivElement | null>,
@@ -59,12 +58,13 @@ function useButtonClearance(
     }
     const compute = () => {
       const grid = gridRef.current;
-      const btn = document.querySelector<HTMLElement>('[aria-label="View settings"]');
+      const btn = document.querySelector<HTMLElement>('.m-fab');
       if (!grid || !btn) return;
       // The grid's bottom edge is fixed by `availPx` (it fills <main>), so
-      // growing the last row never moves it — no measure/resize loop.
-      const gridBottom = grid.getBoundingClientRect().top + availPx;
-      const next = Math.max(0, Math.ceil(gridBottom - btn.getBoundingClientRect().top + BUTTON_GAP_PX));
+      // growing the last row never moves it — no measure/resize loop. Rects
+      // are on-screen px, availPx is layout px: divide by the body zoom.
+      const btnInGrid = (btn.getBoundingClientRect().top - grid.getBoundingClientRect().top) / bodyZoom();
+      const next = Math.max(0, Math.ceil(availPx - btnInGrid + BUTTON_GAP_PX));
       setClear((prev) => (prev === next ? prev : next));
     };
     compute();
@@ -108,8 +108,7 @@ export function MonthView({
   const isMobile = useIsMobile();
   const block = monthBlock(isMobile);
 
-  // On a phone the floating view-settings button sits over the bottom of the
-  // grid. The last row grows by that overlap, so its visible part above the
+  // On a phone the floating + button sits over the bottom of the grid. The last row grows by that overlap, so its visible part above the
   // button is as tall as every other row and no event hides underneath.
   const clearPx = useButtonClearance(gridAnchorRef, isMobile, availPx);
 
@@ -180,7 +179,7 @@ export function MonthView({
               }`}
             >
               <span className="flex items-center justify-between gap-1">
-                <span className={`font-label-md text-label-md max-lg:!text-[9px] ${today ? 'text-primary font-bold' : 'text-on-surface'}`}>
+                <span className={`font-label-md text-label-md max-lg:!text-[13px] ${today ? 'text-primary font-bold' : 'text-on-surface'}`}>
                   {formatDayOfMonth(d)}
                 </span>
                 {live && (
@@ -212,7 +211,7 @@ export function MonthView({
                     />
                   ))}
                   {hidden > 0 && (
-                    <span className={`font-label-sm text-label-sm leading-none text-on-surface-variant truncate ${isMobile ? '!text-[8px]' : ''}`}>
+                    <span className={`font-label-sm text-label-sm leading-none text-on-surface-variant truncate ${isMobile ? '!text-[10px]' : ''}`}>
                       +{hidden} more
                     </span>
                   )}
@@ -290,7 +289,7 @@ function MonthEventBlock({
         {timeFromDate(event.start)}
       </span>
       <span
-        className={`font-body-sm text-body-sm leading-none font-medium truncate min-w-0 text-on-surface ${isMobile ? '!text-[8px]' : ''}`}
+        className={`font-body-sm text-body-sm leading-none font-medium truncate min-w-0 text-on-surface ${isMobile ? '!text-[10px]' : ''}`}
         style={fgStyle}
       >
         {name}

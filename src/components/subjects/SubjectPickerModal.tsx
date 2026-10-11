@@ -96,7 +96,7 @@ function MobileSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModal
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Gym, Reading, Meeting"
               enterKeyHint="go"
-              className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-[20px] text-on-surface placeholder:text-on-surface-variant"
+              className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-[16px] text-on-surface placeholder:text-on-surface-variant"
             />
           </span>
           <button type="submit" className="m-btn pri sq" aria-label="Start custom session" disabled={!trimmed}>

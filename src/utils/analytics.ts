@@ -772,3 +772,19 @@ export function calculateFocusQuality(events: CalendarEvent[], from: Date, to: D
     best,
   };
 }
+
+/**
+ * Days in a row with focus time, ending at `today` — or at yesterday while
+ * today has nothing yet, so a streak is not "broken" before the day starts.
+ * Pass the running session in `events` (liveEventForDate) to count it.
+ */
+export function focusStreak(events: CalendarEvent[], today: Date = new Date()): number {
+  const active = new Set(splitStudySlices(events).map((s) => s.date));
+  let cursor = active.has(dateKey(today)) ? today : addDays(today, -1);
+  let streak = 0;
+  while (active.has(dateKey(cursor))) {
+    streak++;
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}

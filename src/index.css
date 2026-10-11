@@ -583,6 +583,9 @@ html[data-theme='dark'] .heat-num-hi {
 .note-editor code { background: var(--color-surface-container); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.9em; }
 .note-editor pre { background: var(--color-surface-container); border-radius: 8px; padding: 0.7em 0.9em; overflow-x: auto; }
 .note-editor pre code { background: none; padding: 0; }
+@media (max-width: 1023px) {
+  .note-editor { font-size: 14px; line-height: 22px; min-height: 0; }
+}
 .note-editor a { text-decoration: underline; color: var(--color-secondary); }
 .note-editor hr { border: 0; border-top: 1px solid var(--color-outline-variant); }
 .note-editor p.is-editor-empty:first-child::before {
@@ -652,6 +655,17 @@ html[data-theme='dark'] .heat-num-hi {
   }
 }
 
+
+/* Mobile type: utilities (not components) so `max-lg:` variants work on
+ * shared desktop markup. */
+@utility m-lbl { font: 700 10px/13px var(--font-label-sm); letter-spacing: .12em; text-transform: uppercase; }
+@utility m-lbm { font: 700 11px/13px var(--font-label-md); letter-spacing: .1em; text-transform: uppercase; }
+@utility m-h1 { font: 600 22px/29px var(--font-headline-md); letter-spacing: -.01em; margin: 0; }
+@utility m-h2 { font: 700 19px/26px var(--font-headline-md); margin: 0; }
+@utility m-dsp { font: 700 38px/45px var(--font-display-lg); letter-spacing: -.02em; }
+@utility m-mut { color: var(--color-on-surface-variant); }
+@utility m-sm { font-size: 11px; line-height: 16px; }
+
 @layer components {
   /* icons */
   .m-ic { font-size: 22px; line-height: 1; width: 1em; height: 1em; flex: none; }
@@ -659,14 +673,6 @@ html[data-theme='dark'] .heat-num-hi {
   .m-ic.xs { font-size: 14px; }
   .m-ic.l { font-size: 26px; }
 
-  /* type */
-  .m-lbl { font: 700 10px/13px var(--font-label-sm); letter-spacing: .12em; text-transform: uppercase; }
-  .m-lbm { font: 700 11px/13px var(--font-label-md); letter-spacing: .1em; text-transform: uppercase; }
-  .m-h1 { font: 600 22px/29px var(--font-headline-md); letter-spacing: -.01em; margin: 0; }
-  .m-h2 { font: 700 19px/26px var(--font-headline-md); margin: 0; }
-  .m-dsp { font: 700 38px/45px var(--font-display-lg); letter-spacing: -.02em; }
-  .m-mut { color: var(--color-on-surface-variant); }
-  .m-sm { font-size: 11px; line-height: 16px; }
   .m-tr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .m-num { font-variant-numeric: tabular-nums; }
 
@@ -706,9 +712,9 @@ html[data-theme='dark'] .heat-num-hi {
   .m-chip.sq { width: 44px; padding: 0; justify-content: center; }
   .m-sw { width: 10px; height: 10px; border-radius: 50%; flex: none; }
   .m-in { height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 10px; background: var(--color-surface-container-low); border: 1px solid var(--color-outline-variant); border-radius: 6.4px; color: var(--color-on-surface); font: 400 14px/20px var(--font-body-md); min-width: 0; width: 100%; outline: none; text-align: left; }
-  /* Typed text is 16px on screen (20px × 0.8 zoom), or iOS zooms into the
-     field on focus. */
-  input.m-in, textarea.m-in, select.m-in { font-size: 20px; }
+  /* Typed text a little larger than labels. (maximum-scale=1 in the
+     viewport already keeps iOS from zooming into small fields.) */
+  input.m-in, textarea.m-in, select.m-in { font-size: 16px; }
   .m-in:focus, .m-in:focus-within { border-color: var(--color-primary); }
   .m-in::placeholder, .m-in .ph { color: var(--color-on-surface-variant); opacity: 1; }
   input.m-in, textarea.m-in { -webkit-user-select: text; user-select: text; }

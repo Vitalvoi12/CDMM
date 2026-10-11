@@ -40,7 +40,7 @@ interface Text {
 }
 
 const DESKTOP_TEXT: Text = { title: 16, time: 16, maxPad: 10 };
-const MOBILE_TEXT: Text = { title: 8, time: 7, maxPad: 6 };
+const MOBILE_TEXT: Text = { title: 15, time: 14, maxPad: 4 };
 
 /** Space between the title and the time range (TimelineEvent's mt-0.5). */
 const ROW_GAP = 2;
@@ -64,8 +64,8 @@ interface Budget {
 /** Desktop: 12px title, 11px time, 10px padding per side. */
 const DESKTOP: Budget = { micro: 12, name: 18, twoLine: 34, padded: 54, resize: 11 };
 
-/** Mobile overrides shrink the text to 8px/7px with no padding. */
-const MOBILE: Budget = { micro: 9, name: 12, twoLine: 18, padded: 28, resize: 10 };
+/** Phone (at 0.8 zoom): 12px title, 11px time, little padding. */
+const MOBILE: Budget = { micro: 12, name: 17, twoLine: 31, padded: 40, resize: 14 };
 
 function budget(isMobile: boolean): Budget {
   return isMobile ? MOBILE : DESKTOP;
