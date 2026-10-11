@@ -745,3 +745,27 @@ html[data-theme='dark'] .heat-num-hi {
   .m-tile { display: flex; flex-direction: column; gap: 2px; padding-left: 12px; border-left: 1px solid var(--color-outline-variant); min-width: 0; }
   .m-tile b { font: 700 19px/26px var(--font-headline-md); }
 }
+
+/* Phone add bar (Checklist, Todo): at the bottom of its pane, and while its
+ * field has focus pinned right above the on-screen keyboard (--vv-* from
+ * services/keyboardInset.ts; fixed coordinates are inside the zoomed body). */
+@media (max-width: 1023px) {
+  .m-addbar {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--color-surface-container-lowest);
+    border-top: 1px solid var(--color-outline-variant);
+  }
+  .m-addbar:focus-within {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: calc((var(--vv-top, 0px) + var(--vv-height, 100vh)) / var(--app-zoom));
+    transform: translateY(-100%);
+    z-index: 90;
+    box-shadow: var(--shadow-elev-3);
+  }
+}

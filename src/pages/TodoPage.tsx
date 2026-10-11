@@ -8,6 +8,8 @@ import type { TodoReminder, TodoTask } from '../types';
 import { QuadrantCard } from '../components/todo/QuadrantCard';
 import { QuadrantDialog } from '../components/todo/QuadrantDialog';
 import { TodoForm } from '../components/todo/TodoForm';
+import { TodoList } from '../components/mobile/TodoList';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const QUADRANTS = [
   { key: 'ii', important: true, urgent: true, title: 'Urgent & Important' },
@@ -19,6 +21,7 @@ const QUADRANTS = [
 type QuadrantKey = (typeof QUADRANTS)[number]['key'];
 
 export function TodoPage() {
+  const isMobile = useIsMobile();
   const springRef = useOverscrollSpring<HTMLDivElement>();
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const [openQuadrant, setOpenQuadrant] = useState<QuadrantKey | null>(null);
@@ -156,6 +159,52 @@ export function TodoPage() {
 
   const quadrant = openQuadrant ? QUADRANTS.find((q) => q.key === openQuadrant)! : null;
 
+  const todoForm = formState && (
+    <TodoForm
+      task={formState.task}
+      defaults={{
+        important: QUADRANTS.find((q) => q.key === formState.quadrant)!.important,
+        urgent: QUADRANTS.find((q) => q.key === formState.quadrant)!.urgent,
+      }}
+      onSave={handleSave}
+      onDelete={handleDelete}
+      onCancel={() => setFormState(null)}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
+        <TodoList
+          byQuadrant={byQuadrant}
+          openCount={todos.filter((t) => !t.completed).length}
+          onToggle={handleToggle}
+          onDelete={handleDelete}
+          onOpen={(task) => {
+            const key: QuadrantKey = task.important && task.urgent ? 'ii' : task.urgent ? 'ni' : task.important ? 'in' : 'nn';
+            setFormState({ task, quadrant: key });
+          }}
+          onAdd={(title, important, urgent) => {
+            // Urgent needs a day, so it is due today; anything else starts
+            // undated — a date would make it urgent on the spot (see above).
+            checkpoint('Create task');
+            todoRepo.create({
+              title,
+              important,
+              urgent,
+              dueDate: urgent ? new Date(`${dateKey(new Date())}T18:00:00`).toISOString() : undefined,
+              dueHasTime: false,
+              reminders: [],
+              completed: false,
+            });
+            refresh();
+          }}
+        />
+        {todoForm}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-full flex-1 min-h-0 relative max-lg:overflow-hidden">
       <div className="mb-8 max-lg:mb-3 flex-shrink-0">
@@ -196,18 +245,7 @@ export function TodoPage() {
         />
       )}
 
-      {formState && (
-        <TodoForm
-          task={formState.task}
-          defaults={{
-            important: QUADRANTS.find((q) => q.key === formState.quadrant)!.important,
-            urgent: QUADRANTS.find((q) => q.key === formState.quadrant)!.urgent,
-          }}
-          onSave={handleSave}
-          onDelete={handleDelete}
-          onCancel={() => setFormState(null)}
-        />
-      )}
+      {todoForm}
     </div>
   );
 }

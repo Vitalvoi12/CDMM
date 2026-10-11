@@ -5,6 +5,7 @@ import { formatDuration } from '../../utils/time';
 import { EST_PRESETS, parseEstimate, stepEstimate } from '../../utils/estimate';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { Sheet } from '../mobile/Sheet';
 
 interface ChecklistTaskDialogProps {
   task: DayTask;
@@ -73,6 +74,70 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, onSave, onDelete
   const field = `bg-surface-container-low border focus:border-primary rounded-xl font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 ${
     isMobile ? 'py-3 px-4 !text-[16px]' : 'py-2 px-3'
   }`;
+
+  if (isMobile) {
+    return (
+      <Sheet label="Edit checklist task" onClose={onClose} focusSelf={false}>
+        <form
+          className="contents"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          <div className="m-shd">
+            <div className="flex flex-col min-w-0">
+              <h2 className="m-h2">Edit task</h2>
+              <span className="m-sm m-mut">{dayLabel}</span>
+            </div>
+            <button type="button" className="m-ib" aria-label="Close" onClick={onClose}>
+              <span className="material-symbols-outlined m-ic">close</span>
+            </button>
+          </div>
+          <input type="text" className="m-in" aria-label="Name" value={text} onChange={(e) => setText(e.target.value)} enterKeyHint="done" />
+          <div className="m-fld">
+            <span className="m-lbl m-mut">Subject</span>
+            <div className="m-wrap" role="radiogroup" aria-label="Subject">
+              {subjectChoices.map((s) => (
+                <button key={s.id || '__none__'} type="button" role="radio" aria-checked={subjectId === s.id} onClick={() => setSubjectId(s.id)} className={`m-chip ${subjectId === s.id ? 'on' : ''}`}>
+                  {s.color && <span className="m-sw" style={{ background: s.color }} />}
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="m-fld">
+            <span className="m-lbl m-mut">Est. time</span>
+            <div className="m-scx" role="radiogroup" aria-label="Estimate presets">
+              <button type="button" role="radio" aria-checked={!estText.trim()} onClick={() => setEst(undefined)} className={`m-chip ${!estText.trim() ? 'on' : ''}`}>None</button>
+              {EST_PRESETS.map((m) => (
+                <button key={m} type="button" role="radio" aria-checked={est === m} onClick={() => setEst(m)} className={`m-chip m-num ${est === m ? 'on' : ''}`}>
+                  {formatDuration(m)}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              className="m-in m-num"
+              value={estText}
+              onChange={(e) => setEstText(e.target.value)}
+              placeholder="Custom, e.g. 50m or 1h 20m"
+              aria-label="Custom estimate"
+              aria-invalid={estInvalid}
+              style={estInvalid ? { borderColor: 'var(--color-error)' } : undefined}
+            />
+            {estInvalid && <span className="m-sm" style={{ color: 'var(--color-error)' }}>Write it like 45, 45m, 1.5h, 1h 20m or 1:20 (up to 24h)</span>}
+          </div>
+          <div className="flex" style={{ gap: 8 }}>
+            <button type="button" className="m-btn err sq" aria-label="Delete task" onClick={onDelete}>
+              <span className="material-symbols-outlined m-ic s">delete</span>
+            </button>
+            <button type="submit" className="m-btn pri flex-1" disabled={!canSave}>Save</button>
+          </div>
+        </form>
+      </Sheet>
+    );
+  }
 
   return createPortal(
     <div

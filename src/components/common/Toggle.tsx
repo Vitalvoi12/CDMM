@@ -11,7 +11,7 @@ export function Toggle({ label, checked, onChange }: ToggleProps) {
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`flex items-center justify-between w-full px-4 py-3 rounded-2xl border transition-colors ${
+      className={`flex items-center justify-between w-full px-4 py-3 max-lg:min-h-[44px] rounded-2xl border transition-colors ${
         checked
           ? 'border-outline bg-surface-container'
           : 'border-outline-variant bg-surface-container-low hover:border-outline'

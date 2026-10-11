@@ -62,7 +62,16 @@ export function Sheet({ label, onClose, children, z = 100, above, focusSelf = tr
   };
 
   return createPortal(
-    <div className="overlay-root animate-fade-in" style={{ zIndex: z }}>
+    <div
+      className="overlay-root animate-fade-in"
+      style={{ zIndex: z }}
+      // React bubbles portal events to the page behind: keep its day swipe
+      // and double tap from seeing touches made in the sheet.
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      onTouchCancel={(e) => e.stopPropagation()}
+    >
       <div className="m-scrim" onClick={onClose} />
       {above}
       <div

@@ -25,9 +25,10 @@ import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calen
 import { ViewSettingsSheet } from '../components/calendar/ViewSettingsSheet';
 import { QuickCreateSheet } from '../components/mobile/QuickCreateSheet';
 import { DayStats } from '../components/mobile/DayStats';
+import { Checklist } from '../components/mobile/Checklist';
 import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
-import type { TaskDragPayload } from '../services/taskDrag';
+import { DEFAULT_TASK_MINUTES, type TaskDragPayload } from '../services/taskDrag';
 import type { CalendarEvent, DayTaskList, EventFilter, TodoTask } from '../types';
 
 /** Mobile day panels in tab order (the vertical swipe walks this list). */
@@ -375,6 +376,26 @@ export function CalendarPage() {
       refreshEvents();
     },
     [eventFilter, setEventFilter, refreshEvents]
+  );
+
+  // Phone: swipe → Plan on a checklist task. There is no timeline to drop on
+  // in the Check tab, so the block goes at the next quarter hour (today) or
+  // 09:00 (another day), as long as its estimate, and the Day tab opens on it
+  // to be dragged into place.
+  const planTaskOnPhone = useCallback(
+    (task: { id: string; text: string; subjectId: string; estMinutes?: number }) => {
+      const start = new Date(currentDate);
+      if (dateKey(currentDate) === dateKey(new Date())) {
+        const now = new Date();
+        start.setHours(now.getHours(), Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
+      } else {
+        start.setHours(9, 0, 0, 0);
+      }
+      const minutes = task.estMinutes || DEFAULT_TASK_MINUTES;
+      handleTaskDrop({ taskId: task.id, text: task.text, subjectId: task.subjectId, minutes }, start, new Date(start.getTime() + minutes * 60000));
+      setDayPanel('timeline');
+    },
+    [currentDate, handleTaskDrop]
   );
 
   // Earliest planned block per task, for the checklist's "scheduled" chip.
@@ -1011,7 +1032,7 @@ export function CalendarPage() {
             </div>
           ) : (
             <div
-              className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 pb-6 [touch-action:pan-y]"
+              className="flex-1 min-h-0 flex flex-col [touch-action:pan-y]"
               onTouchStart={(e) => {
                 panelSwipe.onTouchStart(e);
                 onChecklistTouchStart(e);
@@ -1023,7 +1044,20 @@ export function CalendarPage() {
               }}
               onTouchCancel={panelSwipe.onTouchCancel}
             >
-              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} />
+              <Checklist
+                date={currentDate}
+                tasks={shownTasks}
+                subjects={subjects}
+                todos={todos}
+                scheduled={scheduledTasks}
+                onToggleTask={handleDayTaskToggle}
+                onAddTask={handleDayTaskAdd}
+                onEditTask={handleDayTaskEdit}
+                onDeleteTask={handleDayTaskDelete}
+                onToggleTodo={handleTodoToggle}
+                onPlanTask={planTaskOnPhone}
+                inputRef={taskInputRef}
+              />
             </div>
           )}
           </div>
