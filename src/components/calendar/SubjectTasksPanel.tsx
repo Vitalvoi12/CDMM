@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { formatDuration, isSameDay } from '../../utils/time';
-import { isOverdue } from '../todo/TodoRows';
+import { isOverdue, todosForDay } from '../todo/TodoRows';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { beginTaskDrag, endTaskDrag, DEFAULT_TASK_MINUTES } from '../../services/taskDrag';
@@ -28,7 +28,7 @@ interface SubjectTasksPanelProps {
   onAddingChange: (open: boolean) => void;
   /** The form's text field, so whoever opens the form can focus it. */
   inputRef: RefObject<HTMLInputElement | null>;
-  /** All todo tasks; the ones due on `date` are listed after the subjects. */
+  /** All todo tasks; the ones for `date` (see todosForDay) are listed after the subjects. */
   todos?: TodoTask[];
   onToggleTodo?: (id: string, completed: boolean) => void;
   /**
@@ -219,19 +219,8 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     inputRef.current?.focus();
   };
 
-  // Todo tasks due on the shown day. Today also carries the open ones that
-  // are still overdue from earlier days, so nothing slips out of sight.
-  const dayTodos = useMemo(() => {
-    const today = isSameDay(date, new Date());
-    return todos
-      .filter((t) => {
-        if (!t.dueDate) return false;
-        const due = new Date(t.dueDate);
-        if (Number.isNaN(due.getTime())) return false;
-        return isSameDay(due, date) || (today && isOverdue(t) && due.getTime() < date.getTime());
-      })
-      .sort((a, b) => Date.parse(a.dueDate!) - Date.parse(b.dueDate!));
-  }, [todos, date]);
+  // Todo tasks for the shown day (see todosForDay).
+  const dayTodos = useMemo(() => todosForDay(todos, date), [todos, date]);
 
   // Rough time still ahead: estimates of the open tasks (todos included).
   const openEstimate =
@@ -532,10 +521,12 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
               </p>
               <ul className="flex flex-col gap-1">
                 {dayTodos.map((task) => {
-                  const due = new Date(task.dueDate!);
+                  const due = task.dueDate ? new Date(task.dueDate) : null;
                   const overdue = isOverdue(task);
-                  // Earlier day: show the date; same day: the picked time, if any.
-                  const when = !isSameDay(due, date)
+                  // Other day: show the date; same day: the picked time, if any.
+                  const when = !due
+                    ? null
+                    : !isSameDay(due, date)
                     ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                     : task.dueHasTime
                       ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}`

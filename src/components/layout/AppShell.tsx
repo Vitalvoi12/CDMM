@@ -9,6 +9,7 @@ import { requestSessionStart, requestSessionStartEdit } from '../../services/liv
 import { settingsRepo } from '../../services/repositories';
 import { hasOpenOverlay } from '../../services/overlays';
 import { startEventNotifications } from '../../services/notifications';
+import { BELOW_DOCK_ID } from '../mobile/belowDock';
 
 /** Routes whose phone layout comes from the mobile redesign. */
 const FULL_BLEED = new Set(['/', '/todo', '/subjects', '/statistics', '/settings']);
@@ -75,6 +76,8 @@ export function AppShell() {
         </main>
       </div>
       {isMobile && <LiveSessionCard variant="dock" shortcuts />}
+      {/* Phone pages can portal a bar here to sit under the session dock (see BELOW_DOCK_ID). */}
+      {isMobile && <div id={BELOW_DOCK_ID} className="flex-none" />}
       <MobileNav />
       <NotificationPrompt />
     </div>

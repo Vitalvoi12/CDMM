@@ -29,6 +29,31 @@ export function isOverdue(task: TodoTask): boolean {
   return !!task.dueDate && !task.completed && new Date(task.dueDate).getTime() < Date.now();
 }
 
+/**
+ * Todo tasks listed under a day's checklist: the ones due that day, plus on
+ * today the open ones still overdue from earlier days, plus every open
+ * "Urgent & Important" task on today and each later day, so they stay in
+ * sight until done. A ticked one stays on the day it was ticked. Dated
+ * tasks come first, by due time.
+ */
+export function todosForDay(todos: TodoTask[], date: Date): TodoTask[] {
+  const day = dateKey(date);
+  const today = dateKey(new Date());
+  return todos
+    .filter((t) => {
+      const due = t.dueDate ? new Date(t.dueDate) : null;
+      const dueOk = !!due && !Number.isNaN(due.getTime());
+      if (dueOk && dateKey(due) === day) return true;
+      if (day === today && dueOk && isOverdue(t)) return true;
+      if (t.important && t.urgent) {
+        if (!t.completed) return day >= today;
+        return !!t.completedAt && dateKey(new Date(t.completedAt)) === day;
+      }
+      return false;
+    })
+    .sort((a, b) => (a.dueDate ? Date.parse(a.dueDate) : Infinity) - (b.dueDate ? Date.parse(b.dueDate) : Infinity));
+}
+
 /** True when a task belongs on the "Urgent & Important" card for a given day. */
 export function matchesUrgentImportant(task: TodoTask, day: string): boolean {
   return (

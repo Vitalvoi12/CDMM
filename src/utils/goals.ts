@@ -1,6 +1,6 @@
 import type { CalendarEvent, Subject } from '../types';
 import { countsTowardStats } from './stats';
-import { addDays, startOfWeek } from './time';
+import { addDays, startOfDay, startOfWeek } from './time';
 
 export interface GoalProgress {
   subjectId: string;
@@ -60,8 +60,13 @@ export function goalProgress(
   });
 }
 
-/** Goal progress for the Monday–Sunday week containing `date`. */
+/**
+ * Goal progress of the week containing `date`, as it stood at the end of that
+ * day: from its Monday 00:00 up to midnight after `date`. Every Monday starts
+ * from zero, and each later day adds its own sessions on top, so stepping
+ * through past days replays how the week filled up.
+ */
 export function weeklyGoalProgress(events: CalendarEvent[], subjects: Subject[], date: Date): GoalProgress[] {
   const from = startOfWeek(date);
-  return goalProgress(events, subjects, from.getTime(), addDays(from, 7).getTime());
+  return goalProgress(events, subjects, from.getTime(), addDays(startOfDay(date), 1).getTime());
 }

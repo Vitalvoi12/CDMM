@@ -1,10 +1,12 @@
-import { useMemo, useState, type RefObject } from 'react';
+import { useLayoutEffect, useMemo, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { formatDuration, isSameDay } from '../../utils/time';
 import { EST_PRESETS } from '../../utils/estimate';
-import { isOverdue } from '../todo/TodoRows';
+import { isOverdue, todosForDay } from '../todo/TodoRows';
 import { ChecklistTaskDialog } from '../calendar/ChecklistTaskDialog';
 import { SwipeRow } from './SwipeRow';
+import { BELOW_DOCK_ID } from './belowDock';
 
 const LAST_SUBJECT_KEY = 'cdmm.checklist-subject';
 
@@ -40,16 +42,16 @@ interface ChecklistProps {
   onEditTask: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
   onDeleteTask: (id: string) => void;
   onToggleTodo: (id: string, completed: boolean) => void;
-  /** Swipe → Plan: put the task on the day's timeline. */
-  onPlanTask: (task: DayTask) => void;
+  /** Swipe → Plan: put the task (checklist or todo) on the day's timeline. */
+  onPlanTask: (task: { id: string; text: string; subjectId: string; estMinutes?: number }) => void;
   /** The add field, so V and a double tap can focus it. */
   inputRef: RefObject<HTMLInputElement | null>;
 }
 
 /**
  * The phone's Check tab: the day's checklist as swipeable rows (right: done,
- * left: plan / delete), the todos due that day below, and an add bar at the
- * bottom that rides above the keyboard while typing.
+ * left: plan / delete), the day's todos below (also plannable), and an add bar at the
+ * bottom (under the session dock) that rides above the keyboard while typing.
  */
 export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTask, onAddTask, onEditTask, onDeleteTask, onToggleTodo, onPlanTask, inputRef }: ChecklistProps) {
   const [openRow, setOpenRow] = useState<string | null>(null);
@@ -59,6 +61,9 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
   const [est, setEst] = useState<number | undefined>(undefined);
   const [estOpen, setEstOpen] = useState(false);
   const [focused, setFocused] = useState(false);
+  // The add bar sits under the session dock, in the shell's slot for it.
+  const [belowDock, setBelowDock] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => setBelowDock(document.getElementById(BELOW_DOCK_ID)), []);
   const byId = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
   const subjectId = byId.has(picked) ? picked : '';
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -72,18 +77,8 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
       .map((x) => x.t);
   }, [tasks, subjects]);
 
-  // Todos due on the day; today also keeps the overdue ones in sight.
-  const dayTodos = useMemo(() => {
-    const today = isSameDay(date, new Date());
-    return todos
-      .filter((t) => {
-        if (!t.dueDate) return false;
-        const due = new Date(t.dueDate);
-        if (Number.isNaN(due.getTime())) return false;
-        return isSameDay(due, date) || (today && isOverdue(t) && due.getTime() < date.getTime());
-      })
-      .sort((a, b) => Date.parse(a.dueDate!) - Date.parse(b.dueDate!));
-  }, [todos, date]);
+  // Todos for the day (see todosForDay).
+  const dayTodos = useMemo(() => todosForDay(todos, date), [todos, date]);
 
   const open = tasks.filter((t) => !t.done).length;
   const left = tasks.reduce((s, t) => s + (t.done ? 0 : t.estMinutes || 0), 0) + dayTodos.reduce((s, t) => s + (t.completed ? 0 : t.estMinutes || 0), 0);
@@ -101,6 +96,90 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
     setEstOpen(false);
     inputRef.current?.focus();
   };
+
+  const addBar = (
+    <form
+      className="m-addbar"
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+      }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      {(focused || text || estOpen) && (
+        <div className="m-scx" role="radiogroup" aria-label="Subject">
+          {choices.map((s) => (
+            <button
+              key={s.id || '__none__'}
+              type="button"
+              role="radio"
+              aria-checked={subjectId === s.id}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setPicked(s.id);
+                inputRef.current?.focus();
+              }}
+              className={`m-chip ${subjectId === s.id ? 'on' : ''}`}
+            >
+              <span className="m-sw" style={{ background: s.color }} />
+              {s.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {estOpen && (
+        <div className="m-scx" role="radiogroup" aria-label="Estimated time">
+          {EST_PRESETS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={est === m}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setEst(est === m ? undefined : m);
+                inputRef.current?.focus();
+              }}
+              className={`m-chip m-num ${est === m ? 'on' : ''}`}
+            >
+              ~{formatDuration(m)}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center" style={{ gap: 8 }}>
+        <label className="m-in flex-1" style={{ padding: '0 0 0 14px' }}>
+          <span className="m-dot" style={{ background: current?.color || 'var(--color-outline)' }} />
+          <input
+            ref={inputRef}
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={current ? `Add a task · ${current.name}` : 'Add a task'}
+            aria-label="New task"
+            enterKeyHint="done"
+            className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-[16px] text-on-surface placeholder:text-on-surface-variant"
+          />
+        </label>
+        <button
+          type="button"
+          className={`m-btn sq ${estOpen || est ? '!bg-secondary-container !text-on-secondary-container' : ''}`}
+          aria-label={est ? `Estimate ${formatDuration(est)}` : 'Estimate'}
+          aria-pressed={estOpen}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setEstOpen((o) => !o)}
+        >
+          {est ? <span className="m-sm m-num">{formatDuration(est)}</span> : <span className="material-symbols-outlined m-ic s">timer</span>}
+        </button>
+        <button type="submit" className="m-btn pri sq" aria-label="Add task" disabled={!text.trim()} onMouseDown={(e) => e.preventDefault()}>
+          <span className="material-symbols-outlined m-ic s">arrow_upward</span>
+        </button>
+      </div>
+    </form>
+  );
 
   return (
     <section aria-label={`Checklist for ${dayLabel}`} className="flex flex-col flex-1 min-h-0 animate-fade-in">
@@ -163,20 +242,24 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
         {dayTodos.length > 0 && (
           <>
             <div className="flex items-center" style={{ height: 40, padding: '0 16px', marginTop: 8 }}>
-              <span className="m-lbl m-mut">From todo · due {isSameDay(date, new Date()) ? 'today' : dayLabel}</span>
+              <span className="m-lbl m-mut">From todo</span>
             </div>
             {dayTodos.map((t) => {
-              const due = new Date(t.dueDate!);
+              const due = t.dueDate ? new Date(t.dueDate) : null;
               const overdue = isOverdue(t);
-              const when = !isSameDay(due, date)
+              const planned = scheduled[t.id];
+              const when = !due
+                ? 'Urgent & Important'
+                : !isSameDay(due, date)
                 ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                 : t.dueHasTime ? `${isSameDay(date, new Date()) ? 'Today' : dayLabel} ${hhmm(t.dueDate!)}` : isSameDay(date, new Date()) ? 'Today' : dayLabel;
               return (
                 <SwipeRow
                   key={t.id}
-                  open={false}
-                  onOpenChange={() => setOpenRow(null)}
+                  open={openRow === t.id}
+                  onOpenChange={(o) => setOpenRow(o ? t.id : null)}
                   start={{ label: t.completed ? 'Undo' : 'Done', icon: t.completed ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTodo(t.id, !t.completed) }}
+                  end={t.completed ? undefined : [{ label: 'Plan', icon: 'event', tone: 'sec', onClick: () => onPlanTask({ id: t.id, text: t.title, subjectId: '', estMinutes: t.estMinutes }) }]}
                 >
                   <div className="m-li" style={{ borderBottom: 0, background: 'transparent' }}>
                     <button
@@ -196,6 +279,12 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
                         {overdue && <span className="m-dot" style={{ width: 6, height: 6, background: 'var(--color-error)' }} />}
                         {when}
                       </span>
+                      {planned && (
+                        <span className="m-sm m-mut flex items-center" style={{ gap: 4 }}>
+                          <span className="material-symbols-outlined m-ic xs">event</span>
+                          Planned {isSameDay(new Date(planned), date) ? hhmm(planned) : `${new Date(planned).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${hhmm(planned)}`}
+                        </span>
+                      )}
                     </div>
                     {t.estMinutes ? <span className="m-est m-num">{formatDuration(t.estMinutes)}</span> : null}
                   </div>
@@ -206,87 +295,7 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
         )}
       </div>
 
-      <form
-        className="m-addbar"
-        onFocus={() => setFocused(true)}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
-        }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        {(focused || text || estOpen) && (
-          <div className="m-scx" role="radiogroup" aria-label="Subject">
-            {choices.map((s) => (
-              <button
-                key={s.id || '__none__'}
-                type="button"
-                role="radio"
-                aria-checked={subjectId === s.id}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  setPicked(s.id);
-                  inputRef.current?.focus();
-                }}
-                className={`m-chip ${subjectId === s.id ? 'on' : ''}`}
-              >
-                <span className="m-sw" style={{ background: s.color }} />
-                {s.name}
-              </button>
-            ))}
-          </div>
-        )}
-        {estOpen && (
-          <div className="m-scx" role="radiogroup" aria-label="Estimated time">
-            {EST_PRESETS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={est === m}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  setEst(est === m ? undefined : m);
-                  inputRef.current?.focus();
-                }}
-                className={`m-chip m-num ${est === m ? 'on' : ''}`}
-              >
-                ~{formatDuration(m)}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center" style={{ gap: 8 }}>
-          <label className="m-in flex-1" style={{ padding: '0 0 0 14px' }}>
-            <span className="m-dot" style={{ background: current?.color || 'var(--color-outline)' }} />
-            <input
-              ref={inputRef}
-              type="text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={current ? `Add a task · ${current.name}` : 'Add a task'}
-              aria-label="New task"
-              enterKeyHint="done"
-              className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-[16px] text-on-surface placeholder:text-on-surface-variant"
-            />
-          </label>
-          <button
-            type="button"
-            className={`m-btn sq ${estOpen || est ? '!bg-secondary-container !text-on-secondary-container' : ''}`}
-            aria-label={est ? `Estimate ${formatDuration(est)}` : 'Estimate'}
-            aria-pressed={estOpen}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setEstOpen((o) => !o)}
-          >
-            {est ? <span className="m-sm m-num">{formatDuration(est)}</span> : <span className="material-symbols-outlined m-ic s">timer</span>}
-          </button>
-          <button type="submit" className="m-btn pri sq" aria-label="Add task" disabled={!text.trim()} onMouseDown={(e) => e.preventDefault()}>
-            <span className="material-symbols-outlined m-ic s">arrow_upward</span>
-          </button>
-        </div>
-      </form>
+      {belowDock ? createPortal(addBar, belowDock) : addBar}
 
       {editing && (
         <ChecklistTaskDialog

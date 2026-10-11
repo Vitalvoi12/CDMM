@@ -288,7 +288,7 @@ export function CalendarPage() {
     return live ? [...dayEvents, live] : dayEvents;
   }, [dayEvents, currentDate, activeSession, elapsed]);
 
-  // Weekly goals of the displayed day's week. The running session counts
+  // Weekly goals from the displayed day's Monday through that day. The running session counts
   // toward today, like everywhere else on this screen.
   const weekGoals = useMemo(() => {
     const now = activeSession ? new Date(activeSession.start).getTime() + elapsed : Date.now();

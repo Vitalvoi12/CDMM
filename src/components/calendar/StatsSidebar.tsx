@@ -8,7 +8,7 @@ interface StatsSidebarProps {
   events: CalendarEvent[];
   subjects: Subject[];
   totalMinutes: number;
-  /** Weekly goal progress for the week of the displayed day (empty = no goals set). */
+  /** Weekly goal progress, from the displayed day's Monday through that day (empty = no goals set). */
   goals?: GoalProgress[];
 }
 
@@ -67,7 +67,7 @@ export function StatsSidebar({ events, subjects, totalMinutes, goals = [] }: Sta
 
         <hr className="border-t border-outline-variant" />
 
-        {/* Weekly goals: real time this week against each subject's goal */}
+        {/* Weekly goals: real time since Monday, up to the displayed day, against each subject's goal */}
         {goals.length > 0 && (
           <>
             <div>
