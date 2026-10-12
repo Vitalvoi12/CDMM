@@ -4,6 +4,10 @@ import { Sheet } from '../mobile/Sheet';
 import { redo, redoLabel, undo, undoLabel } from '../../services/history';
 import { dateKey } from '../../utils/time';
 
+/** Parts of the phone day view, picked in this sheet. */
+export const DAY_PANELS = ['timeline', 'stats', 'tasks', 'notes'] as const;
+export type DayPanel = (typeof DAY_PANELS)[number];
+
 interface ViewSettingsSheetProps {
   view: CalendarView;
   onViewChange: (view: CalendarView) => void;
@@ -11,6 +15,11 @@ interface ViewSettingsSheetProps {
   onEventFilterChange: (filter: EventFilter) => void;
   date: Date;
   onDateChange: (date: Date) => void;
+  /** Which part of the day view the phone shows (day view only). */
+  dayPanel: DayPanel;
+  onDayPanelChange: (panel: DayPanel) => void;
+  /** Open checklist tasks of the shown day, badged on Check. */
+  openTaskCount: number;
   onClose: () => void;
 }
 
@@ -29,11 +38,11 @@ const VIEW_LABELS: Record<(typeof MOBILE_VIEWS)[number], string> = {
 };
 
 /**
- * Phone view sheet, opened from the date title or the tune icon: range, which
- * kinds are shown, a date to jump to, and Undo / Redo (the phone has no
+ * Phone view sheet, opened from the date title or the tune button: range, the
+ * day view's panel, which kinds are shown, a date to jump to, and Undo / Redo (the phone has no
  * Ctrl+Z) with the name of the action they would revert.
  */
-export function ViewSettingsSheet({ view, onViewChange, eventFilter, onEventFilterChange, date, onDateChange, onClose }: ViewSettingsSheetProps) {
+export function ViewSettingsSheet({ view, onViewChange, eventFilter, onEventFilterChange, date, onDateChange, dayPanel, onDayPanelChange, openTaskCount, onClose }: ViewSettingsSheetProps) {
   // Re-read the history labels after each Undo / Redo press.
   const [, setTick] = useState(0);
   const undoName = undoLabel();
@@ -58,6 +67,20 @@ export function ViewSettingsSheet({ view, onViewChange, eventFilter, onEventFilt
           ))}
         </div>
       </div>
+
+      {view === 'day' && (
+        <div className="m-fld">
+          <span className="m-lbl m-mut" id="m-view-panel">Panel</span>
+          <div className="m-seg" role="radiogroup" aria-labelledby="m-view-panel">
+            {DAY_PANELS.map((p) => (
+              <button key={p} type="button" role="radio" aria-checked={dayPanel === p} className={dayPanel === p ? 'on' : ''} onClick={() => onDayPanelChange(p)}>
+                {p === 'timeline' ? 'Day' : p === 'stats' ? 'Stat' : p === 'tasks' ? 'Check' : 'Notes'}
+                {p === 'tasks' && openTaskCount > 0 && <span className="m-badge">{openTaskCount}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {view !== 'year' && (
         <div className="m-fld">

@@ -22,7 +22,7 @@ import { expandRecurrence, dateKey } from '../utils/time';
 import { weeklyGoalProgress } from '../utils/goals';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
-import { ViewSettingsSheet } from '../components/calendar/ViewSettingsSheet';
+import { DAY_PANELS, ViewSettingsSheet, type DayPanel } from '../components/calendar/ViewSettingsSheet';
 import { QuickCreateSheet } from '../components/mobile/QuickCreateSheet';
 import { DayStats } from '../components/mobile/DayStats';
 import { Checklist } from '../components/mobile/Checklist';
@@ -30,9 +30,6 @@ import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
 import { DEFAULT_TASK_MINUTES, type TaskDragPayload } from '../services/taskDrag';
 import type { CalendarEvent, DayTaskList, EventFilter, TodoTask } from '../types';
-
-/** Mobile day panels in tab order (the vertical swipe walks this list). */
-const DAY_PANELS = ['timeline', 'stats', 'tasks', 'notes'] as const;
 
 const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[] = [
   { id: 'day', label: 'Day' },
@@ -145,7 +142,7 @@ export function CalendarPage() {
     end: string;
     recurrenceId?: string | null;
   } | null>(null);
-  const [dayPanel, setDayPanel] = useState<(typeof DAY_PANELS)[number]>('timeline');
+  const [dayPanel, setDayPanel] = useState<DayPanel>('timeline');
   // Mobile view sheet (the date title or the tune icon).
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
@@ -460,14 +457,6 @@ export function CalendarPage() {
     },
     [isMobile]
   );
-
-  /** The phone's + button: the next quarter hour of the shown day. */
-  const openQuickCreate = useCallback(() => {
-    const now = new Date();
-    const start = new Date(currentDate);
-    start.setHours(now.getHours(), Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
-    setCreatingEvent({ start, end: new Date(start.getTime() + 60 * 60000), kind: eventFilter === 'all' ? 'plan' : eventFilter, quick: true });
-  }, [currentDate, eventFilter]);
 
   const handleEventSave = useCallback(
     (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; notifyBefore: number | null; notifyExtra: number[]; focus?: 1 | 2 | 3 | null }) => {
@@ -903,8 +892,8 @@ export function CalendarPage() {
   const shownTasks = dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? [];
   const openTaskCount = shownTasks.filter((t) => !t.done).length;
 
-  // Phone header: ‹ title › Today, tune. The title names the shown range and,
-  // like the tune icon, opens the view sheet.
+  // Phone header: ‹ title › Today. The title names the shown range and,
+  // like the tune button at the bottom right, opens the view sheet.
   const mobileTitle = (() => {
     if (view === 'day') return currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
     if (view === '3day') {
@@ -935,29 +924,7 @@ export function CalendarPage() {
               <span className="material-symbols-outlined m-ic">chevron_right</span>
             </button>
             <button type="button" className="m-pill m-lbm" onClick={goToToday}>Today</button>
-            <button type="button" className="m-ib" aria-label="View settings" onClick={() => setViewSettingsOpen(true)}>
-              <span className="material-symbols-outlined m-ic">tune</span>
-            </button>
           </header>
-          {view === 'day' && (
-            <div className="flex-none" style={{ padding: '8px 12px' }}>
-              <div className="m-seg" role="tablist" aria-label="Day panel">
-                {DAY_PANELS.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    role="tab"
-                    aria-selected={dayPanel === p}
-                    className={dayPanel === p ? 'on' : ''}
-                    onClick={() => setDayPanel(p)}
-                  >
-                    {p === 'timeline' ? 'Day' : p === 'stats' ? 'Stat' : p === 'tasks' ? 'Check' : 'Notes'}
-                    {p === 'tasks' && openTaskCount > 0 && <span className="m-badge">{openTaskCount}</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </>
       ) : (
         <DateHeader
@@ -978,6 +945,9 @@ export function CalendarPage() {
           onEventFilterChange={setEventFilter}
           date={currentDate}
           onDateChange={setCurrentDate}
+          dayPanel={dayPanel}
+          onDayPanelChange={setDayPanel}
+          openTaskCount={openTaskCount}
           onClose={() => setViewSettingsOpen(false)}
         />
       )}
@@ -1003,9 +973,6 @@ export function CalendarPage() {
                 draft={creatingEvent?.quick && creatingEvent.end && dateKey(creatingEvent.start) === dateKey(currentDate) ? { start: creatingEvent.start, end: creatingEvent.end, kind: creatingEvent.kind } : null}
               />
             </div>
-            <button type="button" className="m-fab" aria-label="New event" onClick={openQuickCreate}>
-              <span className="material-symbols-outlined m-ic l">add</span>
-            </button>
             </div>
           ) : dayPanel === 'stats' ? (
             <div
@@ -1111,9 +1078,9 @@ export function CalendarPage() {
           </div>
         ))}
 
-      {isMobile && (view === '3day' || view === 'month') && (
-        <button type="button" className="m-fab" aria-label="New event" onClick={openQuickCreate}>
-          <span className="material-symbols-outlined m-ic l">add</span>
+      {isMobile && (
+        <button type="button" className="m-fab" aria-label="View settings" onClick={() => setViewSettingsOpen(true)}>
+          <span className="material-symbols-outlined m-ic l">tune</span>
         </button>
       )}
 
