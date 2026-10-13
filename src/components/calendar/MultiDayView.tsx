@@ -112,8 +112,10 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   // opens the form.
   const lastDragEndRef = useRef(0);
   // Mobile swipe navigation (enabled by the parent on mobile only).
+  const pageRef = useRef<HTMLDivElement>(null);
   const swipe = useSwipeNav({
     enabled: isMobile,
+    pageRef,
     onSwipeLeft,
     onSwipeRight,
     markGesture: () => {
@@ -623,7 +625,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     // to how much room the block has.
                     const zone = eventResizeZone(visualHeight, isMobile);
                     const resizable = canResizeEvent(visualHeight, isMobile);
-                    const shellRadius = `${Math.max(3, Math.min(isMobile ? 8 : 10, visualHeight / 4))}px`;
+                    const shellRadius = `${Math.max(2, Math.min(isMobile ? 6 : 7, visualHeight / 5))}px`;
                     const lane = lanes[ev.id];
                     let liveStart = ev.start;
                     let liveEnd = ev.end;

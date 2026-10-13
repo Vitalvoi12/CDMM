@@ -122,8 +122,10 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   // tap synthesized after a swipe never opens the form.
   const lastDragEndRef = useRef(0);
   // Mobile swipe navigation (enabled by the parent on mobile only).
+  const pageRef = useRef<HTMLElement>(null);
   const swipe = useSwipeNav({
     enabled: isMobile,
+    pageRef,
     onSwipeLeft,
     onSwipeRight,
     markGesture: () => {
@@ -621,7 +623,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     // touchcancel and silently kill the swipe). The swipe then works from any
     // empty spot of the grid — Real half, Plan half, hour gutter — not just
     // from wherever the browser happened to deliver a full touchstart/end pair.
-    <section className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto max-lg:overflow-visible [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
+    <section ref={pageRef} className="col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto max-lg:overflow-visible [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
       <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: isMobile ? `${MOBILE_BOTTOM_PAD}px` : `${BOTTOM_PAD}px` }}>
         {/* Phone: the Real | Plan header stays put while the day scrolls. */}
         <div className={`flex items-center mb-2 pl-4 max-lg:sticky max-lg:top-0 max-lg:z-40 max-lg:bg-background max-lg:mb-0 max-lg:h-[22px] ${single ? 'justify-center' : 'justify-between'}`}>
