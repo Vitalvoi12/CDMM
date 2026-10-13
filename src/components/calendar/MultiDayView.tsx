@@ -6,7 +6,7 @@ import { bodyZoom } from '../../utils/zoom';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { LiveEventBlock } from './LiveEventBlock';
 import { DraftEventBlock } from './DraftEventBlock';
-import { contrastOn, eventFillColor, isDarkTheme, pageBackground } from '../../utils/color';
+import { eventFillColor } from '../../utils/color';
 import { canResizeEvent, eventLayout, eventResizeZone } from '../../utils/eventDensity';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
@@ -602,7 +602,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     const subjectColor = eventFillColor(ev, subject, 'var(--color-on-surface-variant)');
                     const mutedFill = `color-mix(in srgb, ${subjectColor} 42%, var(--color-surface-dim))`;
                     const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : subjectColor;
-                    const planFg = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : { color: '#000' };
+                    const planFg = { color: '#000' };
                     let visualTop = top;
                     let visualDx = 0;
                     let dragging = false;
