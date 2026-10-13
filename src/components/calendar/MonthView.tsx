@@ -257,7 +257,7 @@ function MonthEventBlock({
   const name = subject?.name || event.title || 'Untitled';
   const bg = plan ? fill : `color-mix(in srgb, ${color} 42%, var(--color-surface-dim))`;
   const spine = plan ? 'rgb(255 255 255 / 0.28)' : color;
-  const fgStyle = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : undefined;
+  const fgStyle = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : { color: '#000' };
   const timeRange = `${timeFromDate(event.start)} - ${timeFromDate(event.end)}`;
   const title =
     event.countInStats === false

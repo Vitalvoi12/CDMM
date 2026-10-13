@@ -54,6 +54,18 @@ export function todosForDay(todos: TodoTask[], date: Date): TodoTask[] {
     .sort((a, b) => (a.dueDate ? Date.parse(a.dueDate) : Infinity) - (b.dueDate ? Date.parse(b.dueDate) : Infinity));
 }
 
+/**
+ * Open todo tasks NOT listed under the day (see todosForDay): listed apart
+ * in the checklist so any of them can still be planned onto the timeline.
+ * Dated ones first, by due time; undated ones keep their stored order.
+ */
+export function otherOpenTodos(todos: TodoTask[], date: Date): TodoTask[] {
+  const shown = new Set(todosForDay(todos, date).map((t) => t.id));
+  return todos
+    .filter((t) => !t.completed && !shown.has(t.id))
+    .sort((a, b) => (a.dueDate ? Date.parse(a.dueDate) : Infinity) - (b.dueDate ? Date.parse(b.dueDate) : Infinity));
+}
+
 /** True when a task belongs on the "Urgent & Important" card for a given day. */
 export function matchesUrgentImportant(task: TodoTask, day: string): boolean {
   return (

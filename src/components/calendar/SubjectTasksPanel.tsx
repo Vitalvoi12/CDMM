@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { formatDuration, isSameDay } from '../../utils/time';
-import { isOverdue, todosForDay } from '../todo/TodoRows';
+import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { beginTaskDrag, endTaskDrag, DEFAULT_TASK_MINUTES } from '../../services/taskDrag';
@@ -229,6 +229,62 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   const total = tasks.length + dayTodos.length;
   const done = tasks.filter((t) => t.done).length + dayTodos.filter((t) => t.completed).length;
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  // Open todos not listed under the day — collapsed by default, there so
+  // any todo can be dragged onto the timeline. Left out of the counts.
+  const otherTodos = useMemo(() => otherOpenTodos(todos, date), [todos, date]);
+  const [showOther, setShowOther] = useState(false);
+
+  // One todo row — the day's todos and the other open ones share it.
+  const todoRow = (task: TodoTask) => {
+    const due = task.dueDate ? new Date(task.dueDate) : null;
+    const overdue = isOverdue(task);
+    // Other day: show the date; same day: the picked time, if any.
+    const when = !due
+      ? null
+      : !isSameDay(due, date)
+      ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : task.dueHasTime
+        ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}`
+        : null;
+    const { className: dragClass, ...drag } = dragProps(task.id, task.title, '', task.estMinutes || DEFAULT_TASK_MINUTES, task.completed);
+    return (
+      <li key={task.id} className={`flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={task.completed}
+          aria-label={task.completed ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
+          onClick={() => onToggleTodo?.(task.id, !task.completed)}
+          className={`w-5 h-5 max-lg:w-4 max-lg:h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-px transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            task.completed
+              ? 'bg-primary border-primary text-on-primary'
+              : 'border-outline hover:border-primary bg-transparent'
+          }`}
+        >
+          {task.completed && (
+            <span className="material-symbols-outlined text-[11px] max-lg:text-[9px] leading-none">check</span>
+          )}
+        </button>
+        <span
+          className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words ${
+            task.completed ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
+          }`}
+        >
+          {task.title}
+        </span>
+        {scheduled?.[task.id] && <ScheduledChip start={scheduled[task.id]} date={date} />}
+        {when && (
+          <span
+            className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
+              overdue ? 'text-error' : 'text-on-surface-variant'
+            }`}
+          >
+            {when}
+          </span>
+        )}
+      </li>
+    );
+  };
 
   const addForm = (
         <form
@@ -416,7 +472,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         />
       )}
 
-      {groups.length === 0 && dayTodos.length === 0 ? (
+      {groups.length === 0 && dayTodos.length === 0 && otherTodos.length === 0 ? (
         !adding && (
           <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
             Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
@@ -424,6 +480,11 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         )
       ) : (
         <ul className="flex flex-col gap-4 max-lg:gap-3 overflow-y-auto min-h-0 flex-1">
+          {groups.length === 0 && dayTodos.length === 0 && !adding && (
+            <li className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
+              Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
+            </li>
+          )}
           {groups.map((group) => (
             <li key={group.key} className="min-w-0">
               <p className="flex items-center gap-2 mb-1.5">
@@ -520,57 +581,26 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                 </span>
               </p>
               <ul className="flex flex-col gap-1">
-                {dayTodos.map((task) => {
-                  const due = task.dueDate ? new Date(task.dueDate) : null;
-                  const overdue = isOverdue(task);
-                  // Other day: show the date; same day: the picked time, if any.
-                  const when = !due
-                    ? null
-                    : !isSameDay(due, date)
-                    ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                    : task.dueHasTime
-                      ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}`
-                      : null;
-                  const { className: dragClass, ...drag } = dragProps(task.id, task.title, '', task.estMinutes || DEFAULT_TASK_MINUTES, task.completed);
-                  return (
-                    <li key={task.id} className={`flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
-                      <button
-                        type="button"
-                        role="checkbox"
-                        aria-checked={task.completed}
-                        aria-label={task.completed ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
-                        onClick={() => onToggleTodo?.(task.id, !task.completed)}
-                        className={`w-5 h-5 max-lg:w-4 max-lg:h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-px transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          task.completed
-                            ? 'bg-primary border-primary text-on-primary'
-                            : 'border-outline hover:border-primary bg-transparent'
-                        }`}
-                      >
-                        {task.completed && (
-                          <span className="material-symbols-outlined text-[11px] max-lg:text-[9px] leading-none">check</span>
-                        )}
-                      </button>
-                      <span
-                        className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words ${
-                          task.completed ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
-                        }`}
-                      >
-                        {task.title}
-                      </span>
-                      {scheduled?.[task.id] && <ScheduledChip start={scheduled[task.id]} date={date} />}
-                      {when && (
-                        <span
-                          className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
-                            overdue ? 'text-error' : 'text-on-surface-variant'
-                          }`}
-                        >
-                          {when}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
+                {dayTodos.map(todoRow)}
               </ul>
+            </li>
+          )}
+          {otherTodos.length > 0 && (
+            <li className="min-w-0">
+              <button
+                type="button"
+                onClick={() => setShowOther((v) => !v)}
+                aria-expanded={showOther}
+                className="flex items-center gap-2 mb-1.5 bg-transparent border-0 p-0 cursor-pointer text-left"
+              >
+                <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
+                  {showOther ? 'expand_more' : 'chevron_right'}
+                </span>
+                <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
+                  Other todos · {otherTodos.length}
+                </span>
+              </button>
+              {showOther && <ul className="flex flex-col gap-1">{otherTodos.map(todoRow)}</ul>}
             </li>
           )}
         </ul>

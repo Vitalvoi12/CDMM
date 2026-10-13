@@ -34,7 +34,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   // left. Real events mute the subject color; plans keep full fill.
   const fill = eventFillColor(event, subject);
   // Dark themes: text in the page-background color; light themes: contrast.
-  const fgStyle = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : undefined;
+  const fgStyle = plan ? { color: isDarkTheme() ? pageBackground() : contrastOn(fill) } : { color: '#000' };
 
   const mutedFill = `color-mix(in srgb, ${color} 42%, var(--color-surface-dim))`;
   const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : color;
