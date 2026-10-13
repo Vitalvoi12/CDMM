@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TodoReminder, TodoTask } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
+import { useSheetExit } from '../../hooks/useSheetExit';
 import { formatDuration } from '../../utils/time';
 import { Toggle } from '../common/Toggle';
 import { NotifyList, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
@@ -70,6 +71,9 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  // Phone: the sheet fades out when it closes.
+  useSheetExit(overlayRef, dialogRef);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEscapeOverlay(onCancel);
@@ -137,6 +141,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   return (
     <div
       // Phone: a bottom sheet over the nav, nearly full height.
+      ref={overlayRef}
       className="overlay-root z-[100] flex items-center justify-center max-lg:items-end max-lg:!p-0 bg-scrim p-4 animate-fade-in"
       onClick={onCancel}
     >

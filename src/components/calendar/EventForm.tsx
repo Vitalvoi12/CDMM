@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
+import { useSheetExit } from '../../hooks/useSheetExit';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
 import { NotifyList, isPresetLead, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
@@ -97,6 +98,9 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   );
   const formRef = useRef<HTMLFormElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  // Phone: the sheet fades out when it closes.
+  useSheetExit(overlayRef, dialogRef);
 
   const isNew = !event;
 
@@ -217,7 +221,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
 
   return (
     // Phone: a bottom sheet over the nav, nearly full height.
-    <div className="overlay-root z-[100] flex items-center justify-center max-lg:items-end max-lg:!p-0 max-lg:pt-6 bg-scrim p-4 animate-fade-in" onClick={onCancel}>
+    <div ref={overlayRef} className="overlay-root z-[100] flex items-center justify-center max-lg:items-end max-lg:!p-0 max-lg:pt-6 bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <div
         ref={dialogRef}
         tabIndex={-1}

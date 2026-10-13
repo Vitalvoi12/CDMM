@@ -408,6 +408,8 @@ html:not(.icons-ready) .material-symbols-outlined {
 .animate-slide-up { animation: cdmm-slide-up 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
 .animate-view-enter { animation: cdmm-view-enter 0.3s ease-out backwards; }
 .animate-event-in { animation: cdmm-event-in 0.22s ease-out backwards; transform-origin: top center; }
+/* Closing copy of a phone sheet (useSheetExit): static, never interactive. */
+.sheet-ghost, .sheet-ghost * { animation: none !important; transition: none !important; pointer-events: none !important; }
 .animate-bar-grow-y { animation: cdmm-bar-grow-y 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; transform-origin: bottom; }
 .animate-bar-grow-x { animation: cdmm-bar-grow-x 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; transform-origin: left; }
 .animate-breathe { animation: cdmm-breathe 2.2s ease-in-out infinite; }

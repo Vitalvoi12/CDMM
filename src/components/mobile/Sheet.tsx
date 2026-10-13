@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useEscapeOverlay } from '../../services/overlays';
+import { useSheetExit } from '../../hooks/useSheetExit';
 
 interface SheetProps {
   /** Accessible name of the dialog. */
@@ -21,21 +22,25 @@ interface SheetProps {
 
 /**
  * Phone bottom sheet: scrim, grab bar, slides up from the nav. Escape, a tap
- * on the scrim or a pull down on the grab bar closes it. Portalled to body so
+ * on the scrim or a pull down on the grab bar closes it; closing fades it
+ * out (useSheetExit). Portalled to body so
  * an animated page ancestor cannot re-anchor it. Sits in `.overlay-root`, so
  * it stays above the on-screen keyboard.
  */
 export function Sheet({ label, onClose, children, z = 100, above, focusSelf = true, className = '', tall = false, role = 'dialog' }: SheetProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const pull = useRef<{ y: number; dy: number } | null>(null);
   useEscapeOverlay(onClose);
+  useSheetExit(rootRef, ref);
 
   useEffect(() => {
     if (focusSelf) ref.current?.focus({ preventScroll: true });
   }, [focusSelf]);
 
   // Pull-to-close on the grab bar: the sheet follows the finger down and
-  // closes past 80px, otherwise springs back.
+  // closes past 80px (the exit fade starts from there), otherwise springs
+  // back.
   const onTouchStart = (e: React.TouchEvent) => {
     pull.current = { y: e.touches[0].clientY, dy: 0 };
   };
@@ -52,17 +57,17 @@ export function Sheet({ label, onClose, children, z = 100, above, focusSelf = tr
     const el = ref.current;
     pull.current = null;
     if (!p || !el) return;
-    el.style.transition = 'transform 180ms ease-out';
     if (p.dy > 80) {
-      el.style.transform = 'translateY(100%)';
-      setTimeout(onClose, 150);
-    } else {
-      el.style.transform = '';
+      onClose();
+      return;
     }
+    el.style.transition = 'transform 180ms ease-out';
+    el.style.transform = '';
   };
 
   return createPortal(
     <div
+      ref={rootRef}
       className="overlay-root animate-fade-in"
       style={{ zIndex: z }}
       // React bubbles portal events to the page behind: keep its day swipe
