@@ -202,9 +202,14 @@ function SlideToFinish({ onDone }: { onDone: () => void }) {
       style={{ height: 60, borderRadius: 12, background: 'var(--color-error-container)', color: 'var(--color-on-error-container)' }}
     >
       <span
-        className="absolute left-0 top-0 bottom-0"
+        className="absolute"
         style={{
-          width: `calc(${progress} * (100% - 60px) + 54px)`,
+          // Same insets and corners as the knob, so the fill ends on it.
+          left: 6,
+          top: 6,
+          bottom: 6,
+          borderRadius: 9.6,
+          width: `calc(${progress} * (100% - 60px) + 48px)`,
           background: 'color-mix(in srgb, var(--color-error) 35%, var(--color-error-container))',
           transition: dragging ? 'none' : 'width 200ms ease-out',
         }}

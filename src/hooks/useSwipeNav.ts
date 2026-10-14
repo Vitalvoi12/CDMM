@@ -15,8 +15,7 @@ interface SwipeNavOptions {
   pageRef?: RefObject<HTMLElement | null>;
 }
 
-const OUT_MS = 150;
-const IN_MS = 220;
+const TURN_MS = 260;
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -86,13 +85,17 @@ export function useSwipeNav(options: SwipeNavOptions) {
     else if (dir === 'right') onSwipeRight?.();
   }, [onSwipeLeft, onSwipeRight]);
 
-  // Page turn: the old page slides off the way the finger went, the period
-  // changes, the new page slides in from the other side.
+  // Page turn, carousel style: the new period renders at once and slides in
+  // right behind a static snapshot of the old page, both moving together.
+  // Only transforms animate. iOS WebKit leaves a page blank while it animates
+  // in from opacity 0 or from off-screen, so a turn that parks the page
+  // off-screen in between showed an empty pane until the animation ended.
   const navigate = useCallback((dir: 'left' | 'right' | null) => {
     const el = pageRef?.current;
+    const parent = el?.parentElement;
     const from = offsetRef.current;
     offsetRef.current = 0;
-    if (!dir || !el || reducedMotion()) {
+    if (!dir || !el || !parent || reducedMotion()) {
       if (el) el.style.transform = '';
       go(dir);
       return;
@@ -100,23 +103,50 @@ export function useSwipeNav(options: SwipeNavOptions) {
     const sign = dir === 'left' ? -1 : 1;
     const w = el.offsetWidth || window.innerWidth;
     turningRef.current = true;
-    el.style.transform = `translateX(${sign * w}px)`;
-    el.style.opacity = '0';
-    const out = el.animate(
-      [{ transform: `translateX(${from}px)`, opacity: 1 }, { transform: `translateX(${sign * w}px)`, opacity: 0.3 }],
-      { duration: OUT_MS, easing: 'cubic-bezier(0.4, 0, 1, 1)' }
-    );
+
+    // The snapshot sits exactly over the page, so the parent must be its
+    // containing block; overflow-x clip keeps the off-screen half hidden.
+    const parentStyle = { position: parent.style.position, overflowX: parent.style.overflowX };
+    const cs = getComputedStyle(parent);
+    if (cs.position === 'static') parent.style.position = 'relative';
+    if (cs.overflowX === 'visible') parent.style.overflowX = 'clip';
+    const ghost = el.cloneNode(true) as HTMLElement;
+    ghost.removeAttribute('id');
+    ghost.setAttribute('aria-hidden', 'true');
+    Object.assign(ghost.style, {
+      position: 'absolute',
+      left: `${el.offsetLeft}px`,
+      top: `${el.offsetTop}px`,
+      width: `${el.offsetWidth}px`,
+      height: `${el.offsetHeight}px`,
+      margin: '0',
+      pointerEvents: 'none',
+      transform: `translateX(${sign * w}px)`,
+    });
+    parent.appendChild(ghost);
+    // Clones start unscrolled; carry over inner scroll positions.
+    const src = [el, ...el.querySelectorAll('*')];
+    const dst = [ghost, ...ghost.querySelectorAll('*')];
+    src.forEach((n, i) => {
+      if (n.scrollTop || n.scrollLeft) {
+        dst[i].scrollTop = n.scrollTop;
+        dst[i].scrollLeft = n.scrollLeft;
+      }
+    });
+
+    // Render the new period now, before this frame paints.
+    flushSync(() => go(dir));
+    const page = pageRef?.current;
+    el.style.transform = '';
+
+    const timing = { duration: TURN_MS, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' };
+    const out = ghost.animate([{ transform: `translateX(${from}px)` }, { transform: `translateX(${sign * w}px)` }], timing);
+    page?.animate([{ transform: `translateX(${from - sign * w}px)` }, { transform: 'translateX(0)' }], timing);
     out.onfinish = out.oncancel = () => {
-      el.style.transform = '';
-      el.style.opacity = '';
-      // Render the new period now so it, not the old one, slides in.
-      flushSync(() => go(dir));
-      const page = pageRef?.current;
+      ghost.remove();
+      parent.style.position = parentStyle.position;
+      parent.style.overflowX = parentStyle.overflowX;
       turningRef.current = false;
-      page?.animate(
-        [{ transform: `translateX(${-sign * w * 0.35}px)`, opacity: 0 }, { transform: 'translateX(0)', opacity: 1 }],
-        { duration: IN_MS, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' }
-      );
     };
   }, [pageRef, go]);
 
