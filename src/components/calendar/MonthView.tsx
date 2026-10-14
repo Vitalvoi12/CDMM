@@ -6,7 +6,7 @@ import { getEventsForDate, liveSessionSubject, type LiveSessionRef } from '../..
 import { monthBlock, monthSlots } from '../../utils/eventDensity';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import { eventFillColor } from '../../utils/color';
+import { eventFillColor, isDarkTheme } from '../../utils/color';
 
 interface MonthViewProps {
   date: Date;
@@ -257,7 +257,7 @@ function MonthEventBlock({
   const name = subject?.name || event.title || 'Untitled';
   const bg = plan ? fill : `color-mix(in srgb, ${color} 42%, var(--color-surface-dim))`;
   const spine = plan ? 'rgb(255 255 255 / 0.28)' : color;
-  const fgStyle = { color: '#000' };
+  const fgStyle = { color: !plan && isDarkTheme() ? '#fff' : '#000' };
   const timeRange = `${timeFromDate(event.start)} - ${timeFromDate(event.end)}`;
   const title =
     event.countInStats === false

@@ -1,6 +1,6 @@
 import type { CalendarEvent, Subject } from '../../types';
 import { timeFromDate } from '../../utils/time';
-import { eventFillColor } from '../../utils/color';
+import { eventFillColor, isDarkTheme } from '../../utils/color';
 import { canResizeEvent, eventLayout, eventResizeZone } from '../../utils/eventDensity';
 
 interface TimelineEventProps {
@@ -33,8 +33,8 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   // Apple-Calendar look: solid muted fill with a brighter spine on the
   // left. Real events mute the subject color; plans keep full fill.
   const fill = eventFillColor(event, subject);
-  // Dark themes: text in the page-background color; light themes: contrast.
-  const fgStyle = { color: '#000' };
+  // Black text, except real events on dark themes, which use white.
+  const fgStyle = { color: !plan && isDarkTheme() ? '#fff' : '#000' };
 
   const mutedFill = `color-mix(in srgb, ${color} 42%, var(--color-surface-dim))`;
   const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : color;
