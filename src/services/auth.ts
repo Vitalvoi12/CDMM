@@ -1,3 +1,5 @@
+import { nativeClearSession, nativeSetSession } from './nativeBridge';
+
 const TOKEN_KEY = 'cdmm.token';
 const USERNAME_KEY = 'cdmm.username';
 const CURSOR_KEY = 'cdmm.cursor';
@@ -21,6 +23,7 @@ export function getUsername(): string | null {
 export function setSession(token: string, username: string): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USERNAME_KEY, username);
+  nativeSetSession(token, username);
 }
 
 export function getCursor(): number {
@@ -47,6 +50,7 @@ export function clearSession(): void {
   } catch {
     // ignore
   }
+  nativeClearSession();
 }
 
 /** Fired when the server rejects the token — the app must show the login screen. */

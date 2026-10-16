@@ -249,7 +249,25 @@ export interface UserSettings {
    * beside it or an ended session could be resurrected by a stale push.
    */
   activeSessionAt?: number;
+  /** How the Android phone and the watch signal reminders and block edges. */
+  signals?: DeviceSignalSettings;
+  /** LWW clock for `signals`, so a theme change elsewhere can't undo a choice. */
+  signalsAt?: number;
 }
+
+/** What a device does for one kind of signal. */
+export type SignalMode = 'off' | 'vibrate' | 'sound' | 'both';
+/**
+ * reminder = an event's own reminders, start/end = any event beginning or
+ * ending, todo = task reminders.
+ */
+export type SignalKind = 'reminder' | 'start' | 'end' | 'todo';
+export type VibrationPattern = 'short' | 'long' | 'double' | 'triple';
+export type SignalDevice = 'phone' | 'watch';
+
+export type DeviceSignals = Record<SignalKind, SignalMode> & { pattern: VibrationPattern };
+
+export type DeviceSignalSettings = Record<SignalDevice, DeviceSignals>;
 
 export type CalendarView = 'day' | '3day' | 'week' | 'month' | 'year';
 

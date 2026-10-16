@@ -6,6 +6,8 @@ import { initTheme } from './hooks/useTheme'
 import { backfillSubjects } from './services/repositories'
 import { registerNotificationWorker } from './services/notifications'
 import { installKeyboardInset } from './services/keyboardInset'
+import { getToken, getUsername } from './services/auth'
+import { nativeSetSession } from './services/nativeBridge'
 
 initTheme()
 
@@ -35,6 +37,13 @@ document.addEventListener(
   },
   { passive: false },
 )
+
+// A session from before the Android app was installed (or updated) reaches
+// the native side too, so widgets and the watch sign in with it.
+{
+  const token = getToken()
+  if (token) nativeSetSession(token, getUsername() ?? '')
+}
 
 // Re-push local subjects that never reached the server (one-time).
 backfillSubjects()

@@ -6,6 +6,7 @@ import { syncOnce } from '../services/serverSync';
 import { useTheme } from '../hooks/useTheme';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { SettingsNav } from '../components/settings/SettingsNav';
+import { DevicesPanel } from '../components/settings/DevicesPanel';
 import type { ThemeMode } from '../types';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { ensurePushSubscription, notificationPermission, pushEndpoint, requestNotificationPermission, sendTestPush, showNotification, type NotifyPermission } from '../services/notifications';
@@ -180,6 +181,11 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
             <span className="m-sm m-mut">
               Pick a reminder per event in the event editor, or per task in the task editor.
             </span>
+          </section>
+
+          <section className="flex flex-col" style={{ gap: 8 }}>
+            <span className="m-lbl m-mut">Phone &amp; watch</span>
+            <DevicesPanel mobile />
           </section>
 
           <section className="flex flex-col" style={{ gap: 8 }}>
@@ -369,6 +375,14 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+          {activeSection === 'devices' && (
+            <div className="mb-20 flex flex-col gap-4">
+              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">
+                Phone &amp; watch
+              </h1>
+              <DevicesPanel mobile={false} />
             </div>
           )}
           {activeSection === 'study-preferences' && (

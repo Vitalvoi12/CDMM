@@ -8,6 +8,7 @@ const sections = [
   { id: 'account', label: 'Account' },
   { id: 'study-preferences', label: 'Study Preferences' },
   { id: 'notifications', label: 'Notifications' },
+  { id: 'devices', label: 'Phone & Watch' },
 ];
 
 export function SettingsNav({ active, onChange }: SettingsNavProps) {

@@ -7,6 +7,7 @@ import {
 } from './repositories';
 import type { CalendarEvent, Subject, TodoTask, UserSettings, EventTimeEdit, DayNote, DayTaskList } from '../types';
 import { getToken, getCursor, setCursor, apiFetch } from './auth';
+import { nativeDataChanged } from './nativeBridge';
 
 export interface ServerChange {
   entity: string;
@@ -339,5 +340,8 @@ async function runCycle(): Promise<boolean> {
     // Tombstones are resent every cycle; nothing to clear for them.
   }
   if (changed) notifySync();
+  // The server now has every local edit: the Android app's widgets and alarms
+  // can refetch.
+  if (changed || hasDirty) nativeDataChanged();
   return changed;
 }

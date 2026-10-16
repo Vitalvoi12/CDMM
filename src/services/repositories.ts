@@ -1,8 +1,9 @@
 import type {
   Subject, CalendarEvent, UserSettings, TodoTask, ThemeMode, SyncedSession, EventTimeEdit, DayNote,
-  DayTask, DayTaskList,
+  DayTask, DayTaskList, DeviceSignalSettings,
 } from '../types';
 import { dateKey } from '../utils/time';
+import { normalizeSignals } from './signals';
 import { PLAN_FIX_WINDOW_MS } from '../utils/analytics';
 
 export type SyncEntity = 'subjects' | 'events' | 'todos' | 'eventEdits' | 'dayNotes' | 'dayTasks';
@@ -695,6 +696,7 @@ class SettingsRepository {
       theme,
       activeSession: sanitizeSession(raw.activeSession),
       activeSessionAt: num(raw.activeSessionAt),
+      ...(raw.signals ? { signals: normalizeSignals(raw.signals), signalsAt: num(raw.signalsAt) } : {}),
     };
     // Drop legacy fields (e.g. dailyGoalMinutes) — never persist them again.
     if (
@@ -734,6 +736,13 @@ class SettingsRepository {
     this.write(Math.max(Date.now(), this.updatedAt + 1), true);
   }
 
+  /** Phone/watch signal choices. Stamps their own LWW clock. */
+  setSignals(signals: DeviceSignalSettings): void {
+    this.settings.signals = normalizeSignals(signals);
+    this.settings.signalsAt = Math.max(Date.now(), num(this.settings.signalsAt) + 1);
+    this.write(Math.max(Date.now(), this.updatedAt + 1), true);
+  }
+
   /**
    * `recordTs` is the timestamp the settings record itself carries: the local
    * clock for our own writes, the server's stamp when adopting a remote one.
@@ -761,6 +770,13 @@ class SettingsRepository {
     if (sessionAt > num(this.settings.activeSessionAt)) {
       this.settings.activeSessionAt = sessionAt;
       this.settings.activeSession = sanitizeSession(remote.activeSession);
+      changed = true;
+    }
+
+    const signalsAt = num(remote.signalsAt);
+    if (remote.signals && signalsAt > num(this.settings.signalsAt)) {
+      this.settings.signals = normalizeSignals(remote.signals);
+      this.settings.signalsAt = signalsAt;
       changed = true;
     }
 
