@@ -1,0 +1,75 @@
+name: android
+
+# Builds the phone and watch APKs and publishes them to the rolling
+# "android-latest" release, so the newest build is always at
+#   https://github.com/<repo>/releases/download/android-latest/cdmm-phone.apk
+#   https://github.com/<repo>/releases/download/android-latest/cdmm-watch.apk
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yaml']
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # One key for every build: Android only installs an update signed like
+      # the installed app. Store it once with:
+      #   base64 -w0 cdmm-release.jks | gh secret set ANDROID_KEYSTORE_B64
+      #   gh secret set ANDROID_KEYSTORE_PASSWORD
+      - name: Release key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then echo "::error::ANDROID_KEYSTORE_B64 secret is missing"; exit 1; fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/cdmm.jks"
+          echo "CDMM_KEYSTORE=$RUNNER_TEMP/cdmm.jks" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          CDMM_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.workers.max=4 :app:assembleRelease :wear:assembleRelease \
+            -PversionCode=${{ github.run_number }} -PversionName=0.1.${{ github.run_number }}
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/cdmm-phone.apk
+          cp wear/build/outputs/apk/release/wear-release.apk out/cdmm-watch.apk
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdmm-apks
+          path: android/out/*.apk
+
+      - name: Publish android-latest
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest out/cdmm-phone.apk out/cdmm-watch.apk \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "Android build ${{ github.run_number }}" \
+            --notes "Phone and Wear OS apps built from ${GITHUB_SHA::7}."

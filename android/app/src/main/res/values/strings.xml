@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_now_desc">What is on now and what comes next</string>
+    <string name="widget_todo_desc">Open tasks, tick them off from the home screen</string>
+</resources>
