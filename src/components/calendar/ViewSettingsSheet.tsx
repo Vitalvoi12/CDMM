@@ -38,8 +38,8 @@ const VIEW_LABELS: Record<(typeof MOBILE_VIEWS)[number], string> = {
 };
 
 /**
- * Phone view sheet, opened from the date title or the tune button: range, the
- * day view's panel, which kinds are shown, a date to jump to, and Undo / Redo (the phone has no
+ * Phone view sheet, opened from the date title or the tune button: the day
+ * view's panel, range, which kinds are shown, a date to jump to, and Undo / Redo (the phone has no
  * Ctrl+Z) with the name of the action they would revert.
  */
 export function ViewSettingsSheet({ view, onViewChange, eventFilter, onEventFilterChange, date, onDateChange, dayPanel, onDayPanelChange, openTaskCount, onClose }: ViewSettingsSheetProps) {
@@ -57,17 +57,6 @@ export function ViewSettingsSheet({ view, onViewChange, eventFilter, onEventFilt
         </button>
       </div>
 
-      <div className="m-fld">
-        <span className="m-lbl m-mut" id="m-view-range">Range</span>
-        <div className="m-seg" role="radiogroup" aria-labelledby="m-view-range">
-          {MOBILE_VIEWS.map((v) => (
-            <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => onViewChange(v)}>
-              {VIEW_LABELS[v]}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {view === 'day' && (
         <div className="m-fld">
           <span className="m-lbl m-mut" id="m-view-panel">Panel</span>
@@ -81,6 +70,17 @@ export function ViewSettingsSheet({ view, onViewChange, eventFilter, onEventFilt
           </div>
         </div>
       )}
+
+      <div className="m-fld">
+        <span className="m-lbl m-mut" id="m-view-range">Range</span>
+        <div className="m-seg" role="radiogroup" aria-labelledby="m-view-range">
+          {MOBILE_VIEWS.map((v) => (
+            <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => onViewChange(v)}>
+              {VIEW_LABELS[v]}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {view !== 'year' && (
         <div className="m-fld">

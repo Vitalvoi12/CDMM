@@ -61,7 +61,7 @@ export function AppShell() {
   }, [navigate]);
 
   // Phone: the shell is pinned to the viewport with insets rather than sized
-  // with dvh — under the 0.8 body zoom 100dvh would fill only 80% of the
+  // with dvh — under the 0.88 body zoom 100dvh would fill only 88% of the
   // screen. The session bar and the nav sit in the column under the page.
   return (
     <div className="h-dvh max-lg:h-auto max-lg:fixed max-lg:inset-0 bg-background flex flex-col overflow-hidden">

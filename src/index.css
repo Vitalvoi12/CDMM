@@ -624,7 +624,7 @@ html[data-theme='dark'] .heat-num-hi {
  * Ported from the "CDMM Mobile" canvas (m.css). Everything here only applies
  * under 1024px; the desktop layout is untouched.
  *
- * The phone UI is drawn at 0.8 scale with CSS zoom on <body> (bodyZoom()
+ * The phone UI is drawn at 0.88 scale with CSS zoom on <body> (bodyZoom()
  * reads it for pointer math). Viewport units and env() insets are not scaled
  * by zoom's parent, so anything sized from them divides by --app-zoom. */
 :root {
@@ -632,7 +632,7 @@ html[data-theme='dark'] .heat-num-hi {
 }
 @media (max-width: 1023px) {
   :root {
-    --app-zoom: 0.8;
+    --app-zoom: 0.88;
   }
   body {
     zoom: var(--app-zoom);

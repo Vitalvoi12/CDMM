@@ -64,7 +64,7 @@ interface Budget {
 /** Desktop: 12px title, 11px time, 10px padding per side. */
 const DESKTOP: Budget = { micro: 12, name: 18, twoLine: 34, padded: 54, resize: 11 };
 
-/** Phone (at 0.8 zoom): 12px title, 11px time, little padding. */
+/** Phone (at 0.88 zoom): 12px title, 11px time, little padding. */
 const MOBILE: Budget = { micro: 12, name: 17, twoLine: 31, padded: 40, resize: 14 };
 
 function budget(isMobile: boolean): Budget {
