@@ -185,7 +185,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     const visible = mode === 'all' ? events : events.filter((e) => (e.kind ?? 'real') === mode);
     return visible.map((event) => {
       const top = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-      const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+      // A block running past midnight stops at the bottom of the grid.
+      const endPx = Math.min(timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start), TOTAL_HOURS * HOUR_HEIGHT);
       const height = Math.max(endPx - top, 13);
       return { event, top, height };
     });
@@ -203,7 +204,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       if (gapEnd > gapStart) {
         const gapMinutes = Math.round((gapEnd - gapStart) / 60000);
         if (gapMinutes < 120) {
-          const topPx = timeToPixels(sorted[i].event.end, START_HOUR, HOUR_HEIGHT);
+          const topPx = timeToPixels(sorted[i].event.end, START_HOUR, HOUR_HEIGHT, sorted[i].event.start);
           const endPx = timeToPixels(sorted[i + 1].event.start, START_HOUR, HOUR_HEIGHT);
           indicators.push({ top: topPx, height: endPx - topPx, duration: gapMinutes });
         }
@@ -218,9 +219,9 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     e.stopPropagation();
     const zoom = bodyZoom();
     const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
     const minDelta = -startPx;
-    const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
+    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx);
     dragRef.current = {
       eventId: event.id,
       startY: e.clientY,
@@ -288,7 +289,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     if (!isMobile || e.touches.length !== 1) return;
     const touch = e.touches[0];
     const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
     const state: TouchDragState = {
       eventId: event.id,
       startY: touch.clientY,
@@ -299,7 +300,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       eventStart: event.start,
       eventEnd: event.end,
       minDelta: -startPx,
-      maxDelta: TOTAL_HOURS * HOUR_HEIGHT - endPx,
+      maxDelta: Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx),
       timer: null,
     };
     touchDragRef.current = state;
@@ -401,11 +402,11 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     e.stopPropagation();
     const zoom = bodyZoom();
     const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
     // Allow shrinking down to the 15-minute minimum: the pixel delta needed to
     // reach start + 15min from the current end.
     const minDelta = startPx - endPx + (SNAP * HOUR_HEIGHT) / 60;
-    const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
+    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx);
     resizeRef.current = {
       eventId: event.id,
       startY: e.clientY,

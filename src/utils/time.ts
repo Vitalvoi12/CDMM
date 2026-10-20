@@ -170,9 +170,14 @@ export function hourPosition(hour: number, startHour: number, hourHeight: number
   return (hour - startHour) * hourHeight;
 }
 
-export function timeToPixels(dateStr: string, startHour: number, hourHeight: number): number {
+/** `dayOf`: measure from the start of that time's day instead of the time's
+ *  own — pass an event's start for its end, so an end at midnight lands at
+ *  24:00 (the bottom of the grid), not at 00:00 (the top). */
+export function timeToPixels(dateStr: string, startHour: number, hourHeight: number, dayOf?: string): number {
   const d = new Date(dateStr);
-  const totalMinutes = d.getHours() * 60 + d.getMinutes();
+  const totalMinutes = dayOf
+    ? Math.round((d.getTime() - startOfDay(new Date(dayOf)).getTime()) / 60000)
+    : d.getHours() * 60 + d.getMinutes();
   const startMinutes = startHour * 60;
   return ((totalMinutes - startMinutes) / 60) * hourHeight;
 }

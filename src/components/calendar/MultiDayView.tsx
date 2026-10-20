@@ -171,9 +171,9 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     // clientY is visual px, layout math is layout px (body zoom).
     const zoom = bodyZoom();
     const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
     const minDelta = -startPx;
-    const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
+    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx);
     dragRef.current = {
       eventId: event.id,
       startY: e.clientY,
@@ -281,7 +281,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     if (!isMobile || e.touches.length !== 1) return;
     const touch = e.touches[0];
     const topPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
     const state: TouchDragState = {
       eventId: event.id,
       dayIdx,
@@ -295,7 +295,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
       eventStart: event.start,
       eventEnd: event.end,
       minDelta: -topPx,
-      maxDelta: TOTAL_HOURS * HOUR_HEIGHT - endPx,
+      maxDelta: Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx),
       timer: null,
     };
     touchDragRef.current = state;
@@ -440,11 +440,11 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     e.stopPropagation();
     const zoom = bodyZoom();
     const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT);
+    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
     // Allow shrinking down to the 15-minute minimum: the pixel delta needed to
     // reach start + 15min from the current end.
     const minDelta = startPx - endPx + (SNAP * HOUR_HEIGHT) / 60;
-    const maxDelta = TOTAL_HOURS * HOUR_HEIGHT - endPx;
+    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx);
     resizeRef.current = { eventId: event.id, startY: e.clientY, deltaY: 0, moved: false, eventStart: event.start, eventEnd: event.end, minDelta, maxDelta };
     document.body.style.cursor = 'ns-resize';
     document.body.style.userSelect = 'none';
@@ -589,7 +589,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
               const lanes = layoutOverlapLanes(list);
               return list.map((ev) => {
                 const top = timeToPixels(ev.start, START_HOUR, HOUR_HEIGHT);
-                const endPx = timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT);
+                // A block running past midnight stops at the bottom of the grid.
+                const endPx = Math.min(timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT, ev.start), TOTAL_HOURS * HOUR_HEIGHT);
                 let height = Math.max(endPx - top, 13);
                 const subject = subjectMap[ev.subjectId];
                 const displayName = subject?.name || ev.title || 'Untitled';
