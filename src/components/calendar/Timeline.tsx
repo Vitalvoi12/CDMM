@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
 import { liveSessionSubject, type LiveSessionRef } from '../../utils/stats';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
-import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
+import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes, dayBox, startOfDay } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
 import { TimelineEvent } from './TimelineEvent';
 import { LiveEventBlock } from './LiveEventBlock';
@@ -95,6 +95,9 @@ function snapToGrid(minutes: number): number {
 export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight, onTaskDrop, draft, peek, neighbours }: TimelineProps) {
   const isMobile = useIsMobile();
   const TOTAL_HOURS = END_HOUR - START_HOUR;
+  // Every position is measured from the start of the shown day, so an event
+  // crossing midnight is cut at 00:00 / 24:00 on each day it touches.
+  const dayIso = useMemo(() => startOfDay(date).toISOString(), [date]);
   // Single-column mode ('real' or 'plan'): the day is not split — one
   // full-width column showing only that kind.
   const single = mode !== 'all';
@@ -184,13 +187,11 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const eventBlocks = useMemo(() => {
     const visible = mode === 'all' ? events : events.filter((e) => (e.kind ?? 'real') === mode);
     return visible.map((event) => {
-      const top = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-      // A block running past midnight stops at the bottom of the grid.
-      const endPx = Math.min(timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start), TOTAL_HOURS * HOUR_HEIGHT);
-      const height = Math.max(endPx - top, 13);
-      return { event, top, height };
+      const box = dayBox(event.start, event.end, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
+      const height = Math.max(box.bottom - box.top, 13);
+      return { event, top: box.top, height, clippedTop: box.clippedTop, clippedBottom: box.clippedBottom };
     });
-  }, [events, mode, START_HOUR, HOUR_HEIGHT]);
+  }, [events, mode, dayIso, HOUR_HEIGHT]);
 
   const gapIndicators = useMemo(() => {
     const indicators: { top: number; height: number; duration: number }[] = [];
@@ -204,24 +205,25 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       if (gapEnd > gapStart) {
         const gapMinutes = Math.round((gapEnd - gapStart) / 60000);
         if (gapMinutes < 120) {
-          const topPx = timeToPixels(sorted[i].event.end, START_HOUR, HOUR_HEIGHT, sorted[i].event.start);
-          const endPx = timeToPixels(sorted[i + 1].event.start, START_HOUR, HOUR_HEIGHT);
+          const topPx = timeToPixels(sorted[i].event.end, START_HOUR, HOUR_HEIGHT, dayIso);
+          const endPx = timeToPixels(sorted[i + 1].event.start, START_HOUR, HOUR_HEIGHT, dayIso);
           indicators.push({ top: topPx, height: endPx - topPx, duration: gapMinutes });
         }
       }
     }
     return indicators;
-  }, [eventBlocks, START_HOUR, HOUR_HEIGHT]);
+  }, [eventBlocks, dayIso, HOUR_HEIGHT]);
 
   const handleDragStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     if (isMobile) return;
     e.preventDefault();
     e.stopPropagation();
     const zoom = bodyZoom();
-    const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
-    const minDelta = -startPx;
-    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx);
+    const { startPx, endPx } = dayBox(event.start, event.end, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
+    // May cross midnight either way while 15 minutes stay on this day.
+    const visPx = Math.min(SNAP * HOUR_HEIGHT / 60, endPx - startPx);
+    const minDelta = Math.min(0, visPx - endPx);
+    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - visPx - startPx);
     dragRef.current = {
       eventId: event.id,
       startY: e.clientY,
@@ -249,7 +251,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
         dragRef.current.eventEnd,
         minsDelta,
         START_HOUR,
-        END_HOUR
+        END_HOUR,
+        dayIso
       );
       const snappedDelta =
         ((start.getTime() - new Date(dragRef.current.eventStart).getTime()) / 60000) /
@@ -273,7 +276,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
             dragRef.current.eventEnd,
             minsDelta,
             START_HOUR,
-            END_HOUR
+            END_HOUR,
+            dayIso
           );
           onEventMove(dragRef.current.eventId, start, end);
         }
@@ -283,13 +287,12 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [onEventMove, HOUR_HEIGHT, isMobile]);
+  }, [onEventMove, HOUR_HEIGHT, isMobile, dayIso]);
 
   const handleTouchDragStart = useCallback((event: CalendarEvent, e: React.TouchEvent<HTMLElement>) => {
     if (!isMobile || e.touches.length !== 1) return;
     const touch = e.touches[0];
-    const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
+    const { startPx, endPx } = dayBox(event.start, event.end, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
     const state: TouchDragState = {
       eventId: event.id,
       startY: touch.clientY,
@@ -299,8 +302,9 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
       active: false,
       eventStart: event.start,
       eventEnd: event.end,
-      minDelta: -startPx,
-      maxDelta: Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx),
+      // May cross midnight either way while 15 minutes stay on this day.
+      minDelta: Math.min(0, Math.min(SNAP * HOUR_HEIGHT / 60, endPx - startPx) - endPx),
+      maxDelta: Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - Math.min(SNAP * HOUR_HEIGHT / 60, endPx - startPx) - startPx),
       timer: null,
     };
     touchDragRef.current = state;
@@ -340,7 +344,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
         current.eventEnd,
         minsDelta,
         START_HOUR,
-        END_HOUR
+        END_HOUR,
+        dayIso
       );
       current.deltaY =
         ((start.getTime() - new Date(current.eventStart).getTime()) / 60000) /
@@ -364,7 +369,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
             current.eventEnd,
             minsDelta,
             START_HOUR,
-            END_HOUR
+            END_HOUR,
+            dayIso
           );
           onEventMove(current.eventId, start, end, 'touch');
         }
@@ -394,19 +400,19 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
     document.addEventListener('touchcancel', onCancel);
-  }, [onEventMove, HOUR_HEIGHT, MINUTES_PER_PIXEL, TOTAL_HOURS, isMobile]);
+  }, [onEventMove, HOUR_HEIGHT, MINUTES_PER_PIXEL, TOTAL_HOURS, isMobile, dayIso]);
 
   const handleResizeStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
     if (isMobile) return;
     e.preventDefault();
     e.stopPropagation();
     const zoom = bodyZoom();
-    const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
+    const { startPx, endPx } = dayBox(event.start, event.end, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
     // Allow shrinking down to the 15-minute minimum: the pixel delta needed to
     // reach start + 15min from the current end.
     const minDelta = startPx - endPx + (SNAP * HOUR_HEIGHT) / 60;
-    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx);
+    // The end may run past midnight, to the end of the next day.
+    const maxDelta = Math.max(0, 2 * TOTAL_HOURS * HOUR_HEIGHT - endPx);
     resizeRef.current = {
       eventId: event.id,
       startY: e.clientY,
@@ -432,7 +438,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
         resizeRef.current.eventStart,
         minsDelta,
         END_HOUR,
-        SNAP
+        SNAP,
+        dayIso
       );
       const snappedDelta =
         ((snappedEnd.getTime() - new Date(resizeRef.current.eventEnd).getTime()) / 60000) /
@@ -456,7 +463,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
             resizeRef.current.eventStart,
             minsDelta,
             END_HOUR,
-            SNAP
+            SNAP,
+            dayIso
           );
           onEventResize(resizeRef.current.eventId, newEnd);
         }
@@ -466,7 +474,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [onEventResize, HOUR_HEIGHT, isMobile]);
+  }, [onEventResize, HOUR_HEIGHT, isMobile, dayIso]);
 
   const makeColumnTapHandler = useCallback(
     (kind: 'real' | 'plan') =>
@@ -576,26 +584,33 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
 
   const renderEventBlocks = (list: typeof eventBlocks) => {
     const lanes = layoutOverlapLanes(list.map((b) => b.event));
-    return list.map(({ event, top, height }) => {
+    return list.map(({ event, top, height, clippedTop, clippedBottom }) => {
       let visualTop = top;
       let visualHeight = height;
-      if (dragOffset?.eventId === event.id) {
-        visualTop += dragOffset.deltaY;
-      }
-      if (resizeInfo?.eventId === event.id) {
-        visualHeight = Math.max(height + resizeInfo.deltaY, 13);
-      }
+      let cutTop = clippedTop;
+      let cutBottom = clippedBottom;
       let liveStart = event.start;
       let liveEnd = event.end;
       if (dragOffset?.eventId === event.id) {
         const mins = Math.round(dragOffset.deltaY * MINUTES_PER_PIXEL);
-        const { start, end } = shiftEventByMinutes(event.start, event.end, mins, START_HOUR, END_HOUR);
+        const { start, end } = shiftEventByMinutes(event.start, event.end, mins, START_HOUR, END_HOUR, dayIso);
         liveStart = start.toISOString();
         liveEnd = end.toISOString();
+        // Drawn from the new times, so a block dragged past midnight is cut
+        // at the grid's edge right away.
+        const box = dayBox(liveStart, liveEnd, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
+        visualTop = box.top;
+        visualHeight = Math.max(box.bottom - box.top, 13);
+        cutTop = box.clippedTop;
+        cutBottom = box.clippedBottom;
       } else if (resizeInfo?.eventId === event.id) {
         const mins = Math.round(resizeInfo.deltaY * MINUTES_PER_PIXEL);
-        const end = shiftEventEndByMinutes(event.end, event.start, mins, END_HOUR, SNAP);
+        const end = shiftEventEndByMinutes(event.end, event.start, mins, END_HOUR, SNAP, dayIso);
         liveEnd = end.toISOString();
+        // Drawn from the new end: stretched past midnight, it is cut at 24:00.
+        const box = dayBox(liveStart, liveEnd, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
+        visualHeight = Math.max(box.bottom - box.top, 13);
+        cutBottom = box.clippedBottom;
       }
       return (
         <Fragment key={event.id}>
@@ -605,6 +620,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
           height={visualHeight}
           isMobile={isMobile}
           lane={lanes[event.id]}
+          clippedTop={cutTop}
+          clippedBottom={cutBottom}
           displayStart={liveStart}
           displayEnd={liveEnd}
           subject={subjectMap[event.subjectId]}

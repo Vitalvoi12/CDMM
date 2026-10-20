@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { getEventsForDate, liveSessionSubject, type LiveSessionRef } from '../../utils/stats';
-import { addDays, startOfWeek, timeToPixels, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes } from '../../utils/time';
+import { addDays, startOfWeek, timeFromDate, formatWeekdayShort, formatDayOfMonth, isSameDay, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes, dayBox, shiftDays, startOfDay } from '../../utils/time';
 import { bodyZoom } from '../../utils/zoom';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { LiveEventBlock } from './LiveEventBlock';
@@ -170,10 +170,12 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     e.stopPropagation();
     // clientY is visual px, layout math is layout px (body zoom).
     const zoom = bodyZoom();
-    const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
-    const minDelta = -startPx;
-    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx);
+    // Positions are measured from the column's own day (see dayBox).
+    const { startPx, endPx } = dayBox(event.start, event.end, startOfDay(dayList[dayIdx]).toISOString(), START_HOUR, END_HOUR, HOUR_HEIGHT);
+    // May cross midnight either way while 15 minutes stay on this day.
+    const visPx = Math.min(SNAP * HOUR_HEIGHT / 60, endPx - startPx);
+    const minDelta = Math.min(0, visPx - endPx);
+    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - visPx - startPx);
     dragRef.current = {
       eventId: event.id,
       startY: e.clientY,
@@ -204,7 +206,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
         R.eventEnd,
         minsDelta,
         START_HOUR,
-        END_HOUR
+        END_HOUR,
+        new Date(R.dayKeys[R.originDayIdx]).toISOString()
       );
       const snappedDelta =
         ((start.getTime() - new Date(R.eventStart).getTime()) / 60000) /
@@ -251,20 +254,16 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
           R.eventEnd,
           minsDelta,
           START_HOUR,
-          END_HOUR
+          END_HOUR,
+          new Date(R.dayKeys[R.originDayIdx]).toISOString()
         );
-        // Transplant the wall-clock time onto the target day.
+        // Another column: the same wall-clock times, whole days later or
+        // earlier (a block crossing midnight keeps crossing it).
         let ns = start;
         let ne = end;
         const dayShift = R.targetDayIdx - R.originDayIdx;
         if (dayShift !== 0 && R.dayKeys[R.targetDayIdx] !== undefined) {
-          const dayMs = R.dayKeys[R.targetDayIdx];
-          const atDay = (d: Date) => {
-            const nd = new Date(dayMs);
-            nd.setHours(d.getHours(), d.getMinutes(), 0, 0);
-            return nd;
-          };
-          ns = atDay(start);
+          ns = shiftDays(start, dayShift);
           ne = new Date(ns.getTime() + (end.getTime() - start.getTime()));
         }
         if (minsDelta !== 0 || dayShift !== 0) {
@@ -280,8 +279,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   const handleTouchDragStart = useCallback((event: CalendarEvent, dayIdx: number, e: React.TouchEvent<HTMLElement>) => {
     if (!isMobile || e.touches.length !== 1) return;
     const touch = e.touches[0];
-    const topPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
+    const { startPx: topPx, endPx } = dayBox(event.start, event.end, startOfDay(dayList[dayIdx]).toISOString(), START_HOUR, END_HOUR, HOUR_HEIGHT);
     const state: TouchDragState = {
       eventId: event.id,
       dayIdx,
@@ -294,8 +292,9 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
       active: false,
       eventStart: event.start,
       eventEnd: event.end,
-      minDelta: -topPx,
-      maxDelta: Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx),
+      // May cross midnight either way while 15 minutes stay on this day.
+      minDelta: Math.min(0, Math.min(SNAP * HOUR_HEIGHT / 60, endPx - topPx) - endPx),
+      maxDelta: Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - Math.min(SNAP * HOUR_HEIGHT / 60, endPx - topPx) - topPx),
       timer: null,
     };
     touchDragRef.current = state;
@@ -335,7 +334,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
         current.eventEnd,
         minsDelta,
         START_HOUR,
-        END_HOUR
+        END_HOUR,
+        startOfDay(dayList[current.dayIdx]).toISOString()
       );
       const snappedDelta =
         ((new Date(start).getTime() - new Date(current.eventStart).getTime()) / 60000) /
@@ -389,23 +389,16 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
             current.eventEnd,
             minsDelta,
             START_HOUR,
-            END_HOUR
+            END_HOUR,
+            startOfDay(dayList[current.dayIdx]).toISOString()
           );
           let ns = start;
           let ne = end;
           const dayShift = current.targetDayIdx - current.dayIdx;
           if (dayShift !== 0) {
-            const targetDay = dayList[Math.max(0, Math.min(dayList.length - 1, current.targetDayIdx))];
-            if (targetDay) {
-              const targetMs = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate()).getTime();
-              const atDay = (d: Date) => {
-                const nd = new Date(targetMs);
-                nd.setHours(d.getHours(), d.getMinutes(), 0, 0);
-                return nd;
-              };
-              ns = atDay(start);
-              ne = new Date(ns.getTime() + (end.getTime() - start.getTime()));
-            }
+            const targetIdx = Math.max(0, Math.min(dayList.length - 1, current.targetDayIdx));
+            ns = shiftDays(start, targetIdx - current.dayIdx);
+            ne = new Date(ns.getTime() + (end.getTime() - start.getTime()));
           }
           if (minsDelta !== 0 || dayShift !== 0) {
             onEventMove(current.eventId, ns, ne);
@@ -434,17 +427,18 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     document.addEventListener('touchcancel', onCancel);
   }, [HOUR_HEIGHT, isMobile, dayList, onEventMove]);
 
-  const handleResizeStart = useCallback((event: CalendarEvent, e: React.MouseEvent) => {
+  const handleResizeStart = useCallback((event: CalendarEvent, dayIdx: number, e: React.MouseEvent) => {
     if (isMobile) return;
     e.preventDefault();
     e.stopPropagation();
     const zoom = bodyZoom();
-    const startPx = timeToPixels(event.start, START_HOUR, HOUR_HEIGHT);
-    const endPx = timeToPixels(event.end, START_HOUR, HOUR_HEIGHT, event.start);
+    const dayIso = startOfDay(dayList[dayIdx]).toISOString();
+    const { startPx, endPx } = dayBox(event.start, event.end, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
     // Allow shrinking down to the 15-minute minimum: the pixel delta needed to
     // reach start + 15min from the current end.
     const minDelta = startPx - endPx + (SNAP * HOUR_HEIGHT) / 60;
-    const maxDelta = Math.max(0, TOTAL_HOURS * HOUR_HEIGHT - endPx);
+    // The end may run past midnight, to the end of the next day.
+    const maxDelta = Math.max(0, 2 * TOTAL_HOURS * HOUR_HEIGHT - endPx);
     resizeRef.current = { eventId: event.id, startY: e.clientY, deltaY: 0, moved: false, eventStart: event.start, eventEnd: event.end, minDelta, maxDelta };
     document.body.style.cursor = 'ns-resize';
     document.body.style.userSelect = 'none';
@@ -460,7 +454,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
         resizeRef.current.eventStart,
         minsDelta,
         END_HOUR,
-        SNAP
+        SNAP,
+        dayIso
       );
       const snappedDelta =
         ((snappedEnd.getTime() - new Date(resizeRef.current.eventEnd).getTime()) / 60000) /
@@ -482,7 +477,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
             resizeRef.current.eventStart,
             minsDelta,
             END_HOUR,
-            SNAP
+            SNAP,
+            dayIso
           );
           onEventResize(resizeRef.current.eventId, newEnd);
         }
@@ -491,7 +487,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
     };
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [onEventResize, HOUR_HEIGHT, isMobile]);
+  }, [onEventResize, HOUR_HEIGHT, isMobile, dayList]);
 
   const makeCellTapHandler = useCallback(
     (day: Date, kind: 'real' | 'plan') =>
@@ -585,13 +581,30 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
               );
             };
 
+            const dayIso = startOfDay(day).toISOString();
             const renderColumn = (list: typeof realEvents) => {
               const lanes = layoutOverlapLanes(list);
               return list.map((ev) => {
-                const top = timeToPixels(ev.start, START_HOUR, HOUR_HEIGHT);
-                // A block running past midnight stops at the bottom of the grid.
-                const endPx = Math.min(timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT, ev.start), TOTAL_HOURS * HOUR_HEIGHT);
-                let height = Math.max(endPx - top, 13);
+                // Cut at 00:00 / 24:00 when the event crosses midnight.
+                let box = dayBox(ev.start, ev.end, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
+                let liveStart = ev.start;
+                let liveEnd = ev.end;
+                if (dragPos?.eventId === ev.id) {
+                  // Drawn from the new times: a block dragged past midnight is
+                  // cut at the grid's edge right away.
+                  const mins = Math.round(dragPos.deltaY * MINUTES_PER_PIXEL);
+                  const { start, end } = shiftEventByMinutes(ev.start, ev.end, mins, START_HOUR, END_HOUR, dayIso);
+                  liveStart = start.toISOString();
+                  liveEnd = end.toISOString();
+                  box = dayBox(liveStart, liveEnd, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
+                } else if (resizePos?.eventId === ev.id) {
+                  // Stretched past midnight, the block is cut at 24:00.
+                  const mins = Math.round(resizePos.deltaY * MINUTES_PER_PIXEL);
+                  liveEnd = shiftEventEndByMinutes(ev.end, ev.start, mins, END_HOUR, SNAP, dayIso).toISOString();
+                  box = dayBox(liveStart, liveEnd, dayIso, START_HOUR, END_HOUR, HOUR_HEIGHT);
+                }
+                const top = box.top;
+                const height = Math.max(box.bottom - box.top, 13);
                 const subject = subjectMap[ev.subjectId];
                 const displayName = subject?.name || ev.title || 'Untitled';
                 const plan = ev.kind === 'plan';
@@ -607,14 +620,12 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                 let visualDx = 0;
                 let dragging = false;
                 if (dragPos?.eventId === ev.id) {
-                  visualTop += dragPos.deltaY;
                   visualDx = dragPos.deltaX;
                   dragging = true;
                 }
-                if (resizePos?.eventId === ev.id) height = Math.max(height + resizePos.deltaY, 13);
                 // Leave a couple of pixels before the event's nominal end
                 // so back-to-back events do not visually merge.
-                const visualHeight = Math.max(height - 2, 2);
+                const visualHeight = box.clippedBottom ? Math.max(height, 2) : Math.max(height - 2, 2);
                 // The grid compresses on short screens, so the layout comes
                 // from absolute pixels — see utils/eventDensity. Top-aligned
                 // whenever there is room, centred only when there is not.
@@ -622,21 +633,12 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                 // Resizing works at any length; only the grab strip adapts
                 // to how much room the block has.
                 const zone = eventResizeZone(visualHeight, isMobile);
-                const resizable = canResizeEvent(visualHeight, isMobile);
+                // A bottom cut at 24:00 is not the event's end: nothing to resize there.
+                const resizable = !box.clippedBottom && canResizeEvent(visualHeight, isMobile);
                 const shellRadius = `${Math.max(2, Math.min(isMobile ? 6 : 7, visualHeight / 5))}px`;
+                const topRadius = box.clippedTop ? '0px' : shellRadius;
+                const bottomRadius = box.clippedBottom ? '0px' : shellRadius;
                 const lane = lanes[ev.id];
-                let liveStart = ev.start;
-                let liveEnd = ev.end;
-                if (dragPos?.eventId === ev.id) {
-                  const mins = Math.round(dragPos.deltaY * MINUTES_PER_PIXEL);
-                  const { start, end } = shiftEventByMinutes(ev.start, ev.end, mins, START_HOUR, END_HOUR);
-                  liveStart = start.toISOString();
-                  liveEnd = end.toISOString();
-                } else if (resizePos?.eventId === ev.id) {
-                  const mins = Math.round(resizePos.deltaY * MINUTES_PER_PIXEL);
-                  const end = shiftEventEndByMinutes(ev.end, ev.start, mins, END_HOUR, SNAP);
-                  liveEnd = end.toISOString();
-                }
                 return (
                   <Fragment key={ev.id}>
                   <div
@@ -645,7 +647,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     style={{
                       top: `${visualTop}px`,
                       height: `${visualHeight}px`,
-                      borderRadius: shellRadius,
+                      borderRadius: `${topRadius} ${topRadius} ${bottomRadius} ${bottomRadius}`,
                       backgroundColor: plan ? fill : mutedFill,
                       transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined,
                       left: lane ? `${lane.left}%` : undefined,
@@ -663,8 +665,8 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       className="absolute left-0 top-0 bottom-0 w-[3px]"
                       style={{
                         backgroundColor: spineColor,
-                        borderTopLeftRadius: shellRadius,
-                        borderBottomLeftRadius: shellRadius,
+                        borderTopLeftRadius: topRadius,
+                        borderBottomLeftRadius: bottomRadius,
                       }}
                     />
                     <div
@@ -693,7 +695,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       <div
                         className="absolute left-0 right-0 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
                         style={{ bottom: 0, height: `${zone.height}px`, marginBottom: `${zone.offset}px` }}
-                        onMouseDown={(e) => handleResizeStart(ev, e)}
+                        onMouseDown={(e) => handleResizeStart(ev, idx, e)}
                       >
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-1 bg-outline-variant rounded-full" />
                       </div>

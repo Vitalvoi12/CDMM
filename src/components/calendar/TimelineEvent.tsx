@@ -18,9 +18,13 @@ interface TimelineEventProps {
   displayEnd?: string;
   /** Horizontal lane for overlapping blocks (see layoutOverlapLanes). */
   lane?: { left: number; width: number; z: number };
+  /** The event began the day before / runs on past 24:00: that edge is a
+   *  cut, drawn square, and a cut bottom has no resize handle. */
+  clippedTop?: boolean;
+  clippedBottom?: boolean;
 }
 
-export function TimelineEvent({ event, top, height, subject, onClick, onTouchStart, onDragStart, onResizeStart, isMobile = false, lane, displayStart, displayEnd }: TimelineEventProps) {
+export function TimelineEvent({ event, top, height, subject, onClick, onTouchStart, onDragStart, onResizeStart, isMobile = false, lane, displayStart, displayEnd, clippedTop = false, clippedBottom = false }: TimelineEventProps) {
   const plan = event.kind === 'plan';
   const excludedFromStats = event.countInStats === false;
   const statsTitle = excludedFromStats ? 'Excluded from statistics' : undefined;
@@ -42,7 +46,8 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   // Leave a couple of pixels before the event's nominal end so back-to-back
   // events do not visually merge. Every layout decision below is made against
   // the height that is actually painted, not the nominal one.
-  const boxHeight = Math.max(height - 2, 2);
+  // A cut bottom runs to the grid's end: there is no next block to keep clear of.
+  const boxHeight = clippedBottom ? Math.max(height, 2) : Math.max(height - 2, 2);
   // Top-aligned whenever the block has room for it; centred only when it does
   // not. Resizing is available at ANY length, so the handle never depends on
   // this decision (that coupling made 1-hour blocks un-resizable).
@@ -51,17 +56,19 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   // Height-adaptive corners: short/compressed boxes get visibly smaller radii,
   // while taller boxes can keep the reference radius. Mobile caps lower.
   const shellRadiusPx = `${Math.max(2, Math.min(isMobile ? 6 : 7, boxHeight / 5))}px`;
+  const topRadius = clippedTop ? '0px' : shellRadiusPx;
+  const bottomRadius = clippedBottom ? '0px' : shellRadiusPx;
   const spineStyle: React.CSSProperties = {
     backgroundColor: spineColor,
-    borderTopLeftRadius: shellRadiusPx,
-    borderBottomLeftRadius: shellRadiusPx,
+    borderTopLeftRadius: topRadius,
+    borderBottomLeftRadius: bottomRadius,
   };
 
   const baseStyle: React.CSSProperties = {
     top: `${top}px`,
     height: `${boxHeight}px`,
     backgroundColor: plan ? fill : mutedFill,
-    borderRadius: shellRadiusPx,
+    borderRadius: `${topRadius} ${topRadius} ${bottomRadius} ${bottomRadius}`,
   };
 
   const laneStyle: React.CSSProperties | undefined = lane
@@ -80,7 +87,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   // Grab strip for the bottom resize handle. Rendered for every density: only
   // its geometry adapts to the box height.
   const zone = eventResizeZone(boxHeight, isMobile);
-  const resizeHandle = canResizeEvent(boxHeight, isMobile) ? (
+  const resizeHandle = !clippedBottom && canResizeEvent(boxHeight, isMobile) ? (
     <div
       className="absolute left-0 right-0 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
       style={{ bottom: 0, height: `${zone.height}px`, marginBottom: `${zone.offset}px` }}

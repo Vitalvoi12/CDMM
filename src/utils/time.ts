@@ -187,28 +187,64 @@ export interface ShiftedEventTimes {
   end: Date;
 }
 
+/**
+ * Move an event by `deltaMinutes`. It may cross midnight either way (it is
+ * then shown cut on both days, see dayBox), as long as at least
+ * `minVisibleMinutes` of it stay on the day being dragged on (`dayOf`, by
+ * default the start's day) — the block never slips out from under the
+ * pointer. An event already further out than that never jumps.
+ */
 export function shiftEventByMinutes(
   startIso: string,
   endIso: string,
   deltaMinutes: number,
   startHour: number,
-  endHour: number
+  endHour: number,
+  dayOf?: string,
+  minVisibleMinutes = 15
 ): ShiftedEventTimes {
   const origStart = new Date(startIso);
   const origEnd = new Date(endIso);
   const durationMs = origEnd.getTime() - origStart.getTime();
-  const dayStart = new Date(
-    origStart.getFullYear(),
-    origStart.getMonth(),
-    origStart.getDate()
-  ).getTime();
-  const minStartMs = Math.min(dayStart + startHour * 3600000, origStart.getTime());
-  const maxStartMs = dayStart + endHour * 3600000 - durationMs;
-  let newStartMs = origStart.getTime() + deltaMinutes * 60000;
-  if (maxStartMs >= minStartMs) {
-    newStartMs = Math.max(minStartMs, Math.min(maxStartMs, newStartMs));
-  }
+  const dayStart = startOfDay(dayOf ? new Date(dayOf) : origStart).getTime();
+  const visibleMs = Math.min(minVisibleMinutes * 60000, durationMs);
+  const minStartMs = Math.min(dayStart + startHour * 3600000 + visibleMs - durationMs, origStart.getTime());
+  const maxStartMs = Math.max(dayStart + endHour * 3600000 - visibleMs, origStart.getTime());
+  const newStartMs = Math.max(minStartMs, Math.min(maxStartMs, origStart.getTime() + deltaMinutes * 60000));
   return { start: new Date(newStartMs), end: new Date(newStartMs + durationMs) };
+}
+
+/**
+ * Where an event sits in one day's grid. An event crossing midnight is cut
+ * at 00:00 / 24:00 and shown on each day it touches (as Google Calendar
+ * does); `clippedTop` / `clippedBottom` say which edges were cut.
+ */
+export function dayBox(
+  startIso: string,
+  endIso: string,
+  dayIso: string,
+  startHour: number,
+  endHour: number,
+  hourHeight: number
+): { top: number; bottom: number; startPx: number; endPx: number; clippedTop: boolean; clippedBottom: boolean } {
+  const startPx = timeToPixels(startIso, startHour, hourHeight, dayIso);
+  const endPx = timeToPixels(endIso, startHour, hourHeight, dayIso);
+  const gridPx = (endHour - startHour) * hourHeight;
+  return {
+    top: Math.max(0, startPx),
+    bottom: Math.min(gridPx, endPx),
+    startPx,
+    endPx,
+    clippedTop: startPx < 0,
+    clippedBottom: endPx > gridPx,
+  };
+}
+
+/** The same wall-clock moment `days` calendar days later (DST-safe). */
+export function shiftDays(d: Date, days: number): Date {
+  const out = new Date(d);
+  out.setDate(out.getDate() + days);
+  return out;
 }
 
 export interface OverlapLane {
@@ -278,21 +314,25 @@ export function layoutOverlapLanes(
   return out;
 }
 
+/**
+ * Move an event's end by `deltaMinutes`. With `dayOf` (the day being resized
+ * on) the end may run past midnight, up to the end of the following day; the
+ * event is then shown cut on both days (see dayBox). Without it the end stays
+ * within its own day.
+ */
 export function shiftEventEndByMinutes(
   endIso: string,
   startIso: string,
   deltaMinutes: number,
   endHour: number,
-  minDurationMinutes = 15
+  minDurationMinutes = 15,
+  dayOf?: string
 ): Date {
   const origEnd = new Date(endIso);
   const origStart = new Date(startIso);
-  const endDayStart = new Date(
-    origEnd.getFullYear(),
-    origEnd.getMonth(),
-    origEnd.getDate()
-  ).getTime();
-  const maxEndMs = endDayStart + endHour * 3600000;
+  const maxEndMs = dayOf
+    ? Math.max(origEnd.getTime(), startOfDay(new Date(dayOf)).getTime() + (endHour + 24) * 3600000)
+    : startOfDay(origEnd).getTime() + endHour * 3600000;
   const minEndMs = origStart.getTime() + minDurationMinutes * 60000;
   if (maxEndMs < minEndMs) return origEnd;
   let newEndMs = origEnd.getTime() + deltaMinutes * 60000;
