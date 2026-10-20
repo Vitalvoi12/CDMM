@@ -60,11 +60,12 @@ export function AppShell() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [navigate]);
 
-  // Phone: the shell is pinned to the viewport with insets rather than sized
-  // with dvh — under the 0.88 body zoom 100dvh would fill only 88% of the
-  // screen. The session bar and the nav sit in the column under the page.
+  // The shell is pinned to the viewport with insets rather than sized with
+  // dvh — under a body zoom (0.88 on phones, any interface size) 100dvh would
+  // fill only part of the screen. On phones the session bar and the nav sit
+  // in the column under the page.
   return (
-    <div className="h-dvh max-lg:h-auto max-lg:fixed max-lg:inset-0 bg-background flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-background flex flex-col overflow-hidden">
       <Sidebar />
       <div className="pl-[19rem] max-lg:pl-0 flex flex-col flex-1 min-h-0">
         {/* Redesigned phone pages draw their own full-bleed header and gutters. */}

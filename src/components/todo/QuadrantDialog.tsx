@@ -40,7 +40,7 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
         role="dialog"
         aria-modal="true"
         aria-label={`${title} tasks`}
-        className="bg-surface-container-lowest rounded-2xl shadow-elev-3 w-[92vw] h-[92vh] max-lg:w-[calc(100vw-1rem)] max-lg:h-[calc(100dvh-1rem-env(safe-area-inset-bottom,0px))] max-h-full flex flex-col overflow-hidden animate-pop-in"
+        className="bg-surface-container-lowest rounded-2xl shadow-elev-3 w-[calc(92vw/var(--app-zoom))] h-[calc(92vh/var(--app-zoom))] max-lg:w-[calc(100vw-1rem)] max-lg:h-[calc(100dvh-1rem-env(safe-area-inset-bottom,0px))] max-h-full flex flex-col overflow-hidden animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-outline-variant flex-shrink-0">

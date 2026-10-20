@@ -1,6 +1,6 @@
 /**
- * CSS `zoom` applied to <body> (banani density: 0.85 on desktop ≥1024px,
- * 1 elsewhere/mobile).
+ * CSS `zoom` applied to <body>: --app-zoom, 0.88 on phones (<1024px) and 1 on
+ * desktop, times the interface size setting (hooks/useUiScale.ts).
  *
  * PointerEvent client coords are visual px, while all calendar layout math
  * (HOUR_HEIGHT, style tops, offsetTop, min/maxDelta) is layout px. Divide

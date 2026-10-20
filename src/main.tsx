@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 import { initTheme } from './hooks/useTheme'
+import { initUiScale } from './hooks/useUiScale'
 import { backfillSubjects } from './services/repositories'
 import { registerNotificationWorker } from './services/notifications'
 import { installKeyboardInset } from './services/keyboardInset'
@@ -10,6 +11,7 @@ import { getToken, getUsername } from './services/auth'
 import { nativeSetSession } from './services/nativeBridge'
 
 initTheme()
+initUiScale()
 
 // Reveal icons once their font is in (see index.css). fonts.load() returns an
 // empty list while the @font-face rule itself is still downloading, so retry.

@@ -4,6 +4,7 @@ import { getUsername, getToken, logoutRemote, clearSession } from '../services/a
 import { clearAllLocalData } from '../services/repositories';
 import { syncOnce } from '../services/serverSync';
 import { useTheme } from '../hooks/useTheme';
+import { useUiScale, UI_SCALES } from '../hooks/useUiScale';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { SettingsNav } from '../components/settings/SettingsNav';
 import { DevicesPanel } from '../components/settings/DevicesPanel';
@@ -28,6 +29,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
     searchParams.get('section') ?? 'general'
   );
   const { theme, setTheme } = useTheme();
+  const { scale, setScale } = useUiScale();
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -111,6 +113,17 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
               {THEME_OPTIONS.map((o) => (
                 <button key={o.value} type="button" role="radio" aria-checked={theme === o.value} className={theme === o.value ? 'on' : ''} onClick={() => setTheme(o.value)}>
                   {o.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="flex flex-col" style={{ gap: 8 }}>
+            <span className="m-lbl m-mut" id="m-set-scale">Interface size</span>
+            <div className="m-seg" role="radiogroup" aria-labelledby="m-set-scale">
+              {UI_SCALES.map((v) => (
+                <button key={v} type="button" role="radio" aria-checked={scale === v} className={`m-num ${scale === v ? 'on' : ''}`} onClick={() => setScale(v)}>
+                  {Math.round(v * 100)}%
                 </button>
               ))}
             </div>
@@ -209,7 +222,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
   }
 
   return (
-    <div className="flex flex-col w-full h-full relative overflow-anchor-none flex-1 min-h-0 overflow-hidden lg:flex-none lg:h-[calc(100dvh-4rem)]">
+    <div className="flex flex-col w-full h-full relative overflow-anchor-none flex-1 min-h-0 overflow-hidden lg:flex-none lg:h-[calc(100dvh/var(--app-zoom)-4rem)]">
       <div className="grid grid-cols-12 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10 lg:grid-rows-[minmax(0,1fr)] lg:items-start relative max-lg:flex max-lg:flex-col flex-1 min-h-0 lg:h-full">
         <div className="col-span-12 lg:col-span-1 lg:self-start mb-10 max-lg:mb-3 lg:mb-0 overflow-anchor-none max-lg:flex-shrink-0">
           <h2 className="font-headline-lg text-[30px] leading-[36px] text-on-surface mb-10 max-lg:mb-3">Settings</h2>
@@ -293,6 +306,28 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                             Active
                           </span>
                         )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <label id="set-scale" className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em] mt-4">
+                  Interface size
+                </label>
+                <div className="flex gap-2 mt-1" role="radiogroup" aria-labelledby="set-scale">
+                  {UI_SCALES.map((v) => {
+                    const isSelected = scale === v;
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        onClick={() => setScale(v)}
+                        className={`flex-1 px-3 py-3 rounded-2xl border font-body-md text-[15px] leading-[22px] text-on-surface tabular-nums transition-colors ${
+                          isSelected ? 'border-outline bg-surface-container' : 'border-outline-variant hover:border-outline bg-transparent'
+                        }`}
+                      >
+                        {Math.round(v * 100)}%
                       </button>
                     );
                   })}

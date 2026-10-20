@@ -624,25 +624,27 @@ html[data-theme='dark'] .heat-num-hi {
  * Ported from the "CDMM Mobile" canvas (m.css). Everything here only applies
  * under 1024px; the desktop layout is untouched.
  *
- * The phone UI is drawn at 0.88 scale with CSS zoom on <body> (bodyZoom()
+ * The phone UI is drawn at 0.88 scale (times the interface size setting) with CSS zoom on <body> (bodyZoom()
  * reads it for pointer math). Viewport units and env() insets are not scaled
  * by zoom's parent, so anything sized from them divides by --app-zoom. */
 :root {
   --app-zoom: 1;
 }
+/* The interface size setting (hooks/useUiScale.ts) overrides --app-zoom
+ * inline on <html>, on every screen size, so the zoom rules apply everywhere. */
+body {
+  zoom: var(--app-zoom);
+}
+.overlay-root {
+  top: calc(var(--vv-top, 0px) / var(--app-zoom));
+  height: calc(var(--vv-height, 100vh) / var(--app-zoom));
+}
+.safe-area-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) / var(--app-zoom));
+}
 @media (max-width: 1023px) {
   :root {
     --app-zoom: 0.88;
-  }
-  body {
-    zoom: var(--app-zoom);
-  }
-  .overlay-root {
-    top: calc(var(--vv-top, 0px) / var(--app-zoom));
-    height: calc(var(--vv-height, 100vh) / var(--app-zoom));
-  }
-  .safe-area-bottom {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) / var(--app-zoom));
   }
 
   /* Design-system contrast fixes (tokens.json, 2026-10-10), phone only. */
