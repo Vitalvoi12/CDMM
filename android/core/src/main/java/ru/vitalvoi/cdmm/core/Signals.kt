@@ -68,7 +68,7 @@ object Signals {
             return
         }
         val glance = store.glance()
-        val settings = glance.signals(Cdmm.device)
+        val settings = glance.signals
         val due = moments(glance)
             .filter { settings.mode(it.kind) != SignalMode.OFF && it.at > now - GRACE_MS && !store.wasFired(it.key) }
             .minOfOrNull { it.at }
@@ -91,7 +91,7 @@ object Signals {
         if (store.token == null) return
         val now = System.currentTimeMillis()
         val glance = store.glance()
-        val settings = glance.signals(Cdmm.device)
+        val settings = glance.signals
         val due = moments(glance).filter {
             settings.mode(it.kind) != SignalMode.OFF && it.at <= now + 1000 && it.at > now - GRACE_MS && !store.wasFired(it.key)
         }
@@ -148,7 +148,6 @@ object Signals {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(open)
-            // The watch app signals by its own settings; don't mirror the phone's too.
             .setLocalOnly(true)
             .build()
         try {

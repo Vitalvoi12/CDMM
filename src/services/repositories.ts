@@ -736,7 +736,7 @@ class SettingsRepository {
     this.write(Math.max(Date.now(), this.updatedAt + 1), true);
   }
 
-  /** Phone/watch signal choices. Stamps their own LWW clock. */
+  /** Phone signal choices. Stamps their own LWW clock. */
   setSignals(signals: DeviceSignalSettings): void {
     this.settings.signals = normalizeSignals(signals);
     this.settings.signalsAt = Math.max(Date.now(), num(this.settings.signalsAt) + 1);

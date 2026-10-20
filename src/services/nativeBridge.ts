@@ -1,7 +1,7 @@
 /**
  * The CDMM Android app loads this site in a WebView and exposes
  * `window.CDMMAndroid`. The native side keeps its own copy of the session so
- * widgets, alarms and the watch work while the WebView is closed, and it
+ * widgets and alarms work while the WebView is closed, and it
  * refreshes them whenever the web app reports a change.
  */
 interface CdmmAndroid {

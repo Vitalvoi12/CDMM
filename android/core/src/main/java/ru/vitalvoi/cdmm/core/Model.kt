@@ -43,18 +43,13 @@ data class DeviceSignals(val modes: Map<SignalKind, SignalMode>, val pattern: Vi
     fun mode(kind: SignalKind) = modes[kind] ?: SignalMode.OFF
 }
 
-/** Which app reads the settings: they are chosen separately for each. */
-enum class Device(val key: String) { PHONE("phone"), WATCH("watch") }
-
 data class Glance(
     val fetchedAt: Long,
     val session: GlanceSession?,
     val events: List<GlanceEvent>,
     val todos: List<GlanceTodo>,
-    val phone: DeviceSignals,
-    val watch: DeviceSignals,
+    val signals: DeviceSignals,
 ) {
-    fun signals(device: Device) = if (device == Device.PHONE) phone else watch
 
     /** What is happening now: the live session wins over a block in the calendar. */
     fun current(now: Long): Now? {
@@ -75,22 +70,16 @@ data class Glance(
     data class Now(val title: String, val color: Int?, val start: Long, val end: Long?, val live: Boolean)
 
     companion object {
-        val EMPTY = Glance(0, null, emptyList(), emptyList(), defaults(Device.PHONE), defaults(Device.WATCH))
-
         /** Same defaults as the web app and the server. */
-        fun defaults(device: Device) = when (device) {
-            Device.PHONE -> DeviceSignals(
-                mapOf(
-                    SignalKind.REMINDER to SignalMode.BOTH, SignalKind.START to SignalMode.OFF,
-                    SignalKind.END to SignalMode.OFF, SignalKind.TODO to SignalMode.BOTH,
-                ),
-                VibrationPattern.DOUBLE,
-            )
-            Device.WATCH -> DeviceSignals(
-                SignalKind.entries.associateWith { SignalMode.VIBRATE },
-                VibrationPattern.DOUBLE,
-            )
-        }
+        val DEFAULTS = DeviceSignals(
+            mapOf(
+                SignalKind.REMINDER to SignalMode.BOTH, SignalKind.START to SignalMode.OFF,
+                SignalKind.END to SignalMode.OFF, SignalKind.TODO to SignalMode.BOTH,
+            ),
+            VibrationPattern.DOUBLE,
+        )
+
+        val EMPTY = Glance(0, null, emptyList(), emptyList(), DEFAULTS)
 
         fun parse(json: String): Glance {
             val o = JSONObject(json)
@@ -123,13 +112,12 @@ data class Glance(
                         reminders = t.optJSONArray("reminders").strings().mapNotNull(::time),
                     )
                 },
-                phone = device(signals?.optJSONObject("phone"), Device.PHONE),
-                watch = device(signals?.optJSONObject("watch"), Device.WATCH),
+                signals = deviceSignals(signals?.optJSONObject("phone")),
             )
         }
 
-        private fun device(o: JSONObject?, device: Device): DeviceSignals {
-            val fallback = defaults(device)
+        private fun deviceSignals(o: JSONObject?): DeviceSignals {
+            val fallback = DEFAULTS
             if (o == null) return fallback
             val modes = SignalKind.entries.associateWith { kind ->
                 enumOrNull<SignalMode>(o.optString(kind.name.lowercase())) ?: fallback.mode(kind)

@@ -3,7 +3,7 @@ package ru.vitalvoi.cdmm.core
 import android.content.Context
 import android.content.SharedPreferences
 
-/** Session and the last snapshot, kept for widgets, alarms and the watch. */
+/** Session and the last snapshot, kept for widgets and alarms. */
 class Store(context: Context) {
     private val prefs: SharedPreferences =
         context.applicationContext.getSharedPreferences("cdmm", Context.MODE_PRIVATE)

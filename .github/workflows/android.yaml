@@ -1,9 +1,8 @@
 name: android
 
-# Builds the phone and watch APKs and publishes them to the rolling
+# Builds the phone APK and publishes it to the rolling
 # "android-latest" release, so the newest build is always at
 #   https://github.com/<repo>/releases/download/android-latest/cdmm-phone.apk
-#   https://github.com/<repo>/releases/download/android-latest/cdmm-watch.apk
 on:
   push:
     branches: [main]
@@ -51,11 +50,10 @@ jobs:
         env:
           CDMM_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.workers.max=4 :app:assembleRelease :wear:assembleRelease \
+          ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.workers.max=4 :app:assembleRelease \
             -PversionCode=${{ github.run_number }} -PversionName=0.1.${{ github.run_number }}
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/cdmm-phone.apk
-          cp wear/build/outputs/apk/release/wear-release.apk out/cdmm-watch.apk
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -69,7 +67,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete android-latest --yes --cleanup-tag || true
-          gh release create android-latest out/cdmm-phone.apk out/cdmm-watch.apk \
+          gh release create android-latest out/cdmm-phone.apk \
             --prerelease --target "$GITHUB_SHA" \
             --title "Android build ${{ github.run_number }}" \
-            --notes "Phone and Wear OS apps built from ${GITHUB_SHA::7}."
+            --notes "Phone app built from ${GITHUB_SHA::7}."

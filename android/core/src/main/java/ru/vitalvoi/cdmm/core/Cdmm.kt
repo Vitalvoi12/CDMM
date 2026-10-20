@@ -15,11 +15,10 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 /**
- * Entry point shared by the phone and the watch app. Each app sets [device]
- * and [onUpdated] (redraw widgets / tiles) in its Application.onCreate.
+ * Entry point of the native side. The app sets [onUpdated] (redraw widgets)
+ * in its Application.onCreate.
  */
 object Cdmm {
-    lateinit var device: Device
     var onUpdated: (Context) -> Unit = {}
 
     /** Fetch the snapshot, reschedule signals, redraw. Returns false when offline or signed out. */

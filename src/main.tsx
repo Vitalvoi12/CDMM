@@ -41,7 +41,7 @@ document.addEventListener(
 )
 
 // A session from before the Android app was installed (or updated) reaches
-// the native side too, so widgets and the watch sign in with it.
+// the native side too, so the widgets sign in with it.
 {
   const token = getToken()
   if (token) nativeSetSession(token, getUsername() ?? '')

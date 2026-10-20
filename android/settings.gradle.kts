@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "CDMM"
-include(":core", ":app", ":wear")
+include(":core", ":app")

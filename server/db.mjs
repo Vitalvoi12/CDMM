@@ -626,7 +626,7 @@ export function applyChanges(db, userId, dirty) {
         merged.activeSession = current.activeSession ?? null;
         merged.activeSessionAt = curAt;
       }
-      // Phone/watch signal choices carry their own clock too.
+      // Phone signal choices carry their own clock too.
       if ((Number(current.signalsAt) || 0) > (Number(incoming.signalsAt) || 0)) {
         merged.signals = current.signals;
         merged.signalsAt = current.signalsAt;

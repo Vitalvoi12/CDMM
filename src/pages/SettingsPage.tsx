@@ -197,7 +197,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           </section>
 
           <section className="flex flex-col" style={{ gap: 8 }}>
-            <span className="m-lbl m-mut">Phone &amp; watch</span>
+            <span className="m-lbl m-mut">Phone</span>
             <DevicesPanel mobile />
           </section>
 
@@ -415,7 +415,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           {activeSection === 'devices' && (
             <div className="mb-20 flex flex-col gap-4">
               <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">
-                Phone &amp; watch
+                Phone
               </h1>
               <DevicesPanel mobile={false} />
             </div>

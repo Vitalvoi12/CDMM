@@ -7,13 +7,12 @@ import {
   createSessionToken, lookupSession, deleteSession, touchSession, bearerToken, rateLimit,
 } from './auth.mjs';
 import { vapidPublicKey, pushToUser } from './push.mjs';
-import { getGlance, setTodoDone, startPairing, confirmPairing, pollPairing } from './glance.mjs';
+import { getGlance, setTodoDone } from './glance.mjs';
 
 const MAX_BODY = 5 * 1024 * 1024; // 5 MB
 
 const loginLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 const registerLimiter = rateLimit({ windowMs: 3600_000, max: 20 });
-const pairLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 
 function sendJson(res, status, obj) {
   const body = JSON.stringify(obj);
@@ -100,21 +99,6 @@ export async function handleApi(db, req, res, pathname) {
     return sendJson(res, 200, { token, username: user.username }), true;
   }
 
-  // Watch pairing: the watch has no account yet, so these two are open.
-  if (pathname === '/api/pair/start' && method === 'POST') {
-    if (!pairLimiter(clientIp(req))) return sendJson(res, 429, { error: 'Too many requests' }), true;
-    return sendJson(res, 200, startPairing()), true;
-  }
-
-  if (pathname === '/api/pair/poll' && method === 'POST') {
-    let body;
-    try { body = await readBody(req); } catch (e) { return sendJson(res, e.status || 400, { error: e.message || 'Bad request' }), true; }
-    const result = pollPairing(typeof body.pairId === 'string' ? body.pairId : '');
-    if (result === 'expired') return sendJson(res, 410, { error: 'Code expired' }), true;
-    if (result === 'pending') return sendJson(res, 202, { pending: true }), true;
-    return sendJson(res, 200, result), true;
-  }
-
   // ---- authenticated routes ----
   const userId = lookupSession(db, bearerToken(req));
   if (!userId) return sendJson(res, 401, { error: 'Unauthorized' }), true;
@@ -185,18 +169,6 @@ export async function handleApi(db, req, res, pathname) {
     if (typeof body.id !== 'string') return sendJson(res, 400, { error: 'Missing id' }), true;
     if (!setTodoDone(db, userId, body.id, body.completed !== false)) return sendJson(res, 404, { error: 'No such task' }), true;
     return sendJson(res, 200, getGlance(db, userId)), true;
-  }
-
-  if (pathname === '/api/pair/confirm' && method === 'POST') {
-    if (!pairLimiter(`confirm:${userId}`)) return sendJson(res, 429, { error: 'Too many requests' }), true;
-    let body;
-    try { body = await readBody(req); } catch (e) { return sendJson(res, e.status || 400, { error: e.message || 'Bad request' }), true; }
-    const code = typeof body.code === 'string' ? body.code.replace(/\D/g, '') : '';
-    const user = db.prepare('SELECT username FROM users WHERE id = ?').get(userId);
-    if (code.length !== 6 || !confirmPairing(db, userId, user.username, code)) {
-      return sendJson(res, 404, { error: 'Wrong or expired code' }), true;
-    }
-    return sendJson(res, 200, { ok: true }), true;
   }
 
   if (pathname === '/api/push/key' && method === 'GET') {

@@ -24,8 +24,8 @@ import ru.vitalvoi.cdmm.core.Store
 
 /**
  * The CDMM web app in a WebView. The UI stays on the server, so it updates
- * with every deploy; this shell only adds what a browser can't do: widgets,
- * alarms and the watch, fed through the `CDMMAndroid` bridge.
+ * with every deploy; this shell only adds what a browser can't do: widgets
+ * and alarms, fed through the `CDMMAndroid` bridge.
  */
 class MainActivity : ComponentActivity() {
     private lateinit var web: WebView

@@ -7,30 +7,13 @@ import java.net.URL
 
 class UnauthorizedException : IOException("Signed out")
 
-/** The few CDMM endpoints the native apps use. Blocking: call off the main thread. */
+/** The few CDMM endpoints the native app uses. Blocking: call off the main thread. */
 class Api(private val store: Store) {
 
     fun glance(): String = request("GET", "/api/glance")
 
     fun setTodoDone(id: String, done: Boolean): String =
         request("POST", "/api/glance/todo", JSONObject().put("id", id).put("completed", done))
-
-    data class Pairing(val pairId: String, val code: String)
-
-    fun startPairing(): Pairing {
-        val o = JSONObject(request("POST", "/api/pair/start", JSONObject(), auth = false))
-        return Pairing(o.getString("pairId"), o.getString("code"))
-    }
-
-    /** Token and username once the code was entered; null while waiting. */
-    fun pollPairing(pairId: String): Pair<String, String>? {
-        val (status, body) = raw("POST", "/api/pair/poll", JSONObject().put("pairId", pairId), auth = false)
-        return when (status) {
-            200 -> JSONObject(body).let { it.getString("token") to it.optString("username") }
-            202 -> null
-            else -> throw IOException("Code expired")
-        }
-    }
 
     private fun request(method: String, path: String, body: JSONObject? = null, auth: Boolean = true): String {
         val (status, text) = raw(method, path, body, auth)

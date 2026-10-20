@@ -1,14 +1,11 @@
-// Compact data for the Android widgets and the Wear OS watch, plus pairing a
-// watch to an account by a short code.
+// Compact data for the Android widgets.
 //
 // The native clients don't run the sync engine: they fetch one snapshot of
 // "around now" and work out the current and next event themselves, so the
 // widget stays right between refreshes. The snapshot also carries the signal
 // settings and every reminder moment, which the devices schedule as alarms.
 
-import { randomBytes, randomInt } from 'node:crypto';
 import { applyChanges, parseLeads, parseReminders } from './db.mjs';
-import { createSessionToken } from './auth.mjs';
 
 /** Events overlapping [now - BEFORE, now + AHEAD] go into the snapshot. */
 const BEFORE_MS = 12 * 3600_000;
@@ -22,7 +19,6 @@ export const SIGNAL_PATTERNS = ['short', 'long', 'double', 'triple'];
 /** What a device does when no one has chosen yet. Mirrors src/services/signals.ts. */
 export const DEFAULT_SIGNALS = {
   phone: { reminder: 'both', start: 'off', end: 'off', todo: 'both', pattern: 'double' },
-  watch: { reminder: 'vibrate', start: 'vibrate', end: 'vibrate', todo: 'vibrate', pattern: 'double' },
 };
 
 function deviceSignals(raw, fallback) {
@@ -36,7 +32,6 @@ function deviceSignals(raw, fallback) {
 export function normalizeSignals(raw) {
   return {
     phone: deviceSignals(raw?.phone, DEFAULT_SIGNALS.phone),
-    watch: deviceSignals(raw?.watch, DEFAULT_SIGNALS.watch),
   };
 }
 
@@ -118,7 +113,7 @@ export function getGlance(db, userId, now = Date.now()) {
   return { now, session, events, todos, signals: normalizeSignals(settings.signals) };
 }
 
-/** Tick a task off (or reopen it) from a widget or the watch. */
+/** Tick a task off (or reopen it) from a widget. */
 export function setTodoDone(db, userId, id, done) {
   const row = db.prepare('SELECT id FROM todos WHERE id = ? AND user_id = ?').get(id, userId);
   if (!row) return false;
@@ -127,50 +122,4 @@ export function setTodoDone(db, userId, id, done) {
     todos: [{ id, completed: done, completedAt: done ? new Date(now).toISOString() : null, updatedAt: now }],
   });
   return true;
-}
-
-// ---- watch pairing ---------------------------------------------------------
-//
-// The watch asks for a code and shows it; the user types it into Settings on
-// any signed-in device; the watch, polling with its secret pair id, then
-// receives a session token of its own. Nothing is typed on the watch.
-
-const PAIR_TTL_MS = 10 * 60_000;
-/** pairId -> { code, expires, userId?, token?, username? } */
-const pairs = new Map();
-
-function sweep(now = Date.now()) {
-  for (const [id, p] of pairs) if (p.expires < now) pairs.delete(id);
-}
-
-export function startPairing() {
-  sweep();
-  let code;
-  do code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-  while ([...pairs.values()].some((p) => p.code === code));
-  const pairId = randomBytes(24).toString('base64url');
-  pairs.set(pairId, { code, expires: Date.now() + PAIR_TTL_MS });
-  return { pairId, code, expiresIn: PAIR_TTL_MS / 1000 };
-}
-
-export function confirmPairing(db, userId, username, code) {
-  sweep();
-  for (const p of pairs.values()) {
-    if (p.code === code && !p.token) {
-      p.token = createSessionToken(db, userId);
-      p.username = username;
-      return true;
-    }
-  }
-  return false;
-}
-
-/** 'pending' | 'expired' | { token, username } (handed out once). */
-export function pollPairing(pairId) {
-  sweep();
-  const p = pairs.get(pairId);
-  if (!p) return 'expired';
-  if (!p.token) return 'pending';
-  pairs.delete(pairId);
-  return { token: p.token, username: p.username };
 }

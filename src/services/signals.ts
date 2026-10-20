@@ -21,10 +21,9 @@ export const VIBRATION_PATTERNS: { value: VibrationPattern; label: string }[] = 
   { value: 'triple', label: 'Triple' },
 ];
 
-/** Same defaults as the server (server/glance.mjs) and the Android apps. */
+/** Same defaults as the server (server/glance.mjs) and the Android app. */
 export const DEFAULT_SIGNALS: DeviceSignalSettings = {
   phone: { reminder: 'both', start: 'off', end: 'off', todo: 'both', pattern: 'double' },
-  watch: { reminder: 'vibrate', start: 'vibrate', end: 'vibrate', todo: 'vibrate', pattern: 'double' },
 };
 
 function device(raw: unknown, fallback: DeviceSignals): DeviceSignals {
@@ -40,5 +39,5 @@ function device(raw: unknown, fallback: DeviceSignals): DeviceSignals {
 /** Remote settings arrive untrusted — fill gaps with the defaults. */
 export function normalizeSignals(raw: unknown): DeviceSignalSettings {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  return { phone: device(r.phone, DEFAULT_SIGNALS.phone), watch: device(r.watch, DEFAULT_SIGNALS.watch) };
+  return { phone: device(r.phone, DEFAULT_SIGNALS.phone) };
 }
