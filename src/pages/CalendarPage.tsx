@@ -18,7 +18,7 @@ import { useSyncRefresh } from '../hooks/useServerSync';
 import { useSwipeNav } from '../hooks/useSwipeNav';
 import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, dayTaskRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
-import { expandRecurrence, dateKey } from '../utils/time';
+import { expandRecurrence, dateKey, addDays } from '../utils/time';
 import { weeklyGoalProgress } from '../utils/goals';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
@@ -261,6 +261,12 @@ export function CalendarPage() {
   }, [isMobile, modalOpen, view, eventFilter, currentDate, setEventFilter, setView, goToPrevious, goToNext]);
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
+  // Phone day view: the neighbouring days sit rendered beside the timeline,
+  // so a swipe drags the next day in with the finger.
+  const prevDate = useMemo(() => addDays(currentDate, -1), [currentDate]);
+  const nextDate = useMemo(() => addDays(currentDate, 1), [currentDate]);
+  const prevDayEvents = useMemo(() => getEventsForDate(events, prevDate), [events, prevDate]);
+  const nextDayEvents = useMemo(() => getEventsForDate(events, nextDate), [events, nextDate]);
 
   // Comes from the synced session record, so the running block shows up on
   // every signed-in device — including one that only ever opens the calendar.
@@ -959,6 +965,12 @@ export function CalendarPage() {
             <div className="relative flex-1 min-h-0 flex flex-col">
             <div ref={springRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
               <Timeline
+                neighbours={
+                  <>
+                    <Timeline peek="prev" events={prevDayEvents} subjects={subjects} date={prevDate} activeSession={activeSession} mode={eventFilter} />
+                    <Timeline peek="next" events={nextDayEvents} subjects={subjects} date={nextDate} activeSession={activeSession} mode={eventFilter} />
+                  </>
+                }
                 events={dayEvents}
                 subjects={subjects}
                 date={currentDate}

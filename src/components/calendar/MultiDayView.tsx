@@ -32,6 +32,9 @@ interface MultiDayViewProps {
   /** Mobile swipe navigation (wired by the parent only on mobile). */
   onSwipeLeft?: () => void;
   onSwipeRight?: () => void;
+  /** Static copy of the neighbouring period laid out beside the page, so a
+   *  swipe drags it into view with the finger (see useSwipeNav). */
+  peek?: 'prev' | 'next';
 }
 
 const START_HOUR = 0;
@@ -70,7 +73,7 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function MultiDayView({ date, days, events, subjects, onEventClick, onEventMove, onEventResize, onDateSelect, onBackgroundClick, mode = 'all', activeSession = null, onSwipeLeft, onSwipeRight }: MultiDayViewProps) {
+export function MultiDayView({ date, days, events, subjects, onEventClick, onEventMove, onEventResize, onDateSelect, onBackgroundClick, mode = 'all', activeSession = null, onSwipeLeft, onSwipeRight, peek }: MultiDayViewProps) {
   const isMobile = useIsMobile();
   const baseHourHeight = isMobile ? Math.round(HOUR_HEIGHT_DESKTOP / MOBILE_SCALE) : HOUR_HEIGHT_DESKTOP;
   // Single-column mode ('real' or 'plan'): day cells are not split.
@@ -114,7 +117,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
   // Mobile swipe navigation (enabled by the parent on mobile only).
   const pageRef = useRef<HTMLDivElement>(null);
   const swipe = useSwipeNav({
-    enabled: isMobile,
+    enabled: isMobile && !peek,
     pageRef,
     onSwipeLeft,
     onSwipeRight,
@@ -509,281 +512,300 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
 
   const gridPx = TOTAL_HOURS * HOUR_HEIGHT;
 
-  return (
-    // (Same touch-action note as Timeline: pan-y lets horizontal flicks
-    // complete as swipe navigation while vertical scrolling stays native.)
-    <div className="flex-1 min-h-0 flex flex-col overflow-hidden [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
-      {/* Page chrome stays fixed; only this area scrolls (short screens,
-          horizontal overflow). Sticky day headers keep working inside it. */}
-      <div ref={pageRef} className="flex-1 min-h-0 overflow-auto [touch-action:pan-y]">
-      {/* max-lg:pb-40: scroll room below 24:00 so the last hour clears the floating button. */}
-      <div className="min-w-[448px] max-lg:min-w-0 max-lg:pb-24 flex flex-col">
-        {/* Header row: corner cell + clickable day headers. Single compact
-            line ("MON 14") — the old stacked layout with the static
-            Real/Plan filler cost ~70px of vertical space. */}
-        <div className="flex sticky top-0 z-10 bg-background">
-            <div className="w-12 flex-shrink-0 border-b border-outline-variant" />
-            <div className="flex flex-1 min-w-0">
-              {dayList.map((day) => {
-                const today = isSameDay(day, new Date());
-                return (
-                  <button
-                    key={day.toISOString()}
-                    type="button"
-                    onClick={() => onDateSelect?.(day)}
-                    title="Open day view"
-                    className={`flex-1 min-w-[112px] max-lg:min-w-0 max-w-full px-2 py-1.5 flex items-baseline justify-center gap-1.5 border-b border-outline-variant transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${today ? 'bg-surface-container-low' : ''}`}
-                  >
-                    <span className={`font-label-sm text-label-sm uppercase tracking-[0.14em] ${today ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
-                      {formatWeekdayShort(day)}
-                    </span>
-                    <span className={`font-label-md ${today ? 'text-primary' : 'text-on-surface'}`}>
-                      {formatDayOfMonth(day)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          {/* Grid row: time gutter + day columns. The gutter shares the row
-              top with the grids (no magic spacer), so hour labels can never
-              drift off the grid lines. */}
-          <div ref={gridAnchorRef} className="flex">
-            <div className="w-12 flex-shrink-0 relative" style={{ height: `${gridPx}px`, minHeight: '100%' }}>
-              {/* The first label (START_HOUR) is skipped: centered on the very
-                  top edge it gets half-clipped and looks broken. The grid line
-                  itself stays. */}
-              {hourTicks.filter((hour) => hour !== START_HOUR).map((hour) => (
-                <span
-                  key={hour}
-                  className="absolute right-1 -translate-y-1/2 max-lg:!text-[10px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant tabular-nums"
-                  style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
-                >
-                  {String(hour).padStart(2, '0')}
+  // max-lg:pb-24: scroll room below 24:00 so the last hour clears the floating button.
+  const pageInner = (
+  <div className="min-w-[448px] max-lg:min-w-0 max-lg:pb-24 flex flex-col">
+    {/* Header row: corner cell + clickable day headers. Single compact
+        line ("MON 14") — the old stacked layout with the static
+        Real/Plan filler cost ~70px of vertical space. */}
+    <div className="flex sticky top-0 z-10 bg-background">
+        <div className="w-12 flex-shrink-0 border-b border-outline-variant" />
+        <div className="flex flex-1 min-w-0">
+          {dayList.map((day) => {
+            const today = isSameDay(day, new Date());
+            return (
+              <button
+                key={day.toISOString()}
+                type="button"
+                onClick={() => onDateSelect?.(day)}
+                title="Open day view"
+                className={`flex-1 min-w-[112px] max-lg:min-w-0 max-w-full px-2 py-1.5 flex items-baseline justify-center gap-1.5 border-b border-outline-variant transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${today ? 'bg-surface-container-low' : ''}`}
+              >
+                <span className={`font-label-sm text-label-sm uppercase tracking-[0.14em] ${today ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
+                  {formatWeekdayShort(day)}
                 </span>
-              ))}
-            </div>
-            <div className="flex flex-1 min-w-0">
-              {dayList.map((day, idx) => {
-                const dayEvents = getEventsForDate(events, day).sort(
-                  (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
-                );
-                const realEvents = dayEvents.filter((e) => (e.kind ?? 'real') !== 'plan');
-                const planEvents = dayEvents.filter((e) => e.kind === 'plan');
-                const visibleReal = single ? (singleKind === 'real' ? realEvents : []) : realEvents;
-                const visiblePlan = single ? (singleKind === 'plan' ? planEvents : []) : planEvents;
-                const isDropTarget = dragPos != null && dragPos.targetDayIdx === idx;
+                <span className={`font-label-md ${today ? 'text-primary' : 'text-on-surface'}`}>
+                  {formatDayOfMonth(day)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {/* Grid row: time gutter + day columns. The gutter shares the row
+          top with the grids (no magic spacer), so hour labels can never
+          drift off the grid lines. */}
+      <div ref={gridAnchorRef} className="flex">
+        <div className="w-12 flex-shrink-0 relative" style={{ height: `${gridPx}px`, minHeight: '100%' }}>
+          {/* The first label (START_HOUR) is skipped: centered on the very
+              top edge it gets half-clipped and looks broken. The grid line
+              itself stays. */}
+          {hourTicks.filter((hour) => hour !== START_HOUR).map((hour) => (
+            <span
+              key={hour}
+              className="absolute right-1 -translate-y-1/2 max-lg:!text-[10px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant tabular-nums"
+              style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
+            >
+              {String(hour).padStart(2, '0')}
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-1 min-w-0">
+          {dayList.map((day, idx) => {
+            const dayEvents = getEventsForDate(events, day).sort(
+              (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+            );
+            const realEvents = dayEvents.filter((e) => (e.kind ?? 'real') !== 'plan');
+            const planEvents = dayEvents.filter((e) => e.kind === 'plan');
+            const visibleReal = single ? (singleKind === 'real' ? realEvents : []) : realEvents;
+            const visiblePlan = single ? (singleKind === 'plan' ? planEvents : []) : planEvents;
+            const isDropTarget = dragPos != null && dragPos.targetDayIdx === idx;
 
-                const renderDraft = (kind: 'real' | 'plan') => {
-                  const d = dragCreate.draft;
-                  if (!d || d.kind !== kind || d.columnKey !== String(idx)) return null;
-                  return (
-                    <DraftEventBlock
-                      top={(d.startMin / 60) * HOUR_HEIGHT}
-                      height={((d.endMin - d.startMin) / 60) * HOUR_HEIGHT}
-                      startMinutes={START_HOUR * 60 + d.startMin}
-                      endMinutes={START_HOUR * 60 + d.endMin}
-                      isMobile={isMobile}
-                    />
-                  );
-                };
+            const renderDraft = (kind: 'real' | 'plan') => {
+              const d = dragCreate.draft;
+              if (!d || d.kind !== kind || d.columnKey !== String(idx)) return null;
+              return (
+                <DraftEventBlock
+                  top={(d.startMin / 60) * HOUR_HEIGHT}
+                  height={((d.endMin - d.startMin) / 60) * HOUR_HEIGHT}
+                  startMinutes={START_HOUR * 60 + d.startMin}
+                  endMinutes={START_HOUR * 60 + d.endMin}
+                  isMobile={isMobile}
+                />
+              );
+            };
 
-                const renderColumn = (list: typeof realEvents) => {
-                  const lanes = layoutOverlapLanes(list);
-                  return list.map((ev) => {
-                    const top = timeToPixels(ev.start, START_HOUR, HOUR_HEIGHT);
-                    const endPx = timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT);
-                    let height = Math.max(endPx - top, 13);
-                    const subject = subjectMap[ev.subjectId];
-                    const displayName = subject?.name || ev.title || 'Untitled';
-                    const plan = ev.kind === 'plan';
-                    // Solid fill for plans (custom color for subject-less
-                    // events, else the subject color) — foreground picked
-                    // for contrast; real events use the muted subject color.
-                    const fill = eventFillColor(ev, subject);
-                    const subjectColor = eventFillColor(ev, subject, 'var(--color-on-surface-variant)');
-                    const mutedFill = `color-mix(in srgb, ${subjectColor} 42%, var(--color-surface-dim))`;
-                    const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : subjectColor;
-                    const planFg = { color: !plan && isDarkTheme() ? '#fff' : '#000' };
-                    let visualTop = top;
-                    let visualDx = 0;
-                    let dragging = false;
-                    if (dragPos?.eventId === ev.id) {
-                      visualTop += dragPos.deltaY;
-                      visualDx = dragPos.deltaX;
-                      dragging = true;
-                    }
-                    if (resizePos?.eventId === ev.id) height = Math.max(height + resizePos.deltaY, 13);
-                    // Leave a couple of pixels before the event's nominal end
-                    // so back-to-back events do not visually merge.
-                    const visualHeight = Math.max(height - 2, 2);
-                    // The grid compresses on short screens, so the layout comes
-                    // from absolute pixels — see utils/eventDensity. Top-aligned
-                    // whenever there is room, centred only when there is not.
-                    const layout = eventLayout(visualHeight, isMobile);
-                    // Resizing works at any length; only the grab strip adapts
-                    // to how much room the block has.
-                    const zone = eventResizeZone(visualHeight, isMobile);
-                    const resizable = canResizeEvent(visualHeight, isMobile);
-                    const shellRadius = `${Math.max(2, Math.min(isMobile ? 6 : 7, visualHeight / 5))}px`;
-                    const lane = lanes[ev.id];
-                    let liveStart = ev.start;
-                    let liveEnd = ev.end;
-                    if (dragPos?.eventId === ev.id) {
-                      const mins = Math.round(dragPos.deltaY * MINUTES_PER_PIXEL);
-                      const { start, end } = shiftEventByMinutes(ev.start, ev.end, mins, START_HOUR, END_HOUR);
-                      liveStart = start.toISOString();
-                      liveEnd = end.toISOString();
-                    } else if (resizePos?.eventId === ev.id) {
-                      const mins = Math.round(resizePos.deltaY * MINUTES_PER_PIXEL);
-                      const end = shiftEventEndByMinutes(ev.end, ev.start, mins, END_HOUR, SNAP);
-                      liveEnd = end.toISOString();
-                    }
-                    return (
-                      <Fragment key={ev.id}>
-                      <div
-                        data-event-id={ev.id}
-                        className={`absolute overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:pan-y] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
-                        style={{
-                          top: `${visualTop}px`,
-                          height: `${visualHeight}px`,
-                          borderRadius: shellRadius,
-                          backgroundColor: plan ? fill : mutedFill,
-                          transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined,
-                          left: lane ? `${lane.left}%` : undefined,
-                          width: lane ? `calc(${lane.width}% - 6px)` : undefined,
-                          zIndex: dragging ? 20 : lane?.z,
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEventClick?.(ev);
-                        }}
-                        onMouseDown={(e) => handleDragStart(ev, idx, e)}
-                        onTouchStart={(e) => handleTouchDragStart(ev, idx, e)}
-                      >
-                        <div
-                          className="absolute left-0 top-0 bottom-0 w-[3px]"
-                          style={{
-                            backgroundColor: spineColor,
-                            borderTopLeftRadius: shellRadius,
-                            borderBottomLeftRadius: shellRadius,
-                          }}
-                        />
-                        <div
-                          className="flex flex-col items-start h-full pl-2.5 pr-1 min-w-0"
-                          style={{
-                            paddingTop: `${layout.padTop}px`,
-                            justifyContent: layout.align === 'center' ? 'center' : 'flex-start',
-                          }}
-                        >
-                          <span
-                            className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[10px] max-lg:!leading-[13px] font-semibold tracking-tight text-on-surface truncate"
-                            style={planFg}
-                          >
-                            {displayName}
-                          </span>
-                          {layout.showTime && (
-                            <span
-                              className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:!leading-[12px] text-on-surface-variant block truncate"
-                              style={planFg}
-                            >
-                              {timeFromDate(liveStart)} - {timeFromDate(liveEnd)}
-                            </span>
-                          )}
-                        </div>
-                        {resizable && (
-                          <div
-                            className="absolute left-0 right-0 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
-                            style={{ bottom: 0, height: `${zone.height}px`, marginBottom: `${zone.offset}px` }}
-                            onMouseDown={(e) => handleResizeStart(ev, e)}
-                          >
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-1 bg-outline-variant rounded-full" />
-                          </div>
-                        )}
-                      </div>
-                      </Fragment>
-                    );
-                  });
-                };
-
+            const renderColumn = (list: typeof realEvents) => {
+              const lanes = layoutOverlapLanes(list);
+              return list.map((ev) => {
+                const top = timeToPixels(ev.start, START_HOUR, HOUR_HEIGHT);
+                const endPx = timeToPixels(ev.end, START_HOUR, HOUR_HEIGHT);
+                let height = Math.max(endPx - top, 13);
+                const subject = subjectMap[ev.subjectId];
+                const displayName = subject?.name || ev.title || 'Untitled';
+                const plan = ev.kind === 'plan';
+                // Solid fill for plans (custom color for subject-less
+                // events, else the subject color) — foreground picked
+                // for contrast; real events use the muted subject color.
+                const fill = eventFillColor(ev, subject);
+                const subjectColor = eventFillColor(ev, subject, 'var(--color-on-surface-variant)');
+                const mutedFill = `color-mix(in srgb, ${subjectColor} 42%, var(--color-surface-dim))`;
+                const spineColor = plan ? 'rgb(255 255 255 / 0.28)' : subjectColor;
+                const planFg = { color: !plan && isDarkTheme() ? '#fff' : '#000' };
+                let visualTop = top;
+                let visualDx = 0;
+                let dragging = false;
+                if (dragPos?.eventId === ev.id) {
+                  visualTop += dragPos.deltaY;
+                  visualDx = dragPos.deltaX;
+                  dragging = true;
+                }
+                if (resizePos?.eventId === ev.id) height = Math.max(height + resizePos.deltaY, 13);
+                // Leave a couple of pixels before the event's nominal end
+                // so back-to-back events do not visually merge.
+                const visualHeight = Math.max(height - 2, 2);
+                // The grid compresses on short screens, so the layout comes
+                // from absolute pixels — see utils/eventDensity. Top-aligned
+                // whenever there is room, centred only when there is not.
+                const layout = eventLayout(visualHeight, isMobile);
+                // Resizing works at any length; only the grab strip adapts
+                // to how much room the block has.
+                const zone = eventResizeZone(visualHeight, isMobile);
+                const resizable = canResizeEvent(visualHeight, isMobile);
+                const shellRadius = `${Math.max(2, Math.min(isMobile ? 6 : 7, visualHeight / 5))}px`;
+                const lane = lanes[ev.id];
+                let liveStart = ev.start;
+                let liveEnd = ev.end;
+                if (dragPos?.eventId === ev.id) {
+                  const mins = Math.round(dragPos.deltaY * MINUTES_PER_PIXEL);
+                  const { start, end } = shiftEventByMinutes(ev.start, ev.end, mins, START_HOUR, END_HOUR);
+                  liveStart = start.toISOString();
+                  liveEnd = end.toISOString();
+                } else if (resizePos?.eventId === ev.id) {
+                  const mins = Math.round(resizePos.deltaY * MINUTES_PER_PIXEL);
+                  const end = shiftEventEndByMinutes(ev.end, ev.start, mins, END_HOUR, SNAP);
+                  liveEnd = end.toISOString();
+                }
                 return (
+                  <Fragment key={ev.id}>
                   <div
-                    key={day.toISOString()}
-                    ref={(el) => {
-                      dayGridRefs.current[idx] = el;
+                    data-event-id={ev.id}
+                    className={`absolute overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:pan-y] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
+                    style={{
+                      top: `${visualTop}px`,
+                      height: `${visualHeight}px`,
+                      borderRadius: shellRadius,
+                      backgroundColor: plan ? fill : mutedFill,
+                      transform: dragging && visualDx ? `translateX(${visualDx}px)` : undefined,
+                      left: lane ? `${lane.left}%` : undefined,
+                      width: lane ? `calc(${lane.width}% - 6px)` : undefined,
+                      zIndex: dragging ? 20 : lane?.z,
                     }}
-                    className={`flex-1 min-w-[112px] max-lg:min-w-0 max-w-full relative border-l border-outline-variant ${isDropTarget ? 'bg-primary/10' : ''}`}
-                    style={{ height: `${gridPx}px`, minHeight: '100%' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEventClick?.(ev);
+                    }}
+                    onMouseDown={(e) => handleDragStart(ev, idx, e)}
+                    onTouchStart={(e) => handleTouchDragStart(ev, idx, e)}
                   >
-                    {hourTicks.map((hour) => (
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-[3px]"
+                      style={{
+                        backgroundColor: spineColor,
+                        borderTopLeftRadius: shellRadius,
+                        borderBottomLeftRadius: shellRadius,
+                      }}
+                    />
+                    <div
+                      className="flex flex-col items-start h-full pl-2.5 pr-1 min-w-0"
+                      style={{
+                        paddingTop: `${layout.padTop}px`,
+                        justifyContent: layout.align === 'center' ? 'center' : 'flex-start',
+                      }}
+                    >
+                      <span
+                        className="font-['Inter'] text-[12px] leading-[16px] max-lg:!text-[10px] max-lg:!leading-[13px] font-semibold tracking-tight text-on-surface truncate"
+                        style={planFg}
+                      >
+                        {displayName}
+                      </span>
+                      {layout.showTime && (
+                        <span
+                          className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:!leading-[12px] text-on-surface-variant block truncate"
+                          style={planFg}
+                        >
+                          {timeFromDate(liveStart)} - {timeFromDate(liveEnd)}
+                        </span>
+                      )}
+                    </div>
+                    {resizable && (
                       <div
-                        key={hour}
-                        className="absolute left-0 right-0 border-t border-outline-variant/40"
-                        style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
-                      />
-                    ))}
-                    {/* Single-kind mode: one full-width column, no split. The live
-                        session block is real — hidden in plan-only mode. */}
-                    {single ? (
-                      <div className={`absolute left-0 right-0 top-0 bottom-0 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, singleKind)} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), singleKind, e)}>
-                        {renderColumn(singleKind === 'real' ? visibleReal : visiblePlan)}
-                        {renderDraft(singleKind)}
-                        {isSameDay(day, new Date()) && activeSession && singleKind === 'real' && (
-                          <LiveEventBlock
-                            start={activeSession.start}
-                            startHour={START_HOUR}
-                            endHour={END_HOUR}
-                            hourHeight={HOUR_HEIGHT}
-                            subject={liveSessionSubject(activeSession, subjectMap)}
-                            isMobile={isMobile}
-                          />
-                        )}
+                        className="absolute left-0 right-0 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ bottom: 0, height: `${zone.height}px`, marginBottom: `${zone.offset}px` }}
+                        onMouseDown={(e) => handleResizeStart(ev, e)}
+                      >
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-1 bg-outline-variant rounded-full" />
                       </div>
-                    ) : (
-                      <>
-                        {/* Left column: real events */}
-                        <div className={`absolute left-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'real')} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), 'real', e)}>
-                          {renderColumn(visibleReal)}
-                          {renderDraft('real')}
-                          {isSameDay(day, new Date()) && activeSession && (
-                            <LiveEventBlock
-                              start={activeSession.start}
-                              startHour={START_HOUR}
-                              endHour={END_HOUR}
-                              hourHeight={HOUR_HEIGHT}
-                              subject={liveSessionSubject(activeSession, subjectMap)}
-                              isMobile={isMobile}
-                            />
-                          )}
-                        </div>
-                        {/* 2px hairline centered on the middle: a 1px line at
-                            left-1/2 lands on a fractional pixel whenever the
-                            column width is odd and anti-aliases into invisibility;
-                            2px always covers at least one full pixel. */}
-                        <div className="absolute left-1/2 top-0 bottom-0 w-[2px] -translate-x-1/2 bg-outline-variant/60" />
-                        {/* Right column: plan events */}
-                        <div className={`absolute right-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'plan')} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), 'plan', e)}>
-                          {renderColumn(visiblePlan)}
-                          {renderDraft('plan')}
-                        </div>
-                      </>
                     )}
-                    {/* Current-time line — last in DOM so it paints above the
-                        event blocks for today's column. */}
-                    {isSameDay(day, new Date()) && (
-                      <CurrentTimeIndicator
+                  </div>
+                  </Fragment>
+                );
+              });
+            };
+
+            return (
+              <div
+                key={day.toISOString()}
+                ref={(el) => {
+                  dayGridRefs.current[idx] = el;
+                }}
+                className={`flex-1 min-w-[112px] max-lg:min-w-0 max-w-full relative border-l border-outline-variant ${isDropTarget ? 'bg-primary/10' : ''}`}
+                style={{ height: `${gridPx}px`, minHeight: '100%' }}
+              >
+                {hourTicks.map((hour) => (
+                  <div
+                    key={hour}
+                    className="absolute left-0 right-0 border-t border-outline-variant/40"
+                    style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
+                  />
+                ))}
+                {/* Single-kind mode: one full-width column, no split. The live
+                    session block is real — hidden in plan-only mode. */}
+                {single ? (
+                  <div className={`absolute left-0 right-0 top-0 bottom-0 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, singleKind)} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), singleKind, e)}>
+                    {renderColumn(singleKind === 'real' ? visibleReal : visiblePlan)}
+                    {renderDraft(singleKind)}
+                    {isSameDay(day, new Date()) && activeSession && singleKind === 'real' && (
+                      <LiveEventBlock
+                        start={activeSession.start}
                         startHour={START_HOUR}
                         endHour={END_HOUR}
                         hourHeight={HOUR_HEIGHT}
+                        subject={liveSessionSubject(activeSession, subjectMap)}
+                        isMobile={isMobile}
                       />
                     )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                ) : (
+                  <>
+                    {/* Left column: real events */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'real')} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), 'real', e)}>
+                      {renderColumn(visibleReal)}
+                      {renderDraft('real')}
+                      {isSameDay(day, new Date()) && activeSession && (
+                        <LiveEventBlock
+                          start={activeSession.start}
+                          startHour={START_HOUR}
+                          endHour={END_HOUR}
+                          hourHeight={HOUR_HEIGHT}
+                          subject={liveSessionSubject(activeSession, subjectMap)}
+                          isMobile={isMobile}
+                        />
+                      )}
+                    </div>
+                    {/* 2px hairline centered on the middle: a 1px line at
+                        left-1/2 lands on a fractional pixel whenever the
+                        column width is odd and anti-aliases into invisibility;
+                        2px always covers at least one full pixel. */}
+                    <div className="absolute left-1/2 top-0 bottom-0 w-[2px] -translate-x-1/2 bg-outline-variant/60" />
+                    {/* Right column: plan events */}
+                    <div className={`absolute right-0 top-0 bottom-0 w-1/2 ${dragPos ? 'overflow-visible' : 'overflow-hidden'}`} onClick={makeCellTapHandler(day, 'plan')} onMouseDown={(e) => dragCreate.onMouseDown(String(idx), 'plan', e)}>
+                      {renderColumn(visiblePlan)}
+                      {renderDraft('plan')}
+                    </div>
+                  </>
+                )}
+                {/* Current-time line — last in DOM so it paints above the
+                    event blocks for today's column. */}
+                {isSameDay(day, new Date()) && (
+                  <CurrentTimeIndicator
+                    startHour={START_HOUR}
+                    endHour={END_HOUR}
+                    hourHeight={HOUR_HEIGHT}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
+    </div>
+  );
+
+  if (peek) {
+    return (
+      <div data-swipe-peek={peek} aria-hidden inert className="absolute top-0 bottom-0 w-full overflow-hidden pointer-events-none" style={{ left: peek === 'prev' ? '-100%' : '100%' }}>
+        {pageInner}
+      </div>
+    );
+  }
+
+  return (
+    // (Same touch-action note as Timeline: pan-y lets horizontal flicks
+    // complete as swipe navigation while vertical scrolling stays native.)
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative [touch-action:pan-y]" onTouchStart={swipe.onTouchStart} onTouchMove={swipe.onTouchMove} onTouchEnd={swipe.onTouchEnd} onTouchCancel={swipe.onTouchCancel}>
+      {/* Page chrome stays fixed; only this area scrolls (short screens,
+          horizontal overflow). Sticky day headers keep working inside it. */}
+      <div ref={pageRef} className="flex-1 min-h-0 overflow-auto [touch-action:pan-y]">
+        {pageInner}
+      </div>
+      {/* Neighbouring periods, ready beside the page for the swipe. */}
+      {isMobile && !peek && onSwipeLeft && onSwipeRight && (
+        <>
+          <MultiDayView peek="prev" days={days} date={addDays(date, -days)} events={events} subjects={subjects} mode={mode} activeSession={activeSession} />
+          <MultiDayView peek="next" days={days} date={addDays(date, days)} events={events} subjects={subjects} mode={mode} activeSession={activeSession} />
+        </>
+      )}
     </div>
   );
 }
