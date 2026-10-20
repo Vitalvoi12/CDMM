@@ -47,6 +47,12 @@ const FILTERS: { id: EventFilter; label: string; title: string }[] = [
   { id: 'all', label: 'All', title: 'Show real & plan together' },
 ];
 
+/** Whether a touch began inside the handler's own DOM, not in a portal that
+ *  React bubbles to it (portals sit elsewhere on the page). */
+function inOwnDom(e: React.TouchEvent): boolean {
+  return e.currentTarget.contains(e.target as Node);
+}
+
 function loadEventFilter(): EventFilter {
   const saved = localStorage.getItem('cdmm.event-filter');
   return saved === 'real' || saved === 'plan' || saved === 'all' ? saved : 'all';
@@ -1012,16 +1018,22 @@ export function CalendarPage() {
           ) : (
             <div
               className="flex-1 min-h-0 flex flex-col [touch-action:pan-y]"
+              // Touches in the Checklist's portals (the add bar under the dock,
+              // the task window) still bubble here through the React tree. They
+              // are not the page: flicking the add bar's subject chips sideways
+              // must not turn the day under the task being typed.
               onTouchStart={(e) => {
+                if (!inOwnDom(e)) return;
                 panelSwipe.onTouchStart(e);
                 onChecklistTouchStart(e);
               }}
-              onTouchMove={panelSwipe.onTouchMove}
+              onTouchMove={(e) => inOwnDom(e) && panelSwipe.onTouchMove(e)}
               onTouchEnd={(e) => {
+                if (!inOwnDom(e)) return;
                 panelSwipe.onTouchEnd(e);
                 onChecklistTouchEnd(e);
               }}
-              onTouchCancel={panelSwipe.onTouchCancel}
+              onTouchCancel={(e) => inOwnDom(e) && panelSwipe.onTouchCancel()}
             >
               <Checklist
                 date={currentDate}
