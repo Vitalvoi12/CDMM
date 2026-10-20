@@ -273,6 +273,17 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
           {task.title}
         </span>
         {scheduled?.[task.id] && <ScheduledChip start={scheduled[task.id]} date={date} />}
+        {/* Estimate, as on the day's own tasks; it is edited in the todo itself. */}
+        {task.estMinutes ? (
+          <span
+            title="Estimated time"
+            className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
+              task.completed ? 'text-on-surface-variant/50' : 'text-on-surface-variant'
+            }`}
+          >
+            ~{formatDuration(task.estMinutes)}
+          </span>
+        ) : null}
         {when && (
           <span
             className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
