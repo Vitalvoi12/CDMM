@@ -89,12 +89,10 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   const zone = eventResizeZone(boxHeight, isMobile);
   const resizeHandle = !clippedBottom && canResizeEvent(boxHeight, isMobile) ? (
     <div
-      className="absolute left-0 right-0 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
+      className="absolute left-0 right-0 cursor-ns-resize"
       style={{ bottom: 0, height: `${zone.height}px`, marginBottom: `${zone.offset}px` }}
       onMouseDown={onResizeStart}
-    >
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-1 bg-outline-variant rounded-full" />
-    </div>
+    />
   ) : null;
 
   const timeRange = `${timeFromDate(displayStart ?? event.start)} - ${timeFromDate(displayEnd ?? event.end)}`;

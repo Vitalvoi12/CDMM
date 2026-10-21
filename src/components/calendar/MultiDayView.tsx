@@ -693,12 +693,10 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     </div>
                     {resizable && (
                       <div
-                        className="absolute left-0 right-0 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute left-0 right-0 cursor-ns-resize"
                         style={{ bottom: 0, height: `${zone.height}px`, marginBottom: `${zone.offset}px` }}
                         onMouseDown={(e) => handleResizeStart(ev, idx, e)}
-                      >
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-1 bg-outline-variant rounded-full" />
-                      </div>
+                      />
                     )}
                   </div>
                   </Fragment>
