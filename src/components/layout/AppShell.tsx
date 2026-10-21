@@ -10,6 +10,7 @@ import { settingsRepo } from '../../services/repositories';
 import { hasOpenOverlay } from '../../services/overlays';
 import { startEventNotifications } from '../../services/notifications';
 import { BELOW_DOCK_ID } from '../mobile/belowDock';
+import { UndoToast } from '../mobile/UndoToast';
 
 /** Routes whose phone layout comes from the mobile redesign. */
 const FULL_BLEED = new Set(['/', '/todo', '/subjects', '/statistics', '/settings']);
@@ -67,7 +68,7 @@ export function AppShell() {
   return (
     <div className="fixed inset-0 bg-background flex flex-col overflow-hidden">
       <Sidebar />
-      <div className="pl-[19rem] max-lg:pl-0 flex flex-col flex-1 min-h-0">
+      <div className="relative pl-[19rem] max-lg:pl-0 flex flex-col flex-1 min-h-0">
         {/* Redesigned phone pages draw their own full-bleed header and gutters. */}
         <main className={`px-10 py-8 flex-1 flex flex-col min-h-0 overflow-y-auto max-lg:overflow-hidden ${FULL_BLEED.has(pathname) ? 'max-lg:p-0' : 'max-lg:px-4 max-lg:py-4'}`}>
           {/* Keyed by route so every page switch replays the enter animation. */}
@@ -75,6 +76,7 @@ export function AppShell() {
             <Outlet />
           </div>
         </main>
+        {isMobile && <UndoToast />}
       </div>
       {isMobile && <LiveSessionCard variant="dock" shortcuts />}
       {/* Phone pages can portal a bar here to sit under the session dock (see BELOW_DOCK_ID). */}

@@ -377,6 +377,19 @@ html:not(.icons-ready) .material-symbols-outlined {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes cdmm-toast-in {
+  from { opacity: 0; transform: translateY(calc(100% + 16px)); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cdmm-toast-out {
+  to { opacity: 0; transform: translateY(calc(100% + 16px)); }
+}
+
+@keyframes cdmm-toast-bar {
+  to { transform: scaleX(0); }
+}
+
 @keyframes cdmm-view-enter {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -734,6 +747,11 @@ body {
   .m-shd { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
   .m-toast { position: absolute; left: 16px; right: 16px; height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 6px 0 16px; border-radius: 12px; background: var(--color-inverse-surface); color: var(--color-inverse-on-surface); box-shadow: var(--shadow-elev-3); }
   .m-toast .m-btn { color: inherit; border: 0; height: 44px; padding: 0 12px; }
+  /* The undo toast: app colors, slides up from the dock and back down. */
+  .m-toast.undo { overflow: hidden; gap: 10px; padding-left: 14px; background: var(--color-surface-container-high); color: var(--color-on-surface); border: 1px solid var(--color-outline-variant); animation: cdmm-toast-in .32s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+  .m-toast.undo.out { animation: cdmm-toast-out .22s ease-in forwards; }
+  .m-toast.undo .m-btn { color: var(--color-primary); }
+  .m-toast.undo .bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--color-primary); transform-origin: left; animation: cdmm-toast-bar linear forwards; }
 
   /* list rows */
   .m-li { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 16px; border-bottom: 1px solid var(--color-outline-variant); position: relative; background: var(--color-background); }

@@ -25,6 +25,18 @@ const MAX_DEPTH = 50;
 let undoStack: HistoryEntry[] = [];
 let redoStack: HistoryEntry[] = [];
 
+type CheckpointListener = (label: string, entry: object) => void;
+const checkpointListeners = new Set<CheckpointListener>();
+
+/**
+ * Hear each new checkpoint (the phone's undo toast). `entry` identifies it
+ * for undoIfLatest.
+ */
+export function subscribeCheckpoint(fn: CheckpointListener): () => void {
+  checkpointListeners.add(fn);
+  return () => checkpointListeners.delete(fn);
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -43,10 +55,12 @@ function takeSnapshot(): Snapshot {
  * Call once per user action, right before mutating the repos.
  */
 export function checkpoint(label: string): void {
-  undoStack.push({ label, snap: takeSnapshot() });
+  const entry = { label, snap: takeSnapshot() };
+  undoStack.push(entry);
   if (undoStack.length > MAX_DEPTH) undoStack.shift();
   // A new action invalidates the redo trail.
   redoStack = [];
+  for (const fn of checkpointListeners) fn(label, entry);
 }
 
 export function canUndo(): boolean {
@@ -143,6 +157,13 @@ export function undo(): string | null {
   redoStack.push({ label: entry.label, snap: takeSnapshot() });
   restore(entry.snap);
   return entry.label;
+}
+
+/** Undo only if `entry` (from subscribeCheckpoint) is still the latest action. */
+export function undoIfLatest(entry: object): boolean {
+  if (undoStack[undoStack.length - 1] !== entry) return false;
+  undo();
+  return true;
 }
 
 /** Re-apply an undone action. Returns its label, if any. */
