@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import type { Subject } from '../../types';
 import { Sheet } from './Sheet';
 import { formatDuration, timeFromDate } from '../../utils/time';
+import { parseEstimate } from '../../utils/estimate';
 
 const LENGTHS = [30, 45, 60, 90];
 const STEP = 15;
+/** A typed length may go below the chips' step. */
+const MIN_CUSTOM = 5;
 
 interface QuickCreateSheetProps {
   start: Date;
@@ -25,10 +29,17 @@ interface QuickCreateSheetProps {
  * block; anything else goes through "More".
  */
 export function QuickCreateSheet({ start, end, kind, subjects, onChange, onPick, onMore, onClose }: QuickCreateSheetProps) {
-  const minutes = Math.max(STEP, Math.round((end.getTime() - start.getTime()) / 60000));
-  const setLength = (m: number) => onChange({ end: new Date(start.getTime() + Math.max(STEP, m) * 60000), kind });
+  const minutes = Math.max(MIN_CUSTOM, Math.round((end.getTime() - start.getTime()) / 60000));
+  const setLength = (m: number, min = STEP) => onChange({ end: new Date(start.getTime() + Math.max(min, m) * 60000), kind });
   const day = start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   const title = kind === 'plan' ? 'New plan' : 'New session';
+  // Custom length: the Custom chip turns into a field ("80", "1h20", "1:20").
+  const [custom, setCustom] = useState<string | null>(null);
+  const applyCustom = () => {
+    const m = custom === null ? undefined : parseEstimate(custom);
+    if (m) setLength(m, MIN_CUSTOM);
+    setCustom(null);
+  };
 
   return (
     <Sheet label={title} onClose={onClose}>
@@ -63,8 +74,44 @@ export function QuickCreateSheet({ start, end, kind, subjects, onChange, onPick,
               {formatDuration(m)}
             </button>
           ))}
-          {!LENGTHS.includes(minutes) && (
-            <span className="m-chip on" aria-label={`Length ${formatDuration(minutes)}`}>{formatDuration(minutes)}</span>
+          {custom !== null ? (
+            <form
+              className="m-chip on"
+              style={{ padding: '0 10px' }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                applyCustom();
+              }}
+            >
+              <input
+                autoFocus
+                value={custom}
+                onChange={(e) => setCustom(e.target.value)}
+                onBlur={applyCustom}
+                onKeyDown={(e) => e.key === 'Escape' && setCustom(null)}
+                placeholder="1h 20m"
+                aria-label="Custom length"
+                enterKeyHint="done"
+                className="m-num bg-transparent border-0 outline-none text-[16px] text-inherit placeholder:text-on-surface-variant"
+                style={{ width: 72 }}
+              />
+            </form>
+          ) : (
+            <button
+              type="button"
+              className={`m-chip ${LENGTHS.includes(minutes) ? '' : 'on'}`}
+              aria-label={LENGTHS.includes(minutes) ? 'Custom length' : `Length ${formatDuration(minutes)}, change`}
+              onClick={() => setCustom(LENGTHS.includes(minutes) ? '' : formatDuration(minutes))}
+            >
+              {LENGTHS.includes(minutes) ? (
+                <>
+                  <span className="material-symbols-outlined m-ic s m-mut">edit</span>
+                  Custom
+                </>
+              ) : (
+                formatDuration(minutes)
+              )}
+            </button>
           )}
           <button type="button" className="m-chip sq" aria-label="Longer by 15 minutes" onClick={() => setLength(minutes + STEP)}>
             <span className="material-symbols-outlined m-ic s">add</span>
