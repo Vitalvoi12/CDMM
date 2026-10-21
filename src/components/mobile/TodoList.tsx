@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { TodoTask } from '../../types';
 import { formatDuration } from '../../utils/time';
 import { formatDueLabel, isOverdue } from '../todo/TodoRows';
 import { SwipeRow } from './SwipeRow';
+import { useBelowDock } from './belowDock';
 import { undo, undoLabel } from '../../services/history';
 
 export type QuadrantKey = 'ii' | 'in' | 'ni' | 'nn';
@@ -54,6 +56,10 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
   const [text, setText] = useState('');
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [focused, setFocused] = useState(false);
+  // The add bar sits under the session dock, in the shell's slot for it.
+  const formRef = useRef<HTMLFormElement>(null);
+  const belowDock = useBelowDock(formRef, focused);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const setQuadrant = (key: QuadrantKey) => {
@@ -120,6 +126,58 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
     );
   };
 
+  const addBar = (
+    <form
+      ref={formRef}
+      className="m-addbar"
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+      }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <div className="flex items-center" style={{ gap: 8 }}>
+        <input
+          ref={inputRef}
+          type="text"
+          className="m-in flex-1"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={`New task · ${MOBILE_QUADRANTS.find((x) => x.important === important && x.urgent === urgent)!.title}`}
+          aria-label="New task"
+          enterKeyHint="done"
+        />
+        {([
+          ['Important', 'flag', important, setImportant],
+          ['Urgent', 'bolt', urgent, setUrgent],
+        ] as const).map(([label, icon, on, set]) => (
+          <button
+            key={label}
+            type="button"
+            aria-label={`${label}, ${on ? 'on' : 'off'}`}
+            aria-pressed={on}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => set(!on)}
+            className="m-ib"
+            style={{
+              border: `1px solid ${on ? 'var(--color-outline)' : 'var(--color-outline-variant)'}`,
+              background: on ? 'var(--color-secondary-container)' : 'none',
+              color: on ? 'var(--color-on-secondary-container)' : 'var(--color-on-surface-variant)',
+            }}
+          >
+            <span className="material-symbols-outlined m-ic s">{icon}</span>
+          </button>
+        ))}
+        <button type="submit" className="m-btn pri sq" aria-label="Add task" disabled={!text.trim()} onMouseDown={(e) => e.preventDefault()}>
+          <span className="material-symbols-outlined m-ic s">arrow_upward</span>
+        </button>
+      </div>
+    </form>
+  );
+
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <header className="m-hdr" style={{ paddingLeft: 16 }}>
@@ -177,50 +235,7 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
         )}
       </div>
 
-      <form
-        className="m-addbar"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        <div className="flex items-center" style={{ gap: 8 }}>
-          <input
-            ref={inputRef}
-            type="text"
-            className="m-in flex-1"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={`New task · ${MOBILE_QUADRANTS.find((x) => x.important === important && x.urgent === urgent)!.title}`}
-            aria-label="New task"
-            enterKeyHint="done"
-          />
-          {([
-            ['Important', 'flag', important, setImportant],
-            ['Urgent', 'bolt', urgent, setUrgent],
-          ] as const).map(([label, icon, on, set]) => (
-            <button
-              key={label}
-              type="button"
-              aria-label={`${label}, ${on ? 'on' : 'off'}`}
-              aria-pressed={on}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => set(!on)}
-              className="m-ib"
-              style={{
-                border: `1px solid ${on ? 'var(--color-outline)' : 'var(--color-outline-variant)'}`,
-                background: on ? 'var(--color-secondary-container)' : 'none',
-                color: on ? 'var(--color-on-secondary-container)' : 'var(--color-on-surface-variant)',
-              }}
-            >
-              <span className="material-symbols-outlined m-ic s">{icon}</span>
-            </button>
-          ))}
-          <button type="submit" className="m-btn pri sq" aria-label="Add task" disabled={!text.trim()} onMouseDown={(e) => e.preventDefault()}>
-            <span className="material-symbols-outlined m-ic s">arrow_upward</span>
-          </button>
-        </div>
-      </form>
+      {belowDock ? createPortal(addBar, belowDock) : addBar}
     </div>
   );
 }

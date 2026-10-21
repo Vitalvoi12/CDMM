@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { formatDuration, isSameDay } from '../../utils/time';
@@ -6,7 +6,7 @@ import { EST_PRESETS } from '../../utils/estimate';
 import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { ChecklistTaskDialog } from '../calendar/ChecklistTaskDialog';
 import { SwipeRow } from './SwipeRow';
-import { BELOW_DOCK_ID } from './belowDock';
+import { useBelowDock } from './belowDock';
 
 const LAST_SUBJECT_KEY = 'cdmm.checklist-subject';
 
@@ -62,39 +62,25 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
   const [estOpen, setEstOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   // The add bar sits under the session dock, in the shell's slot for it.
-  const [belowDock, setBelowDock] = useState<HTMLElement | null>(null);
-  useLayoutEffect(() => setBelowDock(document.getElementById(BELOW_DOCK_ID)), []);
-  // While typing the bar is fixed above the keyboard and leaves the slot, so
-  // the dock would drop onto the nav and slide under the bar's chip rows. The
-  // slot keeps what the nav (right under it, covered by the bar) doesn't fill.
   const formRef = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    const form = formRef.current;
-    if (!focused || !belowDock || !form) return;
-    const hold = () => {
-      const nav = (belowDock.nextElementSibling as HTMLElement | null)?.offsetHeight ?? 0;
-      belowDock.style.minHeight = `${Math.max(0, form.offsetHeight - nav)}px`;
-    };
-    hold();
-    const ro = new ResizeObserver(hold);
-    ro.observe(form);
-    return () => {
-      ro.disconnect();
-      belowDock.style.minHeight = '';
-    };
-  }, [focused, belowDock]);
+  const belowDock = useBelowDock(formRef, focused);
   const byId = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
   const subjectId = byId.has(picked) ? picked : '';
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  // Subjects-page order, tasks without a (living) subject last.
-  const ordered = useMemo(() => {
-    const rank = new Map(subjects.map((s, i) => [s.id, i]));
-    return tasks
-      .map((t, i) => ({ t, i, r: rank.get(t.subjectId) ?? subjects.length }))
-      .sort((a, b) => a.r - b.r || a.i - b.i)
-      .map((x) => x.t);
-  }, [tasks, subjects]);
+  // Tasks grouped under their subject, in Subjects-page order; tasks
+  // without a (living) subject form an "Other" group last.
+  const groups = useMemo(() => {
+    const byKey = new Map<string, DayTask[]>();
+    for (const t of tasks) {
+      const key = byId.has(t.subjectId) ? t.subjectId : '';
+      byKey.set(key, [...(byKey.get(key) ?? []), t]);
+    }
+    return [...subjects, { id: '', name: 'Other', color: 'var(--color-outline)' }].flatMap((s) => {
+      const items = byKey.get(s.id);
+      return items ? [{ key: s.id || '__other__', name: s.name, color: s.color, items }] : [];
+    });
+  }, [tasks, subjects, byId]);
 
   // Todos for the day (see todosForDay).
   const dayTodos = useMemo(() => todosForDay(todos, date), [todos, date]);
@@ -265,51 +251,65 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
           </span>
         </div>
 
-        {ordered.length === 0 && dayTodos.length === 0 && (
+        {tasks.length === 0 && dayTodos.length === 0 && (
           <p className="m-sm m-mut" style={{ padding: '8px 16px' }}>
             Nothing to check for {dayLabel}. Add a task below.
           </p>
         )}
 
-        {ordered.map((t) => {
-          const subject = byId.get(t.subjectId);
-          const planned = scheduled[t.id];
+        {groups.map((g, gi) => {
+          const groupDone = g.items.filter((t) => t.done).length;
+          const groupLeft = g.items.reduce((s, t) => s + (t.done ? 0 : t.estMinutes || 0), 0);
           return (
-            <SwipeRow
-              key={t.id}
-              open={openRow === t.id}
-              onOpenChange={(o) => setOpenRow(o ? t.id : null)}
-              start={{ label: t.done ? 'Undo' : 'Done', icon: t.done ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTask(t.id, !t.done) }}
-              end={[
-                ...(!t.done ? [{ label: 'Plan', icon: 'event', tone: 'sec' as const, onClick: () => onPlanTask(t) }] : []),
-                { label: 'Delete', icon: 'delete', tone: 'err' as const, onClick: () => onDeleteTask(t.id) },
-              ]}
-            >
-              <div className="m-li" style={{ borderBottom: 0, background: 'transparent' }}>
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={t.done}
-                  aria-label={t.done ? `Mark "${t.text}" as not done` : `Mark "${t.text}" as done`}
-                  onClick={() => onToggleTask(t.id, !t.done)}
-                  className="flex items-center justify-center -m-[10px]"
-                  style={{ width: 44, height: 44, background: 'none', border: 0, flex: 'none' }}
-                >
-                  <span className={`m-cb ${t.done ? 'on' : ''}`}>{t.done && <span className="material-symbols-outlined m-ic xs">check</span>}</span>
-                </button>
-                <button type="button" onClick={() => setEditingId(t.id)} className="flex flex-col flex-1 min-w-0 text-left bg-transparent border-0 p-0 text-inherit" style={{ minHeight: 44, justifyContent: 'center' }}>
-                  <span className={`m-tr ${t.done ? 'm-mut line-through' : ''}`}>{t.text}</span>
-                  {planned && (
-                    <span className="m-sm m-mut flex items-center" style={{ gap: 4 }}>
-                      <span className="material-symbols-outlined m-ic xs">event</span>
-                      Planned {isSameDay(new Date(planned), date) ? hhmm(planned) : `${new Date(planned).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${hhmm(planned)}`}
-                    </span>
-                  )}
-                </button>
-                {subject && <span className="m-sw" style={{ background: subject.color }} aria-label={subject.name} />}
-                {t.estMinutes ? <span className="m-est m-num">{formatDuration(t.estMinutes)}</span> : null}
+            <div key={g.key} role="group" aria-label={g.name}>
+              <div className="flex items-center" style={{ height: 36, padding: '0 16px', marginTop: gi ? 8 : 0, gap: 8 }}>
+                <span className="m-sw" style={{ background: g.color }} />
+                <span className="m-sm flex-1 min-w-0 truncate" style={{ fontWeight: 600 }}>{g.name}</span>
+                <span className="m-sm m-mut m-num">
+                  {groupDone}/{g.items.length}{groupLeft > 0 ? ` · ~${formatDuration(groupLeft)}` : ''}
+                </span>
               </div>
-            </SwipeRow>
+              {g.items.map((t) => {
+                const planned = scheduled[t.id];
+                return (
+                <SwipeRow
+                  key={t.id}
+                  open={openRow === t.id}
+                  onOpenChange={(o) => setOpenRow(o ? t.id : null)}
+                  start={{ label: t.done ? 'Undo' : 'Done', icon: t.done ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTask(t.id, !t.done) }}
+                  end={[
+                    ...(!t.done ? [{ label: 'Plan', icon: 'event', tone: 'sec' as const, onClick: () => onPlanTask(t) }] : []),
+                    { label: 'Delete', icon: 'delete', tone: 'err' as const, onClick: () => onDeleteTask(t.id) },
+                  ]}
+                >
+                  <div className="m-li" style={{ borderBottom: 0, background: 'transparent' }}>
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={t.done}
+                      aria-label={t.done ? `Mark "${t.text}" as not done` : `Mark "${t.text}" as done`}
+                      onClick={() => onToggleTask(t.id, !t.done)}
+                      className="flex items-center justify-center -m-[10px]"
+                      style={{ width: 44, height: 44, background: 'none', border: 0, flex: 'none' }}
+                    >
+                      <span className={`m-cb ${t.done ? 'on' : ''}`}>{t.done && <span className="material-symbols-outlined m-ic xs">check</span>}</span>
+                    </button>
+                    <button type="button" onClick={() => setEditingId(t.id)} className="flex flex-col flex-1 min-w-0 text-left bg-transparent border-0 p-0 text-inherit" style={{ minHeight: 44, justifyContent: 'center' }}>
+                      <span className={`m-tr ${t.done ? 'm-mut line-through' : ''}`}>{t.text}</span>
+                      {planned && (
+                        <span className="m-sm m-mut flex items-center" style={{ gap: 4 }}>
+                          <span className="material-symbols-outlined m-ic xs">event</span>
+                          Planned {isSameDay(new Date(planned), date) ? hhmm(planned) : `${new Date(planned).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${hhmm(planned)}`}
+                        </span>
+                      )}
+                    </button>
+                    {t.estMinutes ? <span className="m-est m-num">{formatDuration(t.estMinutes)}</span> : null}
+                    {g.key !== '__other__' && <span className="m-sw" style={{ background: g.color }} aria-label={g.name} />}
+                  </div>
+                </SwipeRow>
+                );
+              })}
+            </div>
           );
         })}
 
