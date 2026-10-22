@@ -26,11 +26,11 @@ import { SessionDock, SessionSheet } from '../mobile/SessionDock';
  * On the phone (`variant="dock"`) the same logic drives the session bar
  * pinned above the bottom nav: Start / Finish in the bar, a tap opens the
  * full session sheet with slide-to-finish, and the rating sheet after Finish
- * carries an Undo.
+ * carries an Undo. `hidden` drops the bar but keeps the dialogs and listeners.
  *
  * Inverse-surface so it stands out in both themes; English labels.
  */
-export function LiveSessionCard({ shortcuts = true, variant = 'card' }: { shortcuts?: boolean; variant?: 'card' | 'dock' } = {}) {
+export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = false }: { shortcuts?: boolean; variant?: 'card' | 'dock'; hidden?: boolean } = {}) {
   const { isActive, subjectId, title, color, startTime, elapsed, startSession, resumeSession, setStartTime, stopSession } = useActiveSession();
   const [showPicker, setShowPicker] = useState(false);
   const [showStartEditor, setShowStartEditor] = useState(false);
@@ -184,7 +184,7 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card' }: { shortc
 
   return (
     <>
-      {card}
+      {!hidden && card}
 
       {expanded && isActive && (
         <SessionSheet

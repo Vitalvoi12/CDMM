@@ -78,7 +78,9 @@ export function AppShell() {
         </main>
         {isMobile && <UndoToast />}
       </div>
-      {isMobile && <LiveSessionCard variant="dock" shortcuts />}
+      {/* The phone shows the session bar on the calendar only; elsewhere it stays
+          mounted, hidden, for its dialogs and the Subjects page's Finish. */}
+      {isMobile && <LiveSessionCard variant="dock" shortcuts hidden={pathname !== '/'} />}
       {/* Phone pages can portal a bar here to sit under the session dock (see BELOW_DOCK_ID). */}
       {isMobile && <div id={BELOW_DOCK_ID} className="flex-none" />}
       <MobileNav />
