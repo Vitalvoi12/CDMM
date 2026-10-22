@@ -4,6 +4,7 @@ import { SUBJECT_COLORS as COLORS, SUBJECT_COLOR_GROUPS as COLOR_GROUPS } from '
 import { useEscapeOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { Sheet } from '../mobile/Sheet';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 interface SubjectFormProps {
   subject: Subject | null;
@@ -45,7 +46,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
           </div>
           <div className="m-fld">
             <label className="m-lbl m-mut" htmlFor="m-subject-name">Name</label>
-            <input id="m-subject-name" type="text" className="m-in" value={name} onChange={(e) => setName(e.target.value)} placeholder="Subject name" autoFocus={!subject} />
+            <AutoGrowTextarea id="m-subject-name" className="m-in" value={name} onChange={(e) => setName(e.target.value)} placeholder="Subject name" autoFocus={!subject} />
           </div>
           <div className="m-fld">
             <label className="m-lbl m-mut" htmlFor="m-subject-goal">Weekly goal</label>
@@ -127,8 +128,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
             <label className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
               Name
             </label>
-            <input
-              type="text"
+            <AutoGrowTextarea
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Subject name"

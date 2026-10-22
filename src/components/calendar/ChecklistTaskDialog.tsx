@@ -6,6 +6,7 @@ import { EST_PRESETS, parseEstimate, stepEstimate } from '../../utils/estimate';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { Sheet } from '../mobile/Sheet';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 interface ChecklistTaskDialogProps {
   task: DayTask;
@@ -61,7 +62,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
 
   const setEst = (minutes: number | undefined) => setEstText(minutes ? formatDuration(minutes) : '');
 
-  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
@@ -109,7 +110,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
               <span className="material-symbols-outlined m-ic">close</span>
             </button>
           </div>
-          <input type="text" className="m-in" aria-label="Name" value={text} onChange={(e) => setText(e.target.value)} enterKeyHint="done" />
+          <AutoGrowTextarea className="m-in" aria-label="Name" value={text} onChange={(e) => setText(e.target.value)} enterKeyHint="done" />
           <div className="m-fld">
             <span className="m-lbl m-mut">Subject</span>
             <div className="m-wrap" role="radiogroup" aria-label="Subject">
@@ -212,9 +213,8 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
 
         <div className="flex flex-col gap-2">
           <label htmlFor="checklist-task-name" className={label}>Name</label>
-          <input
+          <AutoGrowTextarea
             id="checklist-task-name"
-            type="text"
             autoFocus
             value={text}
             onChange={(e) => setText(e.target.value)}

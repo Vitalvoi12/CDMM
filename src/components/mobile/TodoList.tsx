@@ -6,6 +6,7 @@ import { formatDueLabel, isOverdue } from '../todo/TodoRows';
 import { SwipeRow } from './SwipeRow';
 import { useBelowDock } from './belowDock';
 import { undo, undoLabel } from '../../services/history';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 export type QuadrantKey = 'ii' | 'in' | 'ni' | 'nn';
 
@@ -60,7 +61,7 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
   // The add bar sits under the session dock, in the shell's slot for it.
   const formRef = useRef<HTMLFormElement>(null);
   const belowDock = useBelowDock(formRef, focused);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const setQuadrant = (key: QuadrantKey) => {
     setQuadrantState(key);
@@ -140,9 +141,8 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
       }}
     >
       <div className="flex items-center" style={{ gap: 8 }}>
-        <input
+        <AutoGrowTextarea
           ref={inputRef}
-          type="text"
           className="m-in flex-1"
           value={text}
           onChange={(e) => setText(e.target.value)}

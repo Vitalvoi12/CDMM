@@ -8,6 +8,7 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 import { beginTaskDrag, endTaskDrag, DEFAULT_TASK_MINUTES } from '../../services/taskDrag';
 import { EST_PRESETS, stepEstimate } from '../../utils/estimate';
 import { ChecklistTaskDialog } from './ChecklistTaskDialog';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 interface SubjectTasksPanelProps {
   /** The calendar day being shown — the panel lists that day's checklist. */
@@ -29,7 +30,7 @@ interface SubjectTasksPanelProps {
   adding: boolean;
   onAddingChange: (open: boolean) => void;
   /** The form's text field, so whoever opens the form can focus it. */
-  inputRef: RefObject<HTMLInputElement | null>;
+  inputRef: RefObject<HTMLTextAreaElement | null>;
   /** All todo tasks; the ones for `date` (see todosForDay) are listed after the subjects. */
   todos?: TodoTask[];
   onToggleTodo?: (id: string, completed: boolean) => void;
@@ -192,7 +193,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   // browsers on Linux/Windows switch tabs on it before the page sees it.)
   // Shift+← / Shift+→ step the estimate: plain arrows must keep moving the
   // caret, and Alt/Ctrl+arrows belong to the browser and word jumps.
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
@@ -309,9 +310,8 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         >
           <EscapeToClose onClose={closeAdd} />
           <div className="flex items-center gap-2">
-            <input
+            <AutoGrowTextarea
               ref={inputRef}
-              type="text"
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}

@@ -7,6 +7,7 @@ import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { ChecklistTaskDialog } from '../calendar/ChecklistTaskDialog';
 import { SwipeRow } from './SwipeRow';
 import { useBelowDock } from './belowDock';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 const LAST_SUBJECT_KEY = 'cdmm.checklist-subject';
 
@@ -47,7 +48,7 @@ interface ChecklistProps {
   /** Swipe → Plan: put the task (checklist or todo) on the day's timeline. */
   onPlanTask: (task: { id: string; text: string; subjectId: string; estMinutes?: number }) => void;
   /** The add field, so V and a double tap can focus it. */
-  inputRef: RefObject<HTMLInputElement | null>;
+  inputRef: RefObject<HTMLTextAreaElement | null>;
 }
 
 /**
@@ -215,15 +216,14 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
       <div className="flex items-center" style={{ gap: 8 }}>
         <label className="m-in flex-1" style={{ padding: '0 0 0 14px' }}>
           <span className="m-dot" style={{ background: current?.color || 'var(--color-outline)' }} />
-          <input
+          <AutoGrowTextarea
             ref={inputRef}
-            type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={current ? `Add a task · ${current.name}` : 'Add a task'}
             aria-label="New task"
             enterKeyHint="done"
-            className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-[16px] text-on-surface placeholder:text-on-surface-variant"
+            className="flex-1 min-w-0 self-stretch py-[11px] pr-3 bg-transparent border-0 outline-none text-[16px] leading-5 text-on-surface placeholder:text-on-surface-variant"
           />
         </label>
         <button

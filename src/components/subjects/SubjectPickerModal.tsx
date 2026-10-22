@@ -8,6 +8,7 @@ import { eventRepo } from '../../services/repositories';
 import { calculateDailyStats } from '../../utils/stats';
 import { weeklyGoalProgress } from '../../utils/goals';
 import { formatDuration } from '../../utils/time';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 interface SubjectPickerModalProps {
   subjects: Subject[];
@@ -89,14 +90,13 @@ function MobileSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModal
         <div className="flex items-center" style={{ gap: 8 }}>
           <span className="m-in flex-1" style={{ padding: '0 0 0 14px' }}>
             <span className="m-dot" style={{ background: color }} />
-            <input
+            <AutoGrowTextarea
               id="m-custom-session"
-              type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Gym, Reading, Meeting"
               enterKeyHint="go"
-              className="flex-1 min-w-0 h-full bg-transparent border-0 outline-none text-[16px] text-on-surface placeholder:text-on-surface-variant"
+              className="flex-1 min-w-0 self-stretch py-[11px] pr-3 bg-transparent border-0 outline-none text-[16px] leading-5 text-on-surface placeholder:text-on-surface-variant"
             />
           </span>
           <button type="submit" className="m-btn pri sq" aria-label="Start custom session" disabled={!trimmed}>
@@ -161,8 +161,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
               if (trimmed) onSelect('', { title: trimmed, color });
             }}
           >
-            <input
-              type="text"
+            <AutoGrowTextarea
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}

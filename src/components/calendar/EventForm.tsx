@@ -7,6 +7,7 @@ import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time'
 import { NotifyList, isPresetLead, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
 import { eventLeads } from '../../services/notifications';
 import { FOCUS_LABELS, type FocusRating } from '../../utils/analytics';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 export interface EventRecurrence {
   freq: RepeatFreq;
@@ -263,8 +264,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               <label className={labelClass}>
                 Title
               </label>
-              <input
-                type="text"
+              <AutoGrowTextarea
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value);
@@ -382,8 +382,8 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
             <label className={labelClass}>
               Description
             </label>
-            <input
-              type="text"
+            <AutoGrowTextarea
+              multiline
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional notes"

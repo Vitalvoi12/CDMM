@@ -5,6 +5,7 @@ import { useSheetExit } from '../../hooks/useSheetExit';
 import { formatDuration } from '../../utils/time';
 import { Toggle } from '../common/Toggle';
 import { NotifyList, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 interface TodoFormProps {
   task: TodoTask | null;
@@ -69,7 +70,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const anchor = dueAnchor(dueDate, dueTime);
   const moments = notifyItems.map((item) => reminderMoment(anchor, item));
   const [error, setError] = useState<string | null>(null);
-  const titleRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   // Phone: the sheet fades out when it closes.
@@ -163,10 +164,9 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             <label htmlFor="todo-title" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
               Title
             </label>
-            <input
+            <AutoGrowTextarea
               id="todo-title"
               ref={titleRef}
-              type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
@@ -177,13 +177,14 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             <label htmlFor="todo-desc" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
               Description
             </label>
-            <textarea
+            <AutoGrowTextarea
+              multiline
               id="todo-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional notes"
               rows={3}
-              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md text-on-surface outline-none transition-colors resize-none placeholder:text-on-surface-variant/60"
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">

@@ -732,6 +732,9 @@ body {
   /* Typed text a little larger than labels. (maximum-scale=1 in the
      viewport already keeps iOS from zooming into small fields.) */
   input.m-in, textarea.m-in, select.m-in { font-size: 16px; }
+  /* Auto-growing fields (AutoGrowTextarea): the height follows the text. */
+  textarea.m-in { display: block; height: auto; min-height: 44px; padding-top: 11px; padding-bottom: 11px; }
+  .m-in:has(> textarea) { height: auto; min-height: 44px; }
   .m-in:focus, .m-in:focus-within { border-color: var(--color-primary); }
   .m-in::placeholder, .m-in .ph { color: var(--color-on-surface-variant); opacity: 1; }
   input.m-in, textarea.m-in { -webkit-user-select: text; user-select: text; }

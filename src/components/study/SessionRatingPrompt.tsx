@@ -4,6 +4,7 @@ import { FOCUS_LABELS, type FocusRating } from '../../utils/analytics';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { Sheet } from '../mobile/Sheet';
 import { formatDuration } from '../../utils/time';
+import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 interface SessionRatingPromptProps {
   subjectName: string;
@@ -71,8 +72,7 @@ function MobileSessionRatingPrompt({ subjectName, minutes, onRate, onSkip, onUnd
           </button>
         ))}
       </div>
-      <input
-        type="text"
+      <AutoGrowTextarea
         className="m-in"
         value={note}
         onChange={(e) => setNote(e.target.value)}
@@ -96,7 +96,7 @@ function DesktopSessionRatingPrompt({ subjectName, minutes, onRate, onSkip }: Se
   const rate = (rating: FocusRating) => onRate(rating, note.trim());
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.target instanceof HTMLInputElement || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === '1' || e.key === '2' || e.key === '3') {
       e.preventDefault();
       rate(Number(e.key) as FocusRating);
@@ -136,8 +136,7 @@ function DesktopSessionRatingPrompt({ subjectName, minutes, onRate, onSkip }: Se
           ))}
         </div>
 
-        <input
-          type="text"
+        <AutoGrowTextarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="Note (optional) — then tap a rating"

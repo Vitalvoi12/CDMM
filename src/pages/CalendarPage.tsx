@@ -155,7 +155,7 @@ export function CalendarPage() {
   const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks' | 'notes'>('stats');
   // The Checklist's new-task form (inline on desktop, a window on the phone).
   const [taskAdding, setTaskAdding] = useState(false);
-  const taskInputRef = useRef<HTMLInputElement | null>(null);
+  const taskInputRef = useRef<HTMLTextAreaElement | null>(null);
   // Set by the I shortcut; the notes panel focuses its editor once it is up.
   const [noteFocusPending, setNoteFocusPending] = useState(false);
   // Leaving the Checklist closes the form, so it does not pop back up later.
