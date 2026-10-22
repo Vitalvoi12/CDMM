@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore, type RefObject } from 'react';
 
 /**
  * Id of the empty slot the phone shell renders right under the session dock.
@@ -32,4 +32,24 @@ export function useBelowDock(formRef: RefObject<HTMLFormElement | null>, focused
     };
   }, [focused, slot, formRef]);
   return slot;
+}
+
+// A page can hide the session dock (the calendar does outside its timeline).
+let dockHidden = false;
+const dockListeners = new Set<() => void>();
+
+export function setDockHidden(hidden: boolean): void {
+  if (hidden === dockHidden) return;
+  dockHidden = hidden;
+  dockListeners.forEach((l) => l());
+}
+
+export function useDockHidden(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      dockListeners.add(l);
+      return () => dockListeners.delete(l);
+    },
+    () => dockHidden
+  );
 }

@@ -9,7 +9,7 @@ import { requestSessionStart, requestSessionStartEdit } from '../../services/liv
 import { settingsRepo } from '../../services/repositories';
 import { hasOpenOverlay } from '../../services/overlays';
 import { startEventNotifications } from '../../services/notifications';
-import { BELOW_DOCK_ID } from '../mobile/belowDock';
+import { BELOW_DOCK_ID, useDockHidden } from '../mobile/belowDock';
 import { UndoToast } from '../mobile/UndoToast';
 
 /** Routes whose phone layout comes from the mobile redesign. */
@@ -18,6 +18,7 @@ const FULL_BLEED = new Set(['/', '/todo', '/subjects', '/statistics', '/settings
 export function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const dockHidden = useDockHidden();
   const isMobile = useIsMobile();
 
   // Event reminders run while the app is open in any tab or as the PWA.
@@ -78,9 +79,10 @@ export function AppShell() {
         </main>
         {isMobile && <UndoToast />}
       </div>
-      {/* The phone shows the session bar on the calendar only; elsewhere it stays
-          mounted, hidden, for its dialogs and the Subjects page's Finish. */}
-      {isMobile && <LiveSessionCard variant="dock" shortcuts hidden={pathname !== '/'} />}
+      {/* The phone shows the session bar on the calendar's views only (not its
+          Stat / Check / Notes panels); elsewhere it stays mounted, hidden, for
+          its dialogs and the Subjects page's Finish. */}
+      {isMobile && <LiveSessionCard variant="dock" shortcuts hidden={pathname !== '/' || dockHidden} />}
       {/* Phone pages can portal a bar here to sit under the session dock (see BELOW_DOCK_ID). */}
       {isMobile && <div id={BELOW_DOCK_ID} className="flex-none" />}
       <MobileNav />

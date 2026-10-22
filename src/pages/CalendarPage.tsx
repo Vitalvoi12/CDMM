@@ -26,6 +26,7 @@ import { DAY_PANELS, ViewSettingsSheet, type DayPanel } from '../components/cale
 import { QuickCreateSheet } from '../components/mobile/QuickCreateSheet';
 import { DayStats } from '../components/mobile/DayStats';
 import { Checklist } from '../components/mobile/Checklist';
+import { setDockHidden } from '../components/mobile/belowDock';
 import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
 import { DEFAULT_TASK_MINUTES, type TaskDragPayload } from '../services/taskDrag';
@@ -149,6 +150,12 @@ export function CalendarPage() {
     recurrenceId?: string | null;
   } | null>(null);
   const [dayPanel, setDayPanel] = useState<DayPanel>('timeline');
+  // Phone: the session bar shows over the calendar itself, not the day's Stat / Check / Notes panels.
+  const hideDock = isMobile && view === 'day' && dayPanel !== 'timeline';
+  useEffect(() => {
+    setDockHidden(hideDock);
+    return () => setDockHidden(false);
+  }, [hideDock]);
   // Mobile view sheet (the date title or the tune icon).
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
