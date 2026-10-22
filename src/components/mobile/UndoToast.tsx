@@ -6,11 +6,12 @@ const SHOW_MS = 5000;
 /** The slide-down on the way out (cdmm-toast-out). */
 const OUT_MS = 220;
 
-/** Actions easy to do by a stray tap or swipe: deleting and checking off. */
-const UNDOABLE = /^(Delete|Complete) /;
+/** Actions easy to do by a stray tap or swipe: deleting, checking off, postponing. */
+const UNDOABLE = /^(Delete|Complete|Move checklist task) /;
 
-/** "Delete 3 events" → "3 events deleted"; "Complete checklist task" → "Task done". */
+/** "Delete 3 events" → "3 events deleted"; "Complete checklist task" → "Task done"; "Move checklist task to Oct 23" → "Task moved to Oct 23". */
 function message(label: string): string {
+  if (label.startsWith('Move checklist task ')) return `Task moved ${label.slice('Move checklist task '.length)}`;
   const [, verb, what] = /^(\w+) (.*)$/.exec(label)!;
   const thing = what.replace(/^task$/, 'todo').replace('checklist task', 'task');
   return `${thing[0].toUpperCase()}${thing.slice(1)} ${verb === 'Delete' ? 'deleted' : 'done'}`;
@@ -52,7 +53,7 @@ export function UndoToast() {
   if (!shown) return null;
   return (
     <div key={shown.n} className={`m-toast undo z-40 ${leaving ? 'out' : ''}`} role="status" style={{ bottom: 8 }}>
-      <span className="material-symbols-outlined m-ic s m-mut">{shown.label.startsWith('Delete') ? 'delete' : 'check_circle'}</span>
+      <span className="material-symbols-outlined m-ic s m-mut">{shown.label.startsWith('Delete') ? 'delete' : shown.label.startsWith('Move') ? 'redo' : 'check_circle'}</span>
       <span className="flex-1 min-w-0 m-tr truncate">{message(shown.label)}</span>
       <button
         type="button"

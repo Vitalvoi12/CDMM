@@ -361,6 +361,15 @@ export function CalendarPage() {
     setDayTasks(dayTaskRepo.getAll());
   }, [currentDate]);
 
+  // Postpone a checklist task to another day ("YYYY-MM-DD").
+  const handleDayTaskMove = useCallback((id: string, to: string) => {
+    if (Date.now() - panelSwipeAtRef.current < 400) return;
+    const [y, m, d] = to.split('-').map(Number);
+    checkpoint(`Move checklist task to ${new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
+    dayTaskRepo.move(dateKey(currentDate), to, id);
+    setDayTasks(dayTaskRepo.getAll());
+  }, [currentDate]);
+
   // A Checklist task dropped on the day timeline becomes a planned block of
   // its subject (a custom block when it has none), linked back by `taskId` so
   // the checklist can show when it is scheduled. The task text rides in the
@@ -1045,6 +1054,7 @@ export function CalendarPage() {
                 onAddTask={handleDayTaskAdd}
                 onEditTask={handleDayTaskEdit}
                 onDeleteTask={handleDayTaskDelete}
+                onMoveTask={handleDayTaskMove}
                 onToggleTodo={handleTodoToggle}
                 onPlanTask={planTaskOnPhone}
                 inputRef={taskInputRef}
@@ -1094,7 +1104,7 @@ export function CalendarPage() {
                   goals={weekGoals}
                 />
               ) : asidePanel === 'tasks' ? (
-                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} />
+                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} />
               ) : (
                 <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
               )}

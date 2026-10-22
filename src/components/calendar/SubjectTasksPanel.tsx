@@ -20,6 +20,8 @@ interface SubjectTasksPanelProps {
   /** Rename / re-subject / re-estimate a task; `estMinutes: undefined` clears it. */
   onEditTask?: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
   onDeleteTask: (id: string) => void;
+  /** Postpone a task to another day ("YYYY-MM-DD"). */
+  onMoveTask?: (id: string, to: string) => void;
   /**
    * Whether the new-task form is open — inline on desktop, a window on the
    * phone. Owned by the page, which also opens it (V, double tap).
@@ -91,7 +93,7 @@ function saveLastSubject(id: string): void {
  * (color dot + name), each with a checkbox. A day needs no event of a subject
  * to hold tasks for it.
  */
-export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, todos = [], onToggleTodo, scheduled, onEditTask }: SubjectTasksPanelProps) {
+export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, todos = [], onToggleTodo, scheduled, onEditTask, onMoveTask }: SubjectTasksPanelProps) {
   const groups = useMemo<Group[]>(() => {
     const subjectMap = new Map(subjects.map((s) => [s.id, s]));
     const byKey = new Map<string, Group>();
@@ -471,10 +473,18 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
           task={editingTask}
           subjects={subjects}
           dayLabel={dayLabel}
+          date={date}
           onSave={(patch) => {
             onEditTask(editingTask.id, patch);
             setEditingId(null);
           }}
+          onMove={
+            onMoveTask &&
+            ((to) => {
+              onMoveTask(editingTask.id, to);
+              setEditingId(null);
+            })
+          }
           onDelete={() => {
             onDeleteTask(editingTask.id);
             setEditingId(null);

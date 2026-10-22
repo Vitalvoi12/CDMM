@@ -918,6 +918,14 @@ class DayTaskRepository {
     this.set(date, this.getTasks(date).filter((t) => t.id !== id));
   }
 
+  /** Postpone a task to another day: it leaves `from` and goes, reopened, to the end of `to`. */
+  move(from: string, to: string, id: string): void {
+    const task = this.getTasks(from).find((t) => t.id === id);
+    if (!task || from === to) return;
+    this.remove(from, id);
+    this.set(to, [...this.getTasks(to).filter((t) => t.id !== id), { ...task, done: false }]);
+  }
+
   /** Re-stamp a day so its current list wins LWW (undo/redo). */
   bump(date: string): void {
     const idx = this.lists.findIndex((l) => l.id === date);

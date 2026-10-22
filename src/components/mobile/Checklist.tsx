@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
-import { formatDuration, isSameDay } from '../../utils/time';
+import { addDays, dateKey, formatDuration, isSameDay } from '../../utils/time';
 import { EST_PRESETS } from '../../utils/estimate';
 import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { ChecklistTaskDialog } from '../calendar/ChecklistTaskDialog';
@@ -41,6 +41,8 @@ interface ChecklistProps {
   onAddTask: (text: string, subjectId: string, estMinutes?: number) => void;
   onEditTask: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
   onDeleteTask: (id: string) => void;
+  /** Postpone a task to another day ("YYYY-MM-DD"). */
+  onMoveTask: (id: string, to: string) => void;
   onToggleTodo: (id: string, completed: boolean) => void;
   /** Swipe → Plan: put the task (checklist or todo) on the day's timeline. */
   onPlanTask: (task: { id: string; text: string; subjectId: string; estMinutes?: number }) => void;
@@ -50,10 +52,10 @@ interface ChecklistProps {
 
 /**
  * The phone's Check tab: the day's checklist as swipeable rows (right: done,
- * left: plan / delete), the day's todos below (also plannable), and an add bar at the
+ * left: plan / later = tomorrow / delete), the day's todos below (also plannable), and an add bar at the
  * bottom (under the session dock) that rides above the keyboard while typing.
  */
-export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTask, onAddTask, onEditTask, onDeleteTask, onToggleTodo, onPlanTask, inputRef }: ChecklistProps) {
+export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTask, onAddTask, onEditTask, onDeleteTask, onMoveTask, onToggleTodo, onPlanTask, inputRef }: ChecklistProps) {
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -278,7 +280,12 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
                   onOpenChange={(o) => setOpenRow(o ? t.id : null)}
                   start={{ label: t.done ? 'Undo' : 'Done', icon: t.done ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTask(t.id, !t.done) }}
                   end={[
-                    ...(!t.done ? [{ label: 'Plan', icon: 'event', tone: 'sec' as const, onClick: () => onPlanTask(t) }] : []),
+                    ...(!t.done
+                      ? [
+                          { label: 'Plan', icon: 'event', tone: 'sec' as const, onClick: () => onPlanTask(t) },
+                          { label: 'Later', icon: 'redo', tone: 'sec' as const, onClick: () => onMoveTask(t.id, dateKey(addDays(date, 1))) },
+                        ]
+                      : []),
                     { label: 'Delete', icon: 'delete', tone: 'err' as const, onClick: () => onDeleteTask(t.id) },
                   ]}
                 >
@@ -347,8 +354,13 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
           task={editing}
           subjects={subjects}
           dayLabel={dayLabel}
+          date={date}
           onSave={(patch) => {
             onEditTask(editing.id, patch);
+            setEditingId(null);
+          }}
+          onMove={(to) => {
+            onMoveTask(editing.id, to);
             setEditingId(null);
           }}
           onDelete={() => {

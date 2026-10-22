@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { DayTask, Subject } from '../../types';
-import { formatDuration } from '../../utils/time';
+import { addDays, dateKey, formatDuration } from '../../utils/time';
 import { EST_PRESETS, parseEstimate, stepEstimate } from '../../utils/estimate';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
@@ -11,20 +11,25 @@ interface ChecklistTaskDialogProps {
   task: DayTask;
   subjects: Subject[];
   dayLabel: string;
+  /** The day the task is on. */
+  date: Date;
   /** `estMinutes: undefined` clears the estimate. */
   onSave: (patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
+  /** Postpone the task to another day ("YYYY-MM-DD"), after saving. Absent = no day picker. */
+  onMove?: (to: string) => void;
   onDelete: () => void;
   onClose: () => void;
 }
 
 /**
  * Edit one checklist task: rename it, move it to another subject, and set its
- * estimate — a preset or any custom length ("50", "1h 20m", "1:20").
+ * estimate — a preset or any custom length ("50", "1h 20m", "1:20") — and
+ * postpone it to another day.
  *
  * Same keys as the new-task form, in the name field: ↑ / ↓ change the subject,
  * Shift+← / Shift+→ step the estimate, Enter saves, Esc closes.
  */
-export function ChecklistTaskDialog({ task, subjects, dayLabel, onSave, onDelete, onClose }: ChecklistTaskDialogProps) {
+export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, onMove, onDelete, onClose }: ChecklistTaskDialogProps) {
   const isMobile = useIsMobile();
   const [text, setText] = useState(task.text);
   const [subjectId, setSubjectId] = useState(subjects.some((s) => s.id === task.subjectId) ? task.subjectId : '');
@@ -34,6 +39,15 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, onSave, onDelete
   const est = parseEstimate(estText);
   const estInvalid = est === null;
   const canSave = text.trim() !== '' && !estInvalid;
+  // The day the task goes to on Save; its own day = stays.
+  const today = dateKey(date);
+  const [day, setDay] = useState(today);
+  const dayChoices = [
+    { key: today, name: dayLabel },
+    { key: dateKey(addDays(date, 1)), name: 'Tomorrow' },
+    { key: dateKey(addDays(date, 7)), name: 'Next week' },
+  ];
+  const otherDay = !dayChoices.some((c) => c.key === day);
 
   useEscapeOverlay(onClose);
 
@@ -42,6 +56,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, onSave, onDelete
   const save = () => {
     if (!canSave) return;
     onSave({ text: text.trim(), subjectId, estMinutes: est ?? undefined });
+    if (onMove && day !== today) onMove(day);
   };
 
   const setEst = (minutes: number | undefined) => setEstText(minutes ? formatDuration(minutes) : '');
@@ -128,11 +143,31 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, onSave, onDelete
             />
             {estInvalid && <span className="m-sm" style={{ color: 'var(--color-error)' }}>Write it like 45, 45m, 1.5h, 1h 20m or 1:20 (up to 24h)</span>}
           </div>
+          {onMove && (
+            <div className="m-fld">
+              <span className="m-lbl m-mut">Day</span>
+              <div className="m-scx" role="radiogroup" aria-label="Day">
+                {dayChoices.map((c) => (
+                  <button key={c.key} type="button" role="radio" aria-checked={day === c.key} onClick={() => setDay(c.key)} className={`m-chip ${day === c.key ? 'on' : ''}`}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="date"
+                className="m-in m-num"
+                aria-label="Other day"
+                value={day}
+                onChange={(e) => e.target.value && setDay(e.target.value)}
+                style={otherDay ? { borderColor: 'var(--color-primary)' } : undefined}
+              />
+            </div>
+          )}
           <div className="flex" style={{ gap: 8 }}>
             <button type="button" className="m-btn err sq" aria-label="Delete task" onClick={onDelete}>
               <span className="material-symbols-outlined m-ic s">delete</span>
             </button>
-            <button type="submit" className="m-btn pri flex-1" disabled={!canSave}>Save</button>
+            <button type="submit" className="m-btn pri flex-1" disabled={!canSave}>{day === today ? 'Save' : 'Save & move'}</button>
           </div>
         </form>
       </Sheet>
@@ -239,6 +274,26 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, onSave, onDelete
           )}
         </div>
 
+        {onMove && (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="checklist-task-day" className={label}>Day</label>
+            <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Day">
+              {dayChoices.map((c) => (
+                <button key={c.key} type="button" role="radio" aria-checked={day === c.key} onClick={() => setDay(c.key)} className={chip(day === c.key)}>
+                  {c.name}
+                </button>
+              ))}
+              <input
+                id="checklist-task-day"
+                type="date"
+                value={day}
+                onChange={(e) => e.target.value && setDay(e.target.value)}
+                className={`tabular-nums ${field} ${otherDay ? 'border-primary' : 'border-outline-variant'}`}
+              />
+            </div>
+          </div>
+        )}
+
         <p className="max-lg:hidden font-body-sm text-[11px] text-on-surface-variant/70">
           ↑ / ↓ — subject · Shift+← / → — estimate · Enter — save · Esc — close
         </p>
@@ -256,7 +311,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, onSave, onDelete
             disabled={!canSave}
             className="ml-auto px-6 py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md uppercase tracking-[0.1em] disabled:opacity-40 hover:opacity-90 transition-opacity"
           >
-            Save
+            {day === today ? 'Save' : 'Save & move'}
           </button>
         </div>
       </form>
