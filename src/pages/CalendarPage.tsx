@@ -18,7 +18,7 @@ import { useSyncRefresh } from '../hooks/useServerSync';
 import { useSwipeNav } from '../hooks/useSwipeNav';
 import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, dayTaskRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
-import { expandRecurrence, dateKey, addDays } from '../utils/time';
+import { expandRecurrence, dateKey, addDays, inferRepeatFreq } from '../utils/time';
 import { weeklyGoalProgress } from '../utils/goals';
 import type { EventRecurrence } from '../components/calendar/EventForm';
 import { RecurrenceScopeDialog, type RecurrenceScope } from '../components/calendar/RecurrenceScopeDialog';
@@ -457,6 +457,13 @@ export function CalendarPage() {
     }
   }, [isMobile, view, setView]);
 
+  // How the edited event's series repeats, for the editor's Repeat fields.
+  const editingSeries = useMemo(() => {
+    if (!editingEvent) return undefined;
+    const starts = [editingEvent, ...getSeriesSiblings(editingEvent)].map((e) => new Date(e.start)).sort((a, b) => a.getTime() - b.getTime());
+    return starts.length > 1 ? { freq: inferRepeatFreq(starts), until: dateKey(starts[starts.length - 1]) } : undefined;
+  }, [editingEvent]);
+
   const handleEventClick = useCallback((event: CalendarEvent) => {
     setEditingEvent(event);
   }, []);
@@ -483,6 +490,53 @@ export function CalendarPage() {
     (data: { subjectId: string; title: string; description?: string; start: Date; end: Date; kind: 'real' | 'plan'; countInStats: boolean; recurrence?: EventRecurrence; color?: string; notifyBefore: number | null; notifyExtra: number[]; focus?: 1 | 2 | 3 | null }) => {
       if (editingEvent) {
         const stored = eventRepo.getById(editingEvent.id);
+        if (stored && data.recurrence) {
+          // The repeat was changed: this event and the occurrences after it
+          // become the new series. Occurrences already on a wanted day are
+          // kept (with their own focus and notes) and updated, the rest go,
+          // and missing days are created. Earlier occurrences stay as they were.
+          if (!(dragUndo && dragUndo.id === stored.id)) checkpoint('Edit event repeat');
+          const baseStart = dragUndo && dragUndo.id === stored.id ? new Date(dragUndo.start).getTime() : new Date(stored.start).getTime();
+          const following = followingIdsOf(stored, baseStart).flatMap((id) => eventRepo.getById(id) ?? []);
+          const wanted = expandRecurrence(data.start, data.end, data.recurrence.freq, data.recurrence.until);
+          const recurrenceId = wanted.length > 1 ? genId() : null;
+          const fields = {
+            subjectId: data.subjectId,
+            title: data.title,
+            description: data.description,
+            kind: data.kind,
+            countInStats: data.countInStats,
+            color: data.color,
+            notifyBefore: data.notifyBefore,
+            notifyExtra: data.notifyExtra,
+          };
+          eventRepo.update(stored.id, {
+            ...fields,
+            start: data.start.toISOString(),
+            end: data.end.toISOString(),
+            recurrenceId,
+            ...(data.focus !== undefined ? { focus: data.focus } : {}),
+          });
+          const byDay = new Map(following.map((e) => [dateKey(new Date(e.start)), e]));
+          for (const occ of wanted.slice(1)) {
+            const times = { start: occ.start.toISOString(), end: occ.end.toISOString() };
+            const kept = byDay.get(dateKey(occ.start));
+            if (kept) {
+              byDay.delete(dateKey(occ.start));
+              eventRepo.update(kept.id, { ...fields, ...times, recurrenceId });
+            } else {
+              eventRepo.create({ ...fields, ...times, ...(recurrenceId ? { recurrenceId } : {}) });
+            }
+          }
+          for (const gone of byDay.values()) {
+            tombstoneRepo.add('events', gone.id);
+            eventRepo.delete(gone.id);
+          }
+          setEditingEvent(null);
+          setDragUndo(null);
+          refreshEvents();
+          return;
+        }
         const series = stored?.recurrenceId ? getSeriesSiblings(stored) : [];
         if (stored?.recurrenceId && series.length > 0) {
           // Member of a repeating series — ask whether to touch one or many.
@@ -1209,6 +1263,7 @@ export function CalendarPage() {
       {editingEvent && (
         <EventForm
           event={editingEvent}
+          series={editingSeries}
           defaultSubjectId={editingEvent.subjectId}
           defaultDate={currentDate}
           subjects={subjects}

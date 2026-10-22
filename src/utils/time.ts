@@ -102,6 +102,18 @@ export function expandRecurrence(
   return out.length > 0 ? out : [{ start, end }];
 }
 
+/**
+ * Guess how a materialized series repeats from its occurrence starts (sorted):
+ * the typical gap between neighbours, snapped to the nearest frequency.
+ */
+export function inferRepeatFreq(starts: Date[]): RepeatFreq {
+  if (starts.length < 2) return 'none';
+  const gaps = starts.slice(1).map((s, i) => Math.round((startOfDay(s).getTime() - startOfDay(starts[i]).getTime()) / 86_400_000));
+  const gap = gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
+  const options: [RepeatFreq, number][] = [['daily', 1], ['weekly', 7], ['monthly', 30.4], ['yearly', 365.25]];
+  return options.reduce((best, o) => (Math.abs(Math.log(gap / o[1])) < Math.abs(Math.log(gap / best[1])) ? o : best))[0];
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&

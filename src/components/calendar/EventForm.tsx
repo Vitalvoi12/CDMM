@@ -21,6 +21,8 @@ interface EventFormProps {
   /** End for a new event (drag-to-create); defaults to start + 1h. */
   defaultEnd?: Date;
   defaultKind?: 'real' | 'plan';
+  /** How the edited event's series repeats now (until = "YYYY-MM-DD" of its last occurrence). Absent = standalone. */
+  series?: { freq: RepeatFreq; until: string };
   subjects: Subject[];
   onSave: (data: {
     subjectId: string;
@@ -30,6 +32,11 @@ interface EventFormProps {
     end: Date;
     kind: 'real' | 'plan';
     countInStats: boolean;
+    /**
+     * New event: how to repeat it. Existing event: set only when the repeat
+     * was changed — it then applies to this and the following occurrences
+     * ('none' stops the series here).
+     */
     recurrence?: EventRecurrence;
     /** Custom (subject-less) event color. Ignored for subject-bound events. */
     color?: string;
@@ -60,7 +67,7 @@ function combine(dateVal: string, timeVal: string): Date {
 /** Select value meaning "a free-form event, not tied to any subject". */
 const CUSTOM_SUBJECT = '__custom__';
 
-export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, defaultKind = 'plan', subjects, onSave, onDelete, onDuplicate, onCancel }: EventFormProps) {
+export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, defaultKind = 'plan', series, subjects, onSave, onDelete, onDuplicate, onCancel }: EventFormProps) {
   const initialStart = event ? new Date(event.start) : new Date(defaultDate);
   const initialEnd = event
     ? new Date(event.end)
@@ -85,8 +92,8 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   const [startTime, setStartTime] = useState(toLocalInputValue(initialStart, 'time'));
   const [endDate, setEndDate] = useState(toLocalInputValue(initialEnd, 'date'));
   const [endTime, setEndTime] = useState(toLocalInputValue(initialEnd, 'time'));
-  const [repeat, setRepeat] = useState<RepeatFreq>('none');
-  const [repeatUntil, setRepeatUntil] = useState('');
+  const [repeat, setRepeat] = useState<RepeatFreq>(series?.freq ?? 'none');
+  const [repeatUntil, setRepeatUntil] = useState(series?.until ?? '');
   const [error, setError] = useState<string | null>(null);
   // A custom time is stored as an arbitrary lead before the start, so it
   // moves with the event and applies to every occurrence of a series.
@@ -104,6 +111,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   useSheetExit(overlayRef, dialogRef);
 
   const isNew = !event;
+  const repeatChanged = isNew ? repeat !== 'none' : repeat !== (series?.freq ?? 'none') || (repeat !== 'none' && repeatUntil !== (series?.until ?? ''));
 
   function defaultUntilFor(freq: RepeatFreq, base: Date): string {
     if (freq === 'daily') return toLocalInputValue(addDays(base, 30), 'date');
@@ -144,7 +152,9 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
       if (!leads.includes(lead)) leads.push(lead);
     }
     let recurrence: EventRecurrence | undefined;
-    if (isNew && repeat !== 'none') {
+    if (repeatChanged && repeat === 'none') {
+      recurrence = { freq: 'none', until: start };
+    } else if (repeatChanged) {
       if (!repeatUntil) {
         setError('Set repeat end date');
         return;
@@ -448,7 +458,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               />
             </div>
           </div>
-          {isNew && (
+          <div className="flex flex-col gap-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <label className={labelClass}>
@@ -491,7 +501,14 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                 />
               </div>
             </div>
-          )}
+            {!isNew && repeatChanged && (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                {repeat === 'none'
+                  ? series ? 'The series stops here: later occurrences are removed.' : ''
+                  : series ? 'Applies to this and the following occurrences.' : 'Repeats of this event will be added after it.'}
+              </p>
+            )}
+          </div>
           <NotifyList
             items={notifyItems}
             onChange={(items) => {
