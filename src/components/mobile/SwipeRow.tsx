@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export interface SwipeAction {
   label: string;
@@ -26,6 +26,8 @@ interface SwipeRowProps {
   /** Controlled: whether the end actions are showing. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Just added to the list: animate in (read at mount only). */
+  enter?: boolean;
 }
 
 /**
@@ -35,7 +37,8 @@ interface SwipeRowProps {
  *
  * The drag is written straight to the DOM — it changes on every touchmove.
  */
-export function SwipeRow({ children, start, end = [], open, onOpenChange }: SwipeRowProps) {
+export function SwipeRow({ children, start, end = [], open, onOpenChange, enter = false }: SwipeRowProps) {
+  const [enterClass] = useState(enter ? 'm-row-in' : '');
   const rowRef = useRef<HTMLDivElement>(null);
   const g = useRef<{ x: number; y: number; dx: number; mode: 'none' | 'h' | 'v'; base: number } | null>(null);
   const endW = end.length * ACTION_W;
@@ -46,7 +49,7 @@ export function SwipeRow({ children, start, end = [], open, onOpenChange }: Swip
   const place = (x: number, animate: boolean) => {
     const el = rowRef.current;
     if (!el) return;
-    el.style.transition = animate ? 'transform 180ms ease-out' : 'none';
+    el.style.transition = animate ? 'transform 180ms ease-out, background-color 0.2s ease-out' : 'none';
     el.style.transform = x ? `translateX(${x}px)` : '';
   };
 
@@ -99,12 +102,12 @@ export function SwipeRow({ children, start, end = [], open, onOpenChange }: Swip
   useEffect(() => {
     const el = rowRef.current;
     if (!el || g.current) return;
-    el.style.transition = 'transform 180ms ease-out';
+    el.style.transition = 'transform 180ms ease-out, background-color 0.2s ease-out';
     el.style.transform = open ? `translateX(${-endW}px)` : '';
   }, [open, endW]);
 
   return (
-    <div className="relative overflow-hidden border-b border-outline-variant">
+    <div className={`relative overflow-hidden border-b border-outline-variant ${enterClass}`}>
       {start && (
         <div aria-hidden="true" className="absolute inset-y-0 left-0 flex items-center m-lbl" style={{ ...TONES[start.tone], width: startW, gap: 6, paddingLeft: 16 }}>
           <span className="material-symbols-outlined m-ic s">{start.icon}</span>
@@ -133,7 +136,7 @@ export function SwipeRow({ children, start, end = [], open, onOpenChange }: Swip
       )}
       <div
         ref={rowRef}
-        className="relative bg-background [touch-action:pan-y]"
+        className="m-press relative bg-background [touch-action:pan-y]"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}

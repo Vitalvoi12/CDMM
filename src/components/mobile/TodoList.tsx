@@ -4,6 +4,7 @@ import type { TodoTask } from '../../types';
 import { formatDuration } from '../../utils/time';
 import { formatDueLabel, isOverdue } from '../todo/TodoRows';
 import { SwipeRow } from './SwipeRow';
+import { useNewKeys } from '../../hooks/useNewKeys';
 import { useBelowDock } from './belowDock';
 import { undo, undoLabel } from '../../services/history';
 import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
@@ -79,6 +80,7 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
   const active = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
   const done = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
   const undoName = undoLabel();
+  const added = useNewKeys(tasks.map((t) => t.id), quadrant);
 
   const submit = () => {
     const title = text.trim();
@@ -95,6 +97,7 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
     return (
       <SwipeRow
         key={t.id}
+        enter={added.has(t.id)}
         open={openRow === t.id}
         onOpenChange={(o) => setOpenRow(o ? t.id : null)}
         start={{ label: t.completed ? 'Undo' : 'Done', icon: t.completed ? 'undo' : 'check', tone: 'pri', onClick: () => onToggle(t.id, !t.completed) }}

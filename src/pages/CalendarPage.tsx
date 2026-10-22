@@ -27,6 +27,7 @@ import { QuickCreateSheet } from '../components/mobile/QuickCreateSheet';
 import { DayStats } from '../components/mobile/DayStats';
 import { Checklist } from '../components/mobile/Checklist';
 import { setDockHidden } from '../components/mobile/belowDock';
+import { useSlideIn } from '../hooks/useSlideIn';
 import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
 import { DEFAULT_TASK_MINUTES, type TaskDragPayload } from '../services/taskDrag';
@@ -151,6 +152,8 @@ export function CalendarPage() {
   } | null>(null);
   const [dayPanel, setDayPanel] = useState<DayPanel>('timeline');
   // Phone: the session bar shows over the calendar itself, not the day's Stat / Check / Notes panels.
+  // The day's panels slide in from their side of Day → Stat → Check → Notes.
+  const panelSlideIn = useSlideIn(dayPanel, DAY_PANELS);
   const hideDock = isMobile && view === 'day' && dayPanel !== 'timeline';
   useEffect(() => {
     setDockHidden(hideDock);
@@ -1036,7 +1039,7 @@ export function CalendarPage() {
 
       {view === 'day' &&
         (isMobile ? (
-          <div className="flex-1 min-h-0 flex flex-col">
+          <div key={dayPanel} className={`flex-1 min-h-0 flex flex-col ${panelSlideIn}`}>
           {dayPanel === 'timeline' ? (
             <div className="relative flex-1 min-h-0 flex flex-col">
             <div ref={springRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">

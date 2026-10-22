@@ -1,11 +1,15 @@
 import { useLayoutEffect, type RefObject } from 'react';
 
 const EXIT_MS = 180;
+/** Bottom sheets slide all the way down, iOS-style. */
+const SLIDE_MS = 280;
+const SLIDE_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
 
 /**
- * Phone bottom sheets fade out when they close, the reverse of how they
- * appear, however they close (scrim, Escape, Save, Delete, pull on the grab
- * bar). The owner unmounts the sheet at once, so on unmount a static copy of
+ * Phone bottom sheets leave the reverse of how they appear, however they
+ * close (scrim, Escape, Save, Delete, a pull down): a bottom sheet (`.m-sheet`
+ * or `.m-sheet-in`) slides off the bottom from wherever the finger left it
+ * while the scrim fades; other panels fade out, easing down a little. The owner unmounts the sheet at once, so on unmount a static copy of
  * the overlay is left on body, fades out with its panel easing down a little,
  * then the copy is removed. Desktop dialogs keep closing instantly.
  */
@@ -39,8 +43,21 @@ export function useSheetExit(rootRef: RefObject<HTMLElement | null>, panelRef: R
       const gp = ghostPanel as HTMLElement;
       gp.scrollTop = scrollTop;
 
-      const opts = { duration: EXIT_MS, easing: 'ease-in', fill: 'forwards' as const };
       const from = fromTransform === 'none' ? 'none' : fromTransform;
+      if (panel.classList.contains('m-sheet') || panel.classList.contains('m-sheet-in')) {
+        const opts = { duration: SLIDE_MS, easing: SLIDE_EASE, fill: 'forwards' as const };
+        gp.style.transition = 'none';
+        const slide = gp.animate([{ transform: from }, { transform: `${from === 'none' ? '' : from + ' '}translateY(100%)` }], opts);
+        // The scrim: its own element, or the overlay's background.
+        const scrim = ghost.querySelector<HTMLElement>(':scope > .m-scrim');
+        if (scrim) scrim.animate([{ opacity: getComputedStyle(scrim).opacity }, { opacity: 0 }], opts);
+        else ghost.animate([{ backgroundColor: getComputedStyle(root).backgroundColor }, { backgroundColor: 'transparent' }], opts);
+        const done = () => ghost.remove();
+        slide.onfinish = done;
+        setTimeout(done, SLIDE_MS + 200);
+        return;
+      }
+      const opts = { duration: EXIT_MS, easing: 'ease-in', fill: 'forwards' as const };
       gp.animate([{ transform: from, opacity: 1 }, { transform: `${from === 'none' ? '' : from + ' '}${toTransform}`, opacity: 0 }], opts);
       const fade = ghost.animate([{ opacity: 1 }, { opacity: 0 }], opts);
       const remove = () => ghost.remove();

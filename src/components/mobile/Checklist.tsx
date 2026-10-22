@@ -6,6 +6,7 @@ import { EST_PRESETS } from '../../utils/estimate';
 import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { ChecklistTaskDialog } from '../calendar/ChecklistTaskDialog';
 import { SwipeRow } from './SwipeRow';
+import { useNewKeys } from '../../hooks/useNewKeys';
 import { useBelowDock } from './belowDock';
 import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
@@ -92,6 +93,8 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
   // any todo can be planned onto the timeline. Left out of the counts.
   const otherTodos = useMemo(() => otherOpenTodos(todos, date), [todos, date]);
   const [showOther, setShowOther] = useState(false);
+  // Rows added while this day is on screen animate in.
+  const added = useNewKeys([...tasks, ...dayTodos, ...otherTodos].map((t) => t.id), dateKey(date));
 
   const open = tasks.filter((t) => !t.done).length;
   const left = tasks.reduce((s, t) => s + (t.done ? 0 : t.estMinutes || 0), 0) + dayTodos.reduce((s, t) => s + (t.completed ? 0 : t.estMinutes || 0), 0);
@@ -123,6 +126,7 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
     return (
       <SwipeRow
         key={t.id}
+        enter={added.has(t.id)}
         open={openRow === t.id}
         onOpenChange={(o) => setOpenRow(o ? t.id : null)}
         start={{ label: t.completed ? 'Undo' : 'Done', icon: t.completed ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTodo(t.id, !t.completed) }}
@@ -276,6 +280,7 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
                 return (
                 <SwipeRow
                   key={t.id}
+                  enter={added.has(t.id)}
                   open={openRow === t.id}
                   onOpenChange={(o) => setOpenRow(o ? t.id : null)}
                   start={{ label: t.done ? 'Undo' : 'Done', icon: t.done ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTask(t.id, !t.done) }}

@@ -794,3 +794,50 @@ body {
     box-shadow: var(--shadow-elev-3);
   }
 }
+
+/* Phone motion: sheets rise from the bottom edge, pages and the day's panels
+ * slide in from the side they are on, presses answer at once. Transform and
+ * opacity only, so iOS can run it all on the compositor. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes cdmm-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes cdmm-page-from-right {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes cdmm-page-from-left {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 1023px) {
+  .m-sheet.animate-slide-up,
+  .m-sheet-in {
+    animation: cdmm-sheet-in 0.42s cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  }
+  .page-from-right { animation: cdmm-page-from-right 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+  .page-from-left { animation: cdmm-page-from-left 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+
+  /* A row lights up under the finger — after a beat, so a scroll that starts
+   * on it (which cancels :active) doesn't flash it. */
+  .m-press { transition: background-color 0.2s ease-out; }
+  .m-press:active { background-color: var(--color-surface-container-low); transition: background-color 0.1s ease-out 60ms; }
+
+  .m-cb { transition: background-color 0.18s ease-out, border-color 0.18s ease-out, transform 0.15s ease-out; }
+  :active > .m-cb { transform: scale(0.88); }
+  .m-tr { transition: color 0.2s ease-out; }
+  /* A row added while the list is on screen. */
+  .m-row-in { animation: cdmm-fade-up 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+
+  /* Bottom nav: the active pill slides between tabs (MobileNav). */
+  .m-nav-pill { transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1); }
+  .m-nav a:active .m-nav-ic { transform: scale(0.88); }
+  .m-nav-ic { transition: transform 0.15s ease-out, color 0.2s ease-out; }
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useSheetExit } from '../../hooks/useSheetExit';
+import { useSheetDrag } from '../../hooks/useSheetDrag';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
 import { NotifyList, isPresetLead, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
@@ -109,6 +110,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   const overlayRef = useRef<HTMLDivElement>(null);
   // Phone: the sheet fades out when it closes.
   useSheetExit(overlayRef, dialogRef);
+  useSheetDrag(dialogRef, onCancel);
 
   const isNew = !event;
   const repeatChanged = isNew ? repeat !== 'none' : repeat !== (series?.freq ?? 'none') || (repeat !== 'none' && repeatUntil !== (series?.until ?? ''));
@@ -236,7 +238,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:!px-4 max-lg:!pt-4 max-lg:pb-[calc(20px+env(safe-area-inset-bottom,0px)/var(--app-zoom))] max-lg:rounded-b-none max-lg:max-w-none max-lg:max-h-[calc(100%-24px)] max-lg:border-t max-lg:border-outline-variant shadow-elev-3 w-full max-w-lg max-h-full overflow-y-auto focus:outline-none animate-pop-in"
+        className="bg-surface-container-lowest rounded-2xl p-6 max-lg:!px-4 max-lg:!pt-4 max-lg:pb-[calc(20px+env(safe-area-inset-bottom,0px)/var(--app-zoom))] max-lg:rounded-b-none max-lg:max-w-none max-lg:max-h-[calc(100%-24px)] max-lg:border-t max-lg:border-outline-variant shadow-elev-3 w-full max-w-lg max-h-full overflow-y-auto focus:outline-none animate-pop-in m-sheet-in"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >

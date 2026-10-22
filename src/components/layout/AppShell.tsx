@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import { MobileNav } from './MobileNav';
+import { MobileNav, navItems } from './MobileNav';
+import { useSlideIn } from '../../hooks/useSlideIn';
 import { LiveSessionCard } from './LiveSessionCard';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { NotificationPrompt } from './NotificationPrompt';
@@ -12,6 +13,8 @@ import { startEventNotifications } from '../../services/notifications';
 import { BELOW_DOCK_ID, useDockHidden } from '../mobile/belowDock';
 import { UndoToast } from '../mobile/UndoToast';
 
+const NAV_ORDER = navItems.map((i) => i.path);
+
 /** Routes whose phone layout comes from the mobile redesign. */
 const FULL_BLEED = new Set(['/', '/todo', '/subjects', '/statistics', '/settings']);
 
@@ -20,6 +23,7 @@ export function AppShell() {
   const { pathname } = useLocation();
   const dockHidden = useDockHidden();
   const isMobile = useIsMobile();
+  const slideIn = useSlideIn(pathname, NAV_ORDER);
 
   // Event reminders run while the app is open in any tab or as the PWA.
   useEffect(() => {
@@ -73,7 +77,8 @@ export function AppShell() {
         {/* Redesigned phone pages draw their own full-bleed header and gutters. */}
         <main className={`px-10 py-8 flex-1 flex flex-col min-h-0 overflow-y-auto max-lg:overflow-hidden ${FULL_BLEED.has(pathname) ? 'max-lg:p-0' : 'max-lg:px-4 max-lg:py-4'}`}>
           {/* Keyed by route so every page switch replays the enter animation. */}
-          <div key={pathname} className="animate-view-enter flex flex-col flex-1 min-h-0">
+          {/* On the phone the page slides in from its tab's side. */}
+          <div key={pathname} className={`animate-view-enter ${slideIn} flex flex-col flex-1 min-h-0`}>
             <Outlet />
           </div>
         </main>
