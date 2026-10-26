@@ -15,6 +15,9 @@ export const navItems = [
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ];
 
+/** Gap between the active tab's pill and the tab's edges (px). */
+const PILL_INSET = 4;
+
 export function MobileNav() {
   const [todos, setTodos] = useState(() => todoRepo.getAll());
   useSyncRefresh(() => setTodos(todoRepo.getAll()));
@@ -23,20 +26,21 @@ export function MobileNav() {
   const navRef = useRef<HTMLElement>(null);
   const pillRef = useRef<HTMLSpanElement>(null);
 
-  // One pill behind the icons slides to the active tab. A press moves it at
-  // once, before the new page renders; the route then confirms it.
+  // One pill behind the active tab (icon and label) slides to it. A press
+  // moves it at once, before the new page renders; the route then confirms it.
   const placePill = (path: string, animate = true) => {
     const nav = navRef.current;
     const pill = pillRef.current;
-    const ic = nav?.querySelector<HTMLElement>(`[data-nav="${path}"] .m-nav-ic`);
-    if (!pill || !ic) {
+    const link = nav?.querySelector<HTMLElement>(`[data-nav="${path}"]`);
+    if (!pill || !link) {
       if (pill) pill.style.opacity = '0';
       return;
     }
-    const link = ic.parentElement!;
     if (!animate) pill.style.transition = 'none';
     pill.style.opacity = '1';
-    pill.style.transform = `translate(${link.offsetLeft + ic.offsetLeft}px, ${link.offsetTop + ic.offsetTop}px)`;
+    pill.style.width = `${link.offsetWidth - 2 * PILL_INSET}px`;
+    pill.style.height = `${link.offsetHeight - 2 * PILL_INSET}px`;
+    pill.style.transform = `translate(${link.offsetLeft + PILL_INSET}px, ${link.offsetTop + PILL_INSET}px)`;
     if (!animate) {
       void pill.offsetWidth;
       pill.style.transition = '';
@@ -57,7 +61,7 @@ export function MobileNav() {
 
   return (
     <nav ref={navRef} aria-label="Sections" className="m-nav relative flex-none flex bg-surface-container-lowest border-t border-outline-variant lg:hidden safe-area-bottom" style={{ paddingInline: 4 }}>
-      <span ref={pillRef} aria-hidden="true" className="m-nav-pill absolute left-0 top-0 bg-secondary-container pointer-events-none" style={{ width: 56, height: 30, borderRadius: 9.6, opacity: 0 }} />
+      <span ref={pillRef} aria-hidden="true" className="m-nav-pill absolute left-0 top-0 bg-secondary-container pointer-events-none" style={{ borderRadius: 12, opacity: 0 }} />
       {navItems.map((item) => (
         <NavLink
           key={item.path}
@@ -67,15 +71,15 @@ export function MobileNav() {
           onPointerDown={() => placePill(item.path)}
           onPointerCancel={() => placePill(pathname)}
           className={({ isActive }) =>
-            `relative flex-1 flex flex-col items-center justify-center ${isActive ? 'text-on-surface' : 'text-on-surface-variant'}`
+            `relative flex-1 flex flex-col items-center justify-center transition-colors duration-200 ${isActive ? 'text-on-secondary-container' : 'text-on-surface-variant'}`
           }
           style={{ height: 56, gap: 2 }}
         >
-          {({ isActive }) => (
+          {() => (
             <>
               <span
-                className={`m-nav-ic relative flex items-center justify-center ${isActive ? 'text-on-secondary-container' : ''}`}
-                style={{ width: 56, height: 30, borderRadius: 9.6 }}
+                className="m-nav-ic relative flex items-center justify-center"
+                style={{ width: 56, height: 30 }}
               >
                 <span className="material-symbols-outlined m-ic">{item.icon}</span>
                 {item.path === '/todo' && todoDueToday && (
