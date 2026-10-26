@@ -77,7 +77,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   const shellStyle: React.CSSProperties = { ...baseStyle, ...laneStyle };
 
   const shellBase =
-    'absolute overflow-hidden cursor-pointer max-lg:[touch-action:pan-y] max-lg:select-none group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20';
+    'absolute overflow-hidden cursor-pointer max-lg:[touch-action:pan-x_pan-y] max-lg:select-none group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20';
   const shellClass = lane
     ? `${shellBase} w-auto`
     : `${shellBase} right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto`;

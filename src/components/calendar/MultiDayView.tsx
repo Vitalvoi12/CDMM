@@ -773,6 +773,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                     startHour={START_HOUR}
                     endHour={END_HOUR}
                     hourHeight={HOUR_HEIGHT}
+                    scrollIntoView={!peek}
                   />
                 )}
               </div>

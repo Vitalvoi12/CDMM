@@ -563,6 +563,17 @@ html, body {
   }
 }
 
+/* SwipePager: the page turn is the browser's own sideways scroll. No
+ * scrollbar flashing under the timeline, and no edge rubber-band: the pager
+ * is re-centred after every turn, so an edge is only ever a page it turns to. */
+.swipe-pager {
+  scrollbar-width: none;
+  overscroll-behavior-x: none;
+}
+.swipe-pager::-webkit-scrollbar {
+  display: none;
+}
+
 
 /* Day numbers inside activity-calendar cells: the two darkest light-theme
  * levels and the two lightest dark-theme levels flip to stay readable. */

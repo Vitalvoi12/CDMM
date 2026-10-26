@@ -4,9 +4,12 @@ interface CurrentTimeIndicatorProps {
   startHour?: number;
   endHour?: number;
   hourHeight?: number;
+  /** Scroll the grid to "now" on mount. Off for peek copies and for a day
+   *  just turned to, which must open where the previous one was. */
+  scrollIntoView?: boolean;
 }
 
-export function CurrentTimeIndicator({ startHour = 8, endHour = 24, hourHeight = 96 }: CurrentTimeIndicatorProps) {
+export function CurrentTimeIndicator({ startHour = 8, endHour = 24, hourHeight = 96, scrollIntoView = true }: CurrentTimeIndicatorProps) {
   const [now, setNow] = useState(new Date());
   const lineRef = useRef<HTMLDivElement>(null);
 
@@ -20,6 +23,7 @@ export function CurrentTimeIndicator({ startHour = 8, endHour = 24, hourHeight =
   // Re-runs when hourHeight changes (grid resized after mount) so the line
   // stays centered — never on user scroll (no scroll listener here).
   useEffect(() => {
+    if (!scrollIntoView) return;
     lineRef.current?.scrollIntoView({ block: 'center', inline: 'nearest' });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hourHeight]);

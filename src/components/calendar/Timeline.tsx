@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { liveSessionSubject, type LiveSessionRef } from '../../utils/stats';
 import type { CalendarEvent, Subject, EventFilter } from '../../types';
 import { timeToPixels, shiftEventByMinutes, shiftEventEndByMinutes, layoutOverlapLanes, dayBox, startOfDay } from '../../utils/time';
@@ -10,7 +10,6 @@ import { DraftEventBlock } from './DraftEventBlock';
 import { isToday } from '../../utils/time';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAvailableHeight } from '../../hooks/useAvailableHeight';
-import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { useDragToCreate, type DragCreateDraft } from '../../hooks/useDragToCreate';
 import { draggedTask, endTaskDrag, type TaskDragPayload } from '../../services/taskDrag';
 
@@ -30,16 +29,14 @@ interface TimelineProps {
   /** Which kinds to show: 'all' (default) renders Real|Plan side by side,
       'real'/'plan' renders a single full-width column. */
   mode?: EventFilter;
-  /** Mobile swipe navigation (wired by the parent only on mobile). */
-  onSwipeLeft?: () => void;
-  onSwipeRight?: () => void;
-  /** Static copy of a neighbouring day laid out beside the page, so a swipe
-   *  drags the next day into view with the finger (see useSwipeNav). */
-  peek?: 'prev' | 'next';
-  /** The peek copies of the neighbouring days. Rendered inside the page, so
-   *  they move with it and a touch landing on one mid-turn still reaches the
-   *  swipe handlers. */
-  neighbours?: ReactNode;
+  /** Static copy of a neighbouring day, shown beside the page in the phone's
+   *  SwipePager: drawn only, never touched. */
+  peek?: boolean;
+  /** The Real | Plan labels are drawn by the parent (TimelineColumnLabels),
+   *  above the scroller, so they don't turn with the page. */
+  hideHeader?: boolean;
+  /** Scroll to the now line when today opens (default). */
+  scrollToNow?: boolean;
   /** A Checklist task dropped on the grid: becomes a planned block at `start`. */
   onTaskDrop?: (task: TaskDragPayload, start: Date, end: Date) => void;
   /** Phone: the slot the quick-create sheet is filling, drawn as a ghost. */
@@ -92,7 +89,7 @@ function snapToGrid(minutes: number): number {
   return Math.round(minutes / SNAP) * SNAP;
 }
 
-export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all', onSwipeLeft, onSwipeRight, onTaskDrop, draft, peek, neighbours }: TimelineProps) {
+export function Timeline({ events, subjects, date, activeSession, onEventClick, onEventMove, onEventResize, onBackgroundClick, mode = 'all', onTaskDrop, draft, peek, hideHeader, scrollToNow = true }: TimelineProps) {
   const isMobile = useIsMobile();
   const TOTAL_HOURS = END_HOUR - START_HOUR;
   // Every position is measured from the start of the shown day, so an event
@@ -128,20 +125,8 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   // Timestamp of the last drag/resize that actually moved the pointer: the
   // browser still fires a click on mouse-up, and without this guard it would
   // land on the background column and open the create form ("Add") right
-  // after the user just moved an event. View swipes stamp it too, so the
-  // tap synthesized after a swipe never opens the form.
+  // after the user just moved an event.
   const lastDragEndRef = useRef(0);
-  // Mobile swipe navigation (enabled by the parent on mobile only).
-  const pageRef = useRef<HTMLElement>(null);
-  const swipe = useSwipeNav({
-    enabled: isMobile && !peek,
-    pageRef,
-    onSwipeLeft,
-    onSwipeRight,
-    markGesture: () => {
-      lastDragEndRef.current = Date.now();
-    },
-  });
 
   // Press-and-drag on empty space creates an event over the dragged range.
   const dragCreate = useDragToCreate({
@@ -643,28 +628,14 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
   const planBlocks = eventBlocks.filter((b) => b.event.kind === 'plan');
 
   return (
-    // touch-action: pan-y keeps native vertical scrolling but forbids the
-    // browser from hijacking a horizontal flick (which would arrive as
-    // touchcancel and silently kill the swipe). The swipe then works from any
-    // empty spot of the grid — Real half, Plan half, hour gutter — not just
-    // from wherever the browser happened to deliver a full touchstart/end pair.
     <section
-      {...(peek
-        ? { 'data-swipe-peek': peek, 'aria-hidden': true, className: 'absolute top-0 w-full flex flex-col *:pointer-events-none', style: { left: peek === 'prev' ? '-100%' : '100%' } }
-        : { ref: pageRef, className: 'col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto max-lg:overflow-visible [touch-action:pan-y]', onTouchStart: swipe.onTouchStart, onTouchMove: swipe.onTouchMove, onTouchEnd: swipe.onTouchEnd, onTouchCancel: swipe.onTouchCancel })}
+      className={peek ? 'flex flex-col *:pointer-events-none' : 'col-span-12 lg:col-span-8 flex flex-col relative min-h-0 overflow-y-auto max-lg:overflow-visible'}
+      aria-hidden={peek || undefined}
     >
-      <div className="flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6" style={{ paddingBottom: isMobile ? `${MOBILE_BOTTOM_PAD}px` : `${BOTTOM_PAD}px` }}>
-        {/* Phone: the Real | Plan header stays put while the day scrolls. */}
-        <div className={`flex items-center mb-2 pl-4 max-lg:sticky max-lg:top-0 max-lg:z-40 max-lg:bg-background max-lg:mb-0 max-lg:h-[22px] ${single ? 'justify-center' : 'justify-between'}`}>
-          {single ? (
-            <span className="font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em]">{singleKind === 'real' ? 'Real' : 'Plan'}</span>
-          ) : (
-            <>
-              <span className="font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em]">Real</span>
-              <span className="font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em]">Plan</span>
-            </>
-          )}
-        </div>
+      {/* Without the header, the top padding keeps the 00:00 label (which
+          rises above the grid line) inside the page. */}
+      <div className={`flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6 ${hideHeader ? 'pt-2' : ''}`} style={{ paddingBottom: isMobile ? `${MOBILE_BOTTOM_PAD}px` : `${BOTTOM_PAD}px` }}>
+        {!hideHeader && <TimelineColumnLabels mode={mode} />}
         {/* Events/grid container - shared coordinate system.
             The fill anchor sits HERE (not on the wrapper above): avail is
             measured from the grid top, so the Real/Plan header row above
@@ -746,10 +717,27 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
 
           {/* Current time indicator — last in DOM so it paints above event
               blocks and the live session block (see zIndex inside). */}
-          {isToday(date) && <CurrentTimeIndicator startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />}
+          {isToday(date) && <CurrentTimeIndicator startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} scrollIntoView={scrollToNow && !peek} />}
         </div>
       </div>
-      {neighbours}
     </section>
+  );
+}
+
+/** The Real | Plan column labels over the grid (one centred label when the
+ *  filter shows a single kind). */
+export function TimelineColumnLabels({ mode = 'all' }: { mode?: EventFilter }) {
+  const label = 'font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em]';
+  return (
+    <div className={`flex items-center mb-2 pl-4 max-lg:bg-background max-lg:mb-0 max-lg:h-[22px] ${mode !== 'all' ? 'justify-center' : 'justify-between'}`}>
+      {mode !== 'all' ? (
+        <span className={label}>{mode === 'plan' ? 'Plan' : 'Real'}</span>
+      ) : (
+        <>
+          <span className={label}>Real</span>
+          <span className={label}>Plan</span>
+        </>
+      )}
+    </div>
   );
 }

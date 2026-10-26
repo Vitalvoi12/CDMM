@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { DateHeader } from '../components/calendar/DateHeader';
-import { Timeline } from '../components/calendar/Timeline';
+import { Timeline, TimelineColumnLabels } from '../components/calendar/Timeline';
 import { MultiDayView } from '../components/calendar/MultiDayView';
 import { MonthView } from '../components/calendar/MonthView';
 import { YearView } from '../components/calendar/YearView';
@@ -27,6 +27,7 @@ import { QuickCreateSheet } from '../components/mobile/QuickCreateSheet';
 import { DayStats } from '../components/mobile/DayStats';
 import { Checklist } from '../components/mobile/Checklist';
 import { setDockHidden } from '../components/mobile/belowDock';
+import { SwipePager } from '../components/mobile/SwipePager';
 import { useSlideIn } from '../hooks/useSlideIn';
 import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
@@ -911,6 +912,21 @@ export function CalendarPage() {
     </div>
   );
 
+  // Phone day pager: a day turned to by a swipe opens at the hours the last
+  // one showed, not scrolled to "now" (cleared once that render committed).
+  const pagerTurnRef = useRef(false);
+  const pagerPrev = useCallback(() => {
+    pagerTurnRef.current = true;
+    goToPrevious();
+  }, [goToPrevious]);
+  const pagerNext = useCallback(() => {
+    pagerTurnRef.current = true;
+    goToNext();
+  }, [goToNext]);
+  useEffect(() => {
+    pagerTurnRef.current = false;
+  });
+
   // Mobile swipe mapping (per request): swipe left → next period,
   // swipe right → previous period. Wired only on mobile timelines.
   const swipePrev = isMobile ? goToPrevious : undefined;
@@ -1042,26 +1058,35 @@ export function CalendarPage() {
           <div key={dayPanel} className={`flex-1 min-h-0 flex flex-col ${panelSlideIn}`}>
           {dayPanel === 'timeline' ? (
             <div className="relative flex-1 min-h-0 flex flex-col">
+            {/* The labels stay put above the scroller while the days turn under them. */}
+            <div className="ml-12 pr-4 border-l border-outline-variant">
+              <TimelineColumnLabels mode={eventFilter} />
+            </div>
+            {/* One vertical scroller around all three days, so they scroll
+                together and a turn lands on the same hours. */}
             <div ref={springRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-              <Timeline
-                neighbours={
-                  <>
-                    <Timeline peek="prev" events={prevDayEvents} subjects={subjects} date={prevDate} activeSession={activeSession} mode={eventFilter} />
-                    <Timeline peek="next" events={nextDayEvents} subjects={subjects} date={nextDate} activeSession={activeSession} mode={eventFilter} />
-                  </>
+              <SwipePager
+                pageKey={dateKey(currentDate)}
+                onPrev={pagerPrev}
+                onNext={pagerNext}
+                prev={<Timeline peek hideHeader events={prevDayEvents} subjects={subjects} date={prevDate} activeSession={activeSession} mode={eventFilter} />}
+                next={<Timeline peek hideHeader events={nextDayEvents} subjects={subjects} date={nextDate} activeSession={activeSession} mode={eventFilter} />}
+                current={
+                  <Timeline
+                    hideHeader
+                    scrollToNow={!pagerTurnRef.current}
+                    events={dayEvents}
+                    subjects={subjects}
+                    date={currentDate}
+                    activeSession={activeSession}
+                    onEventClick={handleEventClick}
+                    onEventMove={handleEventMove}
+                    onEventResize={handleEventResize}
+                    onBackgroundClick={handleTimelineBackgroundClick}
+                    mode={eventFilter}
+                    draft={creatingEvent?.quick && creatingEvent.end && dateKey(creatingEvent.start) === dateKey(currentDate) ? { start: creatingEvent.start, end: creatingEvent.end, kind: creatingEvent.kind } : null}
+                  />
                 }
-                events={dayEvents}
-                subjects={subjects}
-                date={currentDate}
-                activeSession={activeSession}
-                onEventClick={handleEventClick}
-                onEventMove={handleEventMove}
-                onEventResize={handleEventResize}
-                onBackgroundClick={handleTimelineBackgroundClick}
-                mode={eventFilter}
-                onSwipeLeft={swipeNext}
-                onSwipeRight={swipePrev}
-                draft={creatingEvent?.quick && creatingEvent.end && dateKey(creatingEvent.start) === dateKey(currentDate) ? { start: creatingEvent.start, end: creatingEvent.end, kind: creatingEvent.kind } : null}
               />
             </div>
             </div>
