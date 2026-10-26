@@ -10,6 +10,8 @@ interface SwipePagerProps {
   onPrev: () => void;
   onNext: () => void;
   className?: string;
+  /** Classes for each of the three pages (they fill the pager's height). */
+  pageClassName?: string;
 }
 
 /** A pause this long in scroll events means the scroll has come to rest
@@ -49,10 +51,11 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
  * the side page showed, so the swap can't be seen. A touch during the finish
  * completes it at once, so quick flicks keep paging.
  *
- * Meant to sit inside a vertical scroller with all three pages the same
- * height, so the pages scroll vertically together and their hours line up.
+ * Either sits inside a vertical scroller (the timeline: the three days scroll
+ * together, so their hours line up) or fills a box whose pages each scroll
+ * on their own (the Stat / Check / Notes tabs).
  */
-export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, className = '' }: SwipePagerProps) {
+export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, className = '', pageClassName = '' }: SwipePagerProps) {
   const ref = useRef<HTMLDivElement>(null);
   const touchingRef = useRef(false);
   const timerRef = useRef<number | null>(null);
@@ -201,7 +204,7 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
     };
   }, [centre]);
 
-  const page = 'w-full shrink-0 snap-center [scroll-snap-stop:always]';
+  const page = `w-full shrink-0 snap-center [scroll-snap-stop:always] ${pageClassName}`;
   return (
     <div ref={ref} className={`swipe-pager flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory ${className}`}>
       <div className={page} aria-hidden inert>{prev}</div>

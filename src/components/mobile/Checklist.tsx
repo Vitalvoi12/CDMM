@@ -50,6 +50,9 @@ interface ChecklistProps {
   onPlanTask: (task: { id: string; text: string; subjectId: string; estMinutes?: number }) => void;
   /** The add field, so V and a double tap can focus it. */
   inputRef: RefObject<HTMLTextAreaElement | null>;
+  /** Static copy of a neighbouring day beside the page (SwipePager): no add
+   *  bar (the page's own sits under the dock) and no task window. */
+  peek?: boolean;
 }
 
 /**
@@ -57,7 +60,7 @@ interface ChecklistProps {
  * left: plan / later = tomorrow / delete), the day's todos below (also plannable), and an add bar at the
  * bottom (under the session dock) that rides above the keyboard while typing.
  */
-export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTask, onAddTask, onEditTask, onDeleteTask, onMoveTask, onToggleTodo, onPlanTask, inputRef }: ChecklistProps) {
+export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTask, onAddTask, onEditTask, onDeleteTask, onMoveTask, onToggleTodo, onPlanTask, inputRef, peek = false }: ChecklistProps) {
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -248,7 +251,7 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
   );
 
   return (
-    <section aria-label={`Checklist for ${dayLabel}`} className="flex flex-col flex-1 min-h-0 animate-fade-in">
+    <section aria-label={`Checklist for ${dayLabel}`} className={`flex flex-col flex-1 min-h-0 ${peek ? '' : 'animate-fade-in'}`}>
       <div className="flex-1 min-h-0 overflow-y-auto [touch-action:pan-y]">
         <div className="flex items-center justify-between" style={{ height: 40, padding: '0 16px' }}>
           <span className="m-lbl m-mut">Checklist</span>
@@ -351,9 +354,9 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
         )}
       </div>
 
-      {belowDock ? createPortal(addBar, belowDock) : addBar}
+      {!peek && (belowDock ? createPortal(addBar, belowDock) : addBar)}
 
-      {editing && (
+      {editing && !peek && (
         <ChecklistTaskDialog
           key={editing.id}
           task={editing}

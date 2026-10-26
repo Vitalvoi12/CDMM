@@ -573,6 +573,12 @@ html, body {
 .swipe-pager::-webkit-scrollbar {
   display: none;
 }
+/* A page's own vertical scroller must let sideways pans through to the pager
+ * (the phone rule above makes every vertical scroller pan-y only). Rows that
+ * swipe sideways themselves (SwipeRow) keep pan-y and stay out of it. */
+.swipe-pager :is(.overflow-y-auto, .overflow-y-scroll, .max-lg\:overflow-y-auto) {
+  touch-action: pan-x pan-y;
+}
 
 
 /* Day numbers inside activity-calendar cells: the two darkest light-theme

@@ -50,6 +50,8 @@ const FILTERS: { id: EventFilter; label: string; title: string }[] = [
   { id: 'all', label: 'All', title: 'Show real & plan together' },
 ];
 
+const noop = () => {};
+
 /** Whether a touch began inside the handler's own DOM, not in a portal that
  *  React bubbles to it (portals sit elsewhere on the page). */
 function inOwnDom(e: React.TouchEvent): boolean {
@@ -334,6 +336,30 @@ export function CalendarPage() {
     const live = liveEventForDate(activeSession, new Date(now), now);
     return focusStreak(live ? [...events, live] : events, currentDate);
   }, [isMobile, events, activeSession, elapsedMinute, currentDate]);
+
+  // Phone Stat tab: the same figures for the neighbouring days, drawn beside
+  // the page for the swipe (live parts refreshed once a minute, not every tick).
+  const neighbourStats = useMemo(() => {
+    if (!isMobile || dayPanel !== 'stats') return null;
+    const now = activeSession ? new Date(activeSession.start).getTime() + elapsedMinute * 60000 : Date.now();
+    const liveNow = liveEventForDate(activeSession, new Date(now), now);
+    const all = liveNow ? [...events, liveNow] : events;
+    const allSubjects = subjectRepo.getAll();
+    const statsFor = (date: Date) => {
+      const live = liveEventForDate(activeSession, date, now);
+      const day = getEventsForDate(events, date);
+      const dayAll = live ? [...day, live] : day;
+      return {
+        events: dayAll,
+        totalMinutes: calculateDailyStats(dayAll, date).totalMinutes,
+        goals: weeklyGoalProgress(all, allSubjects, date),
+        liveMinutes: live ? Math.round((new Date(live.end).getTime() - new Date(live.start).getTime()) / 60000) : 0,
+        streak: focusStreak(all, date),
+        isToday: dateKey(date) === dateKey(new Date()),
+      };
+    };
+    return { prev: statsFor(prevDate), next: statsFor(nextDate) };
+  }, [isMobile, dayPanel, events, activeSession, elapsedMinute, prevDate, nextDate]);
 
   const refreshEvents = useCallback(() => {
     setEvents(eventRepo.getAll());
@@ -932,14 +958,13 @@ export function CalendarPage() {
   const swipePrev = isMobile ? goToPrevious : undefined;
   const swipeNext = isMobile ? goToNext : undefined;
 
-  // Same navigation for the mobile Stat and Tasks panels, so a day change is
-  // one flick whichever tab is open. `pan-y` on their scroll containers is what
+  // Same navigation for the mobile month and year views (the day tabs turn
+  // with SwipePager). `pan-y` on their scroll containers is what
   // lets this differ from a plain listener: without it the browser may claim a
   // horizontal flick as a scroll and the gesture arrives as touchcancel.
   //
-  // markGesture stamps the panel guard rather than the timeline's: a swipe ends
-  // with a synthesized click on whatever is under the finger, and here that can
-  // be a checkbox. The Stat panel has no controls, so it needs no guard.
+  // markGesture stamps the panel guard: a swipe ends with a synthesized click
+  // on whatever is under the finger, which must not act.
   const panelSwipe = useSwipeNav({
     enabled: isMobile,
     onSwipeLeft: swipeNext,
@@ -990,7 +1015,23 @@ export function CalendarPage() {
   };
 
   const todayKey = dateKey(new Date());
-  const shownTasks = dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? [];
+  const tasksOn = (d: Date) => dayTasks.find((l) => l.id === dateKey(d))?.tasks ?? [];
+  const shownTasks = tasksOn(currentDate);
+  // The Check tab's copies of the neighbouring days are only drawn: never
+  // touched, so their handlers do nothing.
+  const prevTasks = tasksOn(prevDate);
+  const nextTasks = tasksOn(nextDate);
+  const peekInputRef = useRef<HTMLTextAreaElement>(null);
+  const peekChecklistHandlers = {
+    onToggleTask: noop,
+    onAddTask: noop,
+    onEditTask: noop,
+    onDeleteTask: noop,
+    onMoveTask: noop,
+    onToggleTodo: noop,
+    onPlanTask: noop,
+    inputRef: peekInputRef,
+  };
   const openTaskCount = shownTasks.filter((t) => !t.done).length;
 
   // Phone header: ‹ title › Today. The title names the shown range and,
@@ -1091,47 +1132,57 @@ export function CalendarPage() {
             </div>
             </div>
           ) : dayPanel === 'stats' ? (
-            <div
-              className="flex-1 min-h-0 overflow-y-auto flex flex-col [touch-action:pan-y]"
-              onTouchStart={panelSwipe.onTouchStart}
-              onTouchMove={panelSwipe.onTouchMove}
-              onTouchEnd={panelSwipe.onTouchEnd}
-              onTouchCancel={panelSwipe.onTouchCancel}
-            >
-              <DayStats
-                events={statsEvents}
-                subjects={subjects}
-                totalMinutes={stats.totalMinutes}
-                goals={weekGoals}
-                liveMinutes={liveMinutes}
-                liveSubjectId={activeSession ? activeSession.subjectId : null}
-                streak={streak}
-                isToday={dateKey(currentDate) === todayKey}
-              />
-            </div>
+            // Stat / Notes / Check turn days like the timeline: the
+            // neighbouring days sit beside the page in a native scroller.
+            <SwipePager
+              className="flex-1 min-h-0"
+              pageClassName="overflow-y-auto flex flex-col"
+              pageKey={dateKey(currentDate)}
+              onPrev={goToPrevious}
+              onNext={goToNext}
+              prev={neighbourStats && <DayStats {...neighbourStats.prev} subjects={subjects} liveSubjectId={activeSession ? activeSession.subjectId : null} />}
+              next={neighbourStats && <DayStats {...neighbourStats.next} subjects={subjects} liveSubjectId={activeSession ? activeSession.subjectId : null} />}
+              current={
+                <DayStats
+                  events={statsEvents}
+                  subjects={subjects}
+                  totalMinutes={stats.totalMinutes}
+                  goals={weekGoals}
+                  liveMinutes={liveMinutes}
+                  liveSubjectId={activeSession ? activeSession.subjectId : null}
+                  streak={streak}
+                  isToday={dateKey(currentDate) === todayKey}
+                />
+              }
+            />
           ) : dayPanel === 'notes' ? (
-            <div className="flex-1 min-h-0 flex flex-col">
-              <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
-            </div>
+            <SwipePager
+              className="flex-1 min-h-0"
+              pageClassName="flex flex-col"
+              pageKey={dateKey(currentDate)}
+              onPrev={goToPrevious}
+              onNext={goToNext}
+              prev={<DayNotesPanel peek key={dateKey(prevDate)} date={prevDate} dateKey={dateKey(prevDate)} />}
+              next={<DayNotesPanel peek key={dateKey(nextDate)} date={nextDate} dateKey={dateKey(nextDate)} />}
+              current={<DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />}
+            />
           ) : (
+            <SwipePager
+              className="flex-1 min-h-0"
+              pageClassName="flex flex-col"
+              pageKey={dateKey(currentDate)}
+              onPrev={goToPrevious}
+              onNext={goToNext}
+              prev={<Checklist peek date={prevDate} tasks={prevTasks} subjects={subjects} todos={todos} scheduled={scheduledTasks} {...peekChecklistHandlers} />}
+              next={<Checklist peek date={nextDate} tasks={nextTasks} subjects={subjects} todos={todos} scheduled={scheduledTasks} {...peekChecklistHandlers} />}
+              current={
             <div
-              className="flex-1 min-h-0 flex flex-col [touch-action:pan-y]"
+              className="flex-1 min-h-0 flex flex-col"
               // Touches in the Checklist's portals (the add bar under the dock,
               // the task window) still bubble here through the React tree. They
-              // are not the page: flicking the add bar's subject chips sideways
-              // must not turn the day under the task being typed.
-              onTouchStart={(e) => {
-                if (!inOwnDom(e)) return;
-                panelSwipe.onTouchStart(e);
-                onChecklistTouchStart(e);
-              }}
-              onTouchMove={(e) => inOwnDom(e) && panelSwipe.onTouchMove(e)}
-              onTouchEnd={(e) => {
-                if (!inOwnDom(e)) return;
-                panelSwipe.onTouchEnd(e);
-                onChecklistTouchEnd(e);
-              }}
-              onTouchCancel={(e) => inOwnDom(e) && panelSwipe.onTouchCancel()}
+              // are not the page, so they never count toward a double tap.
+              onTouchStart={(e) => inOwnDom(e) && onChecklistTouchStart(e)}
+              onTouchEnd={(e) => inOwnDom(e) && onChecklistTouchEnd(e)}
             >
               <Checklist
                 date={currentDate}
@@ -1149,6 +1200,8 @@ export function CalendarPage() {
                 inputRef={taskInputRef}
               />
             </div>
+              }
+            />
           )}
           </div>
         ) : (

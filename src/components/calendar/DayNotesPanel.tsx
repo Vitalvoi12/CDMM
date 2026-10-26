@@ -16,6 +16,8 @@ interface DayNotesPanelProps {
   /** Focus the editor (cursor at the end) once it is ready, then report back. */
   autoFocus?: boolean;
   onAutoFocused?: () => void;
+  /** Read-only copy of a neighbouring day beside the page (phone SwipePager). */
+  peek?: boolean;
 }
 
 /** Idle time after the last keystroke before the note is written to the repo. */
@@ -48,7 +50,7 @@ const BUTTONS: ToolbarButton[] = [
  * syncs as plain text) and autosaved shortly after typing stops, and again when
  * the panel goes away (day change, tab switch) so no keystroke is lost.
  */
-export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused }: DayNotesPanelProps) {
+export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = false }: DayNotesPanelProps) {
   const isMobile = useIsMobile();
   // Markdown last seen in the repo for this day; the editor's own saves update
   // it, so only genuinely remote changes differ from it.
@@ -76,6 +78,7 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused }: DayNo
     ],
     content: initial,
     contentType: 'markdown',
+    editable: !peek,
     editorProps: {
       attributes: { class: 'note-editor outline-none', spellcheck: 'true' },
       // Escape leaves the note (saving it via onBlur), so the calendar's
@@ -96,7 +99,7 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused }: DayNo
 
   // Pick up edits made on another device while this note is open and idle.
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || peek) return;
     return subscribeSync(() => {
       const stored = dayNoteRepo.getContent(dateKey);
       if (stored === savedRef.current || pendingRef.current !== null || editor.isFocused) return;
@@ -107,7 +110,7 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused }: DayNo
 
   // I shortcut: start editing. Also covers a panel that mounts with the request.
   useEffect(() => {
-    if (!editor || !autoFocus) return;
+    if (!editor || !autoFocus || peek) return;
     editor.commands.focus('end');
     onAutoFocused?.();
   }, [editor, autoFocus, onAutoFocused]);
@@ -126,7 +129,9 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused }: DayNo
   // the bottom (above the keyboard while typing), one 44px icon per action.
   if (isMobile) {
     return (
-      <section aria-label={`Notes for ${dayLabel}`} className="flex flex-col min-h-0 flex-1 animate-fade-in">
+      // No fade-in: a swipe remounts the panel for the new day, which must
+      // show at once (the tab itself slides in).
+      <section aria-label={`Notes for ${dayLabel}`} className="flex flex-col min-h-0 flex-1">
         <div className="flex-1 min-h-0 overflow-y-auto cursor-text" style={{ padding: '12px 16px' }} onClick={() => editor?.commands.focus()}>
           <EditorContent editor={editor} />
         </div>
