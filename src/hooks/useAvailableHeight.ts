@@ -17,7 +17,11 @@ export function useAvailableHeight(anchorRef: RefObject<HTMLDivElement | null>):
     const anchor = anchorRef.current;
     if (!anchor) return;
     const compute = () => {
-      const main = anchor.closest('main');
+      // A page of a SwipePager is its own frame: in a vertical pager the
+      // pages sit one under another, so offsets from <main> would include
+      // the pages above.
+      const frame = anchor.closest<HTMLElement>('[data-swipe-frame]');
+      const main = frame ?? anchor.closest('main');
       if (!main) return;
       const mainEl = main as HTMLElement;
       // Scroll-independent position: the day section may already be scrolled
@@ -35,7 +39,7 @@ export function useAvailableHeight(anchorRef: RefObject<HTMLDivElement | null>):
         return top;
       };
       const topInMain = docTop(anchor as HTMLElement) - docTop(mainEl);
-      const padBottom = parseFloat(getComputedStyle(mainEl).paddingBottom) || 0;
+      const padBottom = frame ? 0 : parseFloat(getComputedStyle(mainEl).paddingBottom) || 0;
       const next = Math.max(0, Math.floor(mainEl.clientHeight - topInMain - padBottom));
       setAvail((prev) => (prev === next ? prev : next));
     };

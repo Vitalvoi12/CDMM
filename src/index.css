@@ -579,6 +579,11 @@ html, body {
 .swipe-pager :is(.overflow-y-auto, .overflow-y-scroll, .max-lg\:overflow-y-auto) {
   touch-action: pan-x pan-y;
 }
+/* In a vertical pager (month / year) a page's own scroller hands a swipe
+ * that starts at its end over to the pager, which turns the page. */
+.swipe-pager-y :is(.overflow-y-auto, .overflow-y-scroll, .max-lg\:overflow-y-auto) {
+  overscroll-behavior-y: auto;
+}
 
 
 /* Day numbers inside activity-calendar cells: the two darkest light-theme

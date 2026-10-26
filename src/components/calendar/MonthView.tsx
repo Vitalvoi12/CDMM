@@ -63,7 +63,11 @@ function useButtonClearance(
       // The grid's bottom edge is fixed by `availPx` (it fills <main>), so
       // growing the last row never moves it — no measure/resize loop. Rects
       // are on-screen px, availPx is layout px: divide by the body zoom.
-      const btnInGrid = (btn.getBoundingClientRect().top - grid.getBoundingClientRect().top) / bodyZoom();
+      // In a SwipePager the grid may sit on a page scrolled out of view:
+      // measure as if its page were the one on screen.
+      const frame = grid.closest<HTMLElement>('[data-swipe-frame]');
+      const shift = frame?.parentElement ? frame.getBoundingClientRect().top - frame.parentElement.getBoundingClientRect().top : 0;
+      const btnInGrid = (btn.getBoundingClientRect().top - (grid.getBoundingClientRect().top - shift)) / bodyZoom();
       const next = Math.max(0, Math.ceil(availPx - btnInGrid + BUTTON_GAP_PX));
       setClear((prev) => (prev === next ? prev : next));
     };

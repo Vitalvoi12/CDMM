@@ -10,9 +10,18 @@ interface SwipePagerProps {
   onPrev: () => void;
   onNext: () => void;
   className?: string;
-  /** Classes for each of the three pages (they fill the pager's height). */
+  /** Classes for each of the three pages (they fill the pager's box). */
   pageClassName?: string;
+  /** 'x' (default): pages side by side; 'y': stacked, turned by a vertical
+   *  swipe (month / year). A page's own vertical scroller hands a swipe
+   *  past its end over to the pager. */
+  axis?: 'x' | 'y';
 }
+
+/** A page's own vertical scroller (the page itself or the first inside it). */
+const SCROLLER = '.overflow-y-auto';
+const scrollerOf = (page: Element | undefined): HTMLElement | null =>
+  !page ? null : page.matches(SCROLLER) ? (page as HTMLElement) : page.querySelector<HTMLElement>(SCROLLER);
 
 /** A pause this long in scroll events means the scroll has come to rest
  *  (fallback for browsers without `scrollend`). */
@@ -35,8 +44,9 @@ const FLICK_SPEED = 0.15;
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * Phone page turning on the browser's own horizontal scrolling: the previous,
- * current and next periods sit side by side in a snapping scroller. The drag
+ * Phone page turning on the browser's own scrolling: the previous, current
+ * and next periods sit side by side (or stacked, for `axis="y"`) in a
+ * snapping scroller. The drag
  * follows the finger natively (on iOS, on the compositor at the screen's
  * refresh rate), which a JS-driven transform could never match.
  *
@@ -55,7 +65,7 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
  * together, so their hours line up) or fills a box whose pages each scroll
  * on their own (the Stat / Check / Notes tabs).
  */
-export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, className = '', pageClassName = '' }: SwipePagerProps) {
+export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, className = '', pageClassName = '', axis = 'x' }: SwipePagerProps) {
   const ref = useRef<HTMLDivElement>(null);
   const touchingRef = useRef(false);
   const timerRef = useRef<number | null>(null);
@@ -64,8 +74,30 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
 
   const centre = useCallback(() => {
     const el = ref.current;
-    if (el) el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
-  }, []);
+    if (!el) return;
+    if (axis === 'x') el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+    else el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+    // Stacked pages meet at their ends: the page above shows its bottom.
+    if (axis === 'y') {
+      const above = scrollerOf(el.children[0]);
+      if (above) above.scrollTop = above.scrollHeight;
+      const below = scrollerOf(el.children[2]);
+      if (below) below.scrollTop = 0;
+    }
+  }, [axis]);
+
+  /** Turn to a side page. The middle page takes over the side page's own
+   *  scroll position too, so nothing jumps when they swap. */
+  const turn = useCallback((side: 'prev' | 'next') => {
+    const el = ref.current;
+    if (!el) return;
+    const from = scrollerOf(el.children[side === 'prev' ? 0 : 2]);
+    const top = from ? from.scrollTop : null;
+    flushSync(side === 'prev' ? turnRef.current.onPrev : turnRef.current.onNext);
+    centre();
+    const to = scrollerOf(el.children[1]);
+    if (to && top !== null) to.scrollTop = top;
+  }, [centre]);
 
   // A new period (a turn, or the header's arrows / Today) starts in the middle.
   useLayoutEffect(centre, [pageKey, centre]);
@@ -73,6 +105,18 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const x = axis === 'x';
+    const pos = () => (x ? el.scrollLeft : el.scrollTop);
+    const setPos = (v: number) => {
+      if (x) el.scrollLeft = v;
+      else el.scrollTop = v;
+    };
+    const size = () => (x ? el.clientWidth : el.clientHeight);
+    const maxPos = () => (x ? el.scrollWidth : el.scrollHeight) - size();
+    const freeze = (on: boolean) => {
+      el.style[x ? 'overflowX' : 'overflowY'] = on ? 'hidden' : '';
+      el.style.scrollSnapType = on ? 'none' : '';
+    };
     // The scroller's recent positions while the finger drags, for the flick speed.
     let samples: { x: number; t: number }[] = [];
     // A finish in flight; a new touch completes it at once.
@@ -82,17 +126,12 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       timerRef.current = null;
     };
-    const atSide = () => {
-      const max = el.scrollWidth - el.clientWidth;
-      return el.scrollLeft <= 1 ? 'prev' : el.scrollLeft >= max - 1 ? 'next' : null;
-    };
+    const atSide = () => (pos() <= 1 ? 'prev' : pos() >= maxPos() - 1 ? 'next' : null);
     const settle = () => {
       clearTimer();
       if (touchingRef.current || pending) return;
       const side = atSide();
-      if (!side) return;
-      flushSync(side === 'prev' ? turnRef.current.onPrev : turnRef.current.onNext);
-      centre();
+      if (side) turn(side);
     };
     const velocity = () => {
       const now = performance.now();
@@ -106,10 +145,10 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
     /** Lift-off: stop the native scroll and slide to the page the flick
      *  points at, then turn (or stay) in the same frame the slide ends. */
     const finish = () => {
-      const w = el.clientWidth;
-      const mid = (el.scrollWidth - w) / 2;
+      const w = size();
+      const mid = maxPos() / 2;
       const v = velocity();
-      const offset = el.scrollLeft - mid;
+      const offset = pos() - mid;
       if (Math.abs(offset) < 1 || !w) return false;
       // Turn once the drag, carried on by the flick, passes TURN_FRACTION;
       // a clear flick the way the drag went turns regardless.
@@ -119,9 +158,8 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
         : Math.abs(projected) > w * TURN_FRACTION ? Math.sign(projected)
         : 0;
       // Freeze the native scroll (and its momentum) where it is.
-      el.style.overflowX = 'hidden';
-      el.style.scrollSnapType = 'none';
-      const from = el.scrollLeft;
+      freeze(true);
+      const from = pos();
       const target = mid + page * w;
       const left = Math.abs(target - from);
       const speed = Math.sign(v) === Math.sign(target - from) ? Math.abs(v) : 0;
@@ -129,21 +167,17 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
       const duration = speed > 0 ? Math.min(byDistance, Math.max(MIN_FINISH_MS, (EASE_SLOPE * left) / speed)) : byDistance;
       const panes = Array.from(el.children) as HTMLElement[];
       const anims = panes.map((p) =>
-        p.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${from - target}px)` }], { duration, easing: EASE, fill: 'forwards' })
+        p.animate([{ transform: 'translate(0, 0)' }, { transform: x ? `translate(${from - target}px, 0)` : `translate(0, ${from - target}px)` }], { duration, easing: EASE, fill: 'forwards' })
       );
       const commit = () => {
         if (pending?.commit !== commit) return;
         pending = null;
         // One task, one paint: scroll to where the slide ended, drop the
         // slide, then turn and re-centre.
-        el.style.overflowX = '';
-        el.style.scrollSnapType = '';
-        el.scrollLeft = target;
+        freeze(false);
+        setPos(target);
         for (const a of anims) a.cancel();
-        if (page) {
-          flushSync(page < 0 ? turnRef.current.onPrev : turnRef.current.onNext);
-          centre();
-        }
+        if (page) turn(page < 0 ? 'prev' : 'next');
       };
       pending = { anims, commit };
       anims[0].onfinish = commit;
@@ -156,7 +190,7 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
       if (pending) return;
       if (touchingRef.current) {
         const t = performance.now();
-        samples.push({ x: el.scrollLeft, t });
+        samples.push({ x: pos(), t });
         while (samples.length > 2 && t - samples[0].t > VELOCITY_WINDOW_MS) samples.shift();
       }
       clearTimer();
@@ -168,7 +202,7 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
     const onTouchStart = () => {
       pending?.commit();
       touchingRef.current = true;
-      samples = [{ x: el.scrollLeft, t: performance.now() }];
+      samples = [{ x: pos(), t: performance.now() }];
       clearTimer();
     };
     const onTouchEnd = (e: TouchEvent) => {
@@ -192,8 +226,7 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
       if (pending) {
         for (const a of pending.anims) a.cancel();
         pending = null;
-        el.style.overflowX = '';
-        el.style.scrollSnapType = '';
+        freeze(false);
       }
       resize.disconnect();
       el.removeEventListener('scroll', onScroll);
@@ -202,14 +235,17 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
       el.removeEventListener('touchend', onTouchEnd);
       el.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [centre]);
+  }, [axis, centre, turn]);
 
-  const page = `w-full shrink-0 snap-center [scroll-snap-stop:always] ${pageClassName}`;
+  const page = `${axis === 'x' ? 'w-full' : 'basis-full min-h-0'} shrink-0 snap-center [scroll-snap-stop:always] ${pageClassName}`;
   return (
-    <div ref={ref} className={`swipe-pager flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory ${className}`}>
-      <div className={page} aria-hidden inert>{prev}</div>
-      <div className={page}>{current}</div>
-      <div className={page} aria-hidden inert>{next}</div>
+    <div
+      ref={ref}
+      className={`swipe-pager flex ${axis === 'x' ? 'overflow-x-auto overflow-y-hidden snap-x' : 'swipe-pager-y flex-col overflow-y-auto overflow-x-hidden snap-y'} snap-mandatory ${className}`}
+    >
+      <div className={page} data-swipe-frame aria-hidden inert>{prev}</div>
+      <div className={page} data-swipe-frame>{current}</div>
+      <div className={page} data-swipe-frame aria-hidden inert>{next}</div>
     </div>
   );
 }

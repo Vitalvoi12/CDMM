@@ -15,7 +15,6 @@ import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { useSwipeNav } from '../hooks/useSwipeNav';
 import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, dayTaskRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
 import { expandRecurrence, dateKey, addDays, inferRepeatFreq } from '../utils/time';
@@ -51,6 +50,10 @@ const FILTERS: { id: EventFilter; label: string; title: string }[] = [
 ];
 
 const noop = () => {};
+
+/** Height of the phone Notes tab's formatting bar (44px buttons, 6px
+ *  padding, 1px top border). */
+const NOTES_BAR_PX = 57;
 
 /** Whether a touch began inside the handler's own DOM, not in a portal that
  *  React bubbles to it (portals sit elsewhere on the page). */
@@ -122,8 +125,6 @@ export function CalendarPage() {
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const [dayTasks, setDayTasks] = useState<DayTaskList[]>(() => dayTaskRepo.getAll());
   const { isActive, subjectId, title: sessionTitle, color: sessionColor, startTime, elapsed } = useActiveSession();
-  // When the last panel swipe was decided — see panelSwipe below.
-  const panelSwipeAtRef = useRef(0);
   const navigate = useNavigate();
 
   // Deep link from the Statistics heatmap: jump to the tapped day.
@@ -365,12 +366,8 @@ export function CalendarPage() {
     setEvents(eventRepo.getAll());
   }, []);
 
-  // The day's own checklist (independent of events). A completed swipe is
-  // followed by the browser's synthesized click on the element under the
-  // finger; if that is a checkbox being flicked over, it must not tick
-  // itself — the gesture was navigation.
+  // The day's own checklist (independent of events).
   const handleDayTaskToggle = useCallback((id: string, done: boolean) => {
-    if (Date.now() - panelSwipeAtRef.current < 400) return;
     checkpoint(done ? 'Complete checklist task' : 'Reopen checklist task');
     dayTaskRepo.toggle(dateKey(currentDate), id, done);
     setDayTasks(dayTaskRepo.getAll());
@@ -392,7 +389,6 @@ export function CalendarPage() {
   );
 
   const handleDayTaskDelete = useCallback((id: string) => {
-    if (Date.now() - panelSwipeAtRef.current < 400) return;
     checkpoint('Delete checklist task');
     dayTaskRepo.remove(dateKey(currentDate), id);
     setDayTasks(dayTaskRepo.getAll());
@@ -400,7 +396,6 @@ export function CalendarPage() {
 
   // Postpone a checklist task to another day ("YYYY-MM-DD").
   const handleDayTaskMove = useCallback((id: string, to: string) => {
-    if (Date.now() - panelSwipeAtRef.current < 400) return;
     const [y, m, d] = to.split('-').map(Number);
     checkpoint(`Move checklist task to ${new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
     dayTaskRepo.move(dateKey(currentDate), to, id);
@@ -466,8 +461,6 @@ export function CalendarPage() {
 
   // Checkbox on a todo task in the Checklist panel.
   const handleTodoToggle = useCallback((id: string, completed: boolean) => {
-    // Same swipe guard as the checklist tasks above.
-    if (Date.now() - panelSwipeAtRef.current < 400) return;
     checkpoint(completed ? 'Complete task' : 'Reopen task');
     todoRepo.update(id, { completed });
     setTodos(todoRepo.getAll());
@@ -958,22 +951,6 @@ export function CalendarPage() {
   const swipePrev = isMobile ? goToPrevious : undefined;
   const swipeNext = isMobile ? goToNext : undefined;
 
-  // Same navigation for the mobile month and year views (the day tabs turn
-  // with SwipePager). `pan-y` on their scroll containers is what
-  // lets this differ from a plain listener: without it the browser may claim a
-  // horizontal flick as a scroll and the gesture arrives as touchcancel.
-  //
-  // markGesture stamps the panel guard: a swipe ends with a synthesized click
-  // on whatever is under the finger, which must not act.
-  const panelSwipe = useSwipeNav({
-    enabled: isMobile,
-    onSwipeLeft: swipeNext,
-    onSwipeRight: swipePrev,
-    markGesture: () => {
-      panelSwipeAtRef.current = Date.now();
-    },
-  });
-
   // Phone: a double tap anywhere in the Checklist view opens the new-task
   // window. Taps on controls (checkboxes, delete, +) don't count, nor does a
   // finger that moved (a scroll or a swipe).
@@ -1006,13 +983,6 @@ export function CalendarPage() {
     }
     lastTapRef.current = tap;
   }, []);
-
-  const swipeHandlers = {
-    onTouchStart: panelSwipe.onTouchStart,
-    onTouchMove: panelSwipe.onTouchMove,
-    onTouchEnd: panelSwipe.onTouchEnd,
-    onTouchCancel: panelSwipe.onTouchCancel,
-  };
 
   const todayKey = dateKey(new Date());
   const tasksOn = (d: Date) => dayTasks.find((l) => l.id === dateKey(d))?.tasks ?? [];
@@ -1255,7 +1225,8 @@ export function CalendarPage() {
         ))}
 
       {isMobile && (
-        <button type="button" className="m-fab" aria-label="View settings" onClick={() => setViewSettingsOpen(true)}>
+        // On the Notes tab the button rides above the formatting bar.
+        <button type="button" className="m-fab" style={view === 'day' && dayPanel === 'notes' ? { bottom: 14 + NOTES_BAR_PX } : undefined} aria-label="View settings" onClick={() => setViewSettingsOpen(true)}>
           <span className="material-symbols-outlined m-ic l">tune</span>
         </button>
       )}
@@ -1268,26 +1239,50 @@ export function CalendarPage() {
         <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} onSwipeLeft={swipeNext} onSwipeRight={swipePrev} />
       )}
 
-      {view === 'month' && (
-        <div className="flex flex-col flex-1 min-h-0 [touch-action:pan-y]" {...swipeHandlers}>
-        <MonthView
-          key={`month-${currentDate.getFullYear()}-${currentDate.getMonth()}`}
-          date={currentDate}
-          events={events}
-          subjects={subjects}
-          mode={eventFilter}
-          onDateSelect={handleDaySelect}
-          onEventClick={handleEventClick}
-          liveSession={activeSession}
-        />
-        </div>
-      )}
+      {/* Phone: months and years turn with a vertical swipe, the
+          neighbouring ones stacked above and below. */}
+      {view === 'month' &&
+        (isMobile ? (
+          <SwipePager
+            axis="y"
+            className="flex-1 min-h-0"
+            pageClassName="flex flex-col"
+            pageKey={`${currentDate.getFullYear()}-${currentDate.getMonth()}`}
+            onPrev={goToPrevious}
+            onNext={goToNext}
+            prev={<MonthView date={new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)} events={events} subjects={subjects} mode={eventFilter} onDateSelect={noop} onEventClick={noop} liveSession={activeSession} />}
+            next={<MonthView date={new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)} events={events} subjects={subjects} mode={eventFilter} onDateSelect={noop} onEventClick={noop} liveSession={activeSession} />}
+            current={<MonthView date={currentDate} events={events} subjects={subjects} mode={eventFilter} onDateSelect={handleDaySelect} onEventClick={handleEventClick} liveSession={activeSession} />}
+          />
+        ) : (
+          <MonthView
+            key={`month-${currentDate.getFullYear()}-${currentDate.getMonth()}`}
+            date={currentDate}
+            events={events}
+            subjects={subjects}
+            mode={eventFilter}
+            onDateSelect={handleDaySelect}
+            onEventClick={handleEventClick}
+            liveSession={activeSession}
+          />
+        ))}
 
-      {view === 'year' && (
-        <div className="flex flex-col flex-1 min-h-0 [touch-action:pan-y]" {...swipeHandlers}>
+      {view === 'year' &&
+        (isMobile ? (
+          <SwipePager
+            axis="y"
+            className="flex-1 min-h-0"
+            pageClassName="flex flex-col"
+            pageKey={String(currentDate.getFullYear())}
+            onPrev={goToPrevious}
+            onNext={goToNext}
+            prev={<YearView date={new Date(currentDate.getFullYear() - 1, 0, 1)} onDateSelect={noop} />}
+            next={<YearView date={new Date(currentDate.getFullYear() + 1, 0, 1)} onDateSelect={noop} />}
+            current={<YearView date={currentDate} onDateSelect={handleDaySelect} />}
+          />
+        ) : (
           <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} onDateSelect={handleDaySelect} />
-        </div>
-      )}
+        ))}
 
       {/* Desktop day view: the floating New event button. Portalled to body:
           the page-enter animation transforms an ancestor, which would
