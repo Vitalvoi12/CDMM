@@ -39,6 +39,22 @@ interface NotifyListProps {
   noAnchorHint?: string;
 }
 
+/**
+ * One line for a collapsed reminder field (phone forms): "10 min before",
+ * "At 18:00, 12 Oct", plus how many more; null when nothing is set.
+ */
+export function notifySummary(items: NotifyItem[], zeroLabel = 'At the start'): string | null {
+  const set = items.filter((i) => i.customAt || i.lead !== null);
+  if (set.length === 0) return null;
+  const first = set[0];
+  const label = first.customAt
+    ? `At ${new Date(first.customAt).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}`
+    : first.lead === 0
+      ? zeroLabel
+      : NOTIFY_OPTIONS.find((o) => o.value === first.lead)?.label ?? `${first.lead} min before`;
+  return set.length > 1 ? `${label} +${set.length - 1}` : label;
+}
+
 function nextFullHour(): Date {
   const d = new Date();
   d.setHours(d.getHours() + 1, 0, 0, 0);

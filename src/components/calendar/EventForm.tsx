@@ -5,10 +5,14 @@ import { useSheetExit } from '../../hooks/useSheetExit';
 import { useSheetDrag } from '../../hooks/useSheetDrag';
 import { SUBJECT_COLOR_GROUPS, DEFAULT_CUSTOM_COLOR } from '../../utils/color';
 import { addDays, addMonths, addYears, type RepeatFreq } from '../../utils/time';
-import { NotifyList, isPresetLead, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
+import { NotifyList, isPresetLead, notifySummary, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
 import { eventLeads } from '../../services/notifications';
 import { FOCUS_LABELS, type FocusRating } from '../../utils/analytics';
 import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { Sheet } from '../mobile/Sheet';
+import { ExpandRow } from '../mobile/ExpandRow';
+import { PickerCard } from '../mobile/PickerCard';
 
 export interface EventRecurrence {
   freq: RepeatFreq;
@@ -68,6 +72,17 @@ function combine(dateVal: string, timeVal: string): Date {
 /** Select value meaning "a free-form event, not tied to any subject". */
 const CUSTOM_SUBJECT = '__custom__';
 
+const REPEAT_LABELS: Record<RepeatFreq, string> = {
+  none: 'Does not repeat',
+  daily: 'Every day',
+  weekly: 'Every week',
+  monthly: 'Every month',
+  yearly: 'Every year',
+};
+/** Short labels for the phone's repeat chips. */
+const REPEAT_CHIPS: Record<RepeatFreq, string> = { none: 'Never', daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+const FOCUS_ICONS = { 1: 'blur_on', 2: 'adjust', 3: 'target' } as const;
+
 export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, defaultKind = 'plan', series, subjects, onSave, onDelete, onDuplicate, onCancel }: EventFormProps) {
   const initialStart = event ? new Date(event.start) : new Date(defaultDate);
   const initialEnd = event
@@ -112,6 +127,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   useSheetExit(overlayRef, dialogRef);
   useSheetDrag(dialogRef, onCancel);
 
+  const isMobile = useIsMobile();
   const isNew = !event;
   const repeatChanged = isNew ? repeat !== 'none' : repeat !== (series?.freq ?? 'none') || (repeat !== 'none' && repeatUntil !== (series?.until ?? ''));
 
@@ -130,6 +146,16 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
     // the user hasn't clicked any field yet. Escape is the overlay stack's job.
     dialogRef.current?.focus({ preventScroll: true });
   }, []);
+
+  const changeRepeat = (next: RepeatFreq) => {
+    setRepeat(next);
+    setError(null);
+    if (next !== 'none' && !repeatUntil) {
+      const base = combine(startDate, startTime);
+      const anchor = isNaN(base.getTime()) ? new Date() : base;
+      setRepeatUntil(defaultUntilFor(next, anchor));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,6 +257,180 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
     'w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60';
   const labelClass =
     'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl';
+
+  if (isMobile) {
+    // Phone (the "Edit event" sheet of the mobile design): the times are one
+    // row of cards, an end at or before the start runs into the next day.
+    const setTimes = (date: string, from: string, to: string) => {
+      setStartDate(date);
+      setStartTime(from);
+      setEndTime(to);
+      setEndDate(to <= from ? toLocalInputValue(addDays(new Date(`${date}T00:00`), 1), 'date') : date);
+      setError(null);
+    };
+    const nextDay = endDate > startDate;
+    const shortDate = (v: string) => new Date(`${v}T00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const custom = subjectSel === CUSTOM_SUBJECT;
+    const remind = notifySummary(notifyItems);
+    return (
+      <Sheet label={event ? 'Edit event' : 'New event'} onClose={onCancel} tall>
+        <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="flex-1 flex flex-col" style={{ gap: 14 }}>
+          <div className="m-shd">
+            <h2 className="m-h2">{event ? 'Edit event' : 'New event'}</h2>
+            <button type="button" className="m-ib" aria-label="Close" onClick={onCancel}>
+              <span className="material-symbols-outlined m-ic">close</span>
+            </button>
+          </div>
+
+          <div className="m-wrap" role="radiogroup" aria-label="Subject">
+            {subjects.map((s) => (
+              <button key={s.id} type="button" role="radio" aria-checked={subjectSel === s.id} className={`m-chip ${subjectSel === s.id ? 'on' : ''}`} onClick={() => { setSubjectSel(s.id); setError(null); }}>
+                <span className="m-sw" style={{ background: s.color }} />
+                {s.name}
+              </button>
+            ))}
+            <button type="button" role="radio" aria-checked={custom} className={`m-chip ${custom ? 'on' : ''}`} onClick={() => setSubjectSel(CUSTOM_SUBJECT)}>
+              <span className="material-symbols-outlined m-ic s m-mut">edit</span>
+              Custom
+            </button>
+          </div>
+
+          {custom && (
+            <>
+              <label className="m-in">
+                <AutoGrowTextarea
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder="Title, e.g. Dentist, Gym"
+                  aria-label="Title"
+                  className="flex-1 min-w-0 self-stretch py-[11px] bg-transparent border-0 outline-none text-[16px] leading-5 text-on-surface placeholder:text-on-surface-variant"
+                />
+              </label>
+              <div className="m-wrap" role="radiogroup" aria-label="Color">
+                {SUBJECT_COLOR_GROUPS.flatMap((g) => g.colors).map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={color === c.value}
+                    aria-label={c.label}
+                    onClick={() => setColor(c.value)}
+                    className="flex items-center justify-center"
+                    style={{ width: 36, height: 36, borderRadius: '50%', border: 0, background: 'none', padding: 0 }}
+                  >
+                    <span style={{ width: 26, height: 26, borderRadius: '50%', background: c.value, boxShadow: color === c.value ? '0 0 0 2px var(--color-surface-container-lowest), 0 0 0 4px var(--color-primary)' : undefined }} />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="m-seg" role="radiogroup" aria-label="Event kind">
+            {(['plan', 'real'] as const).map((k) => (
+              <button key={k} type="button" role="radio" aria-checked={kind === k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
+                {k === 'plan' ? 'Plan' : 'Real'}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex" style={{ gap: 8 }}>
+            <PickerCard className="flex-1 min-w-0" label="Starts" type="time" value={startTime} display={startTime} onChange={(v) => setTimes(startDate, v, endTime)} />
+            <PickerCard className="flex-1 min-w-0" label="Ends" type="time" value={endTime} display={endTime} note={nextDay ? '+1 day' : undefined} onChange={(v) => setTimes(startDate, startTime, v)} />
+            <PickerCard className="flex-none" label="Date" type="date" value={startDate} display={shortDate(startDate)} onChange={(v) => setTimes(v, startTime, endTime)} />
+          </div>
+
+          <button type="button" role="switch" aria-checked={countInStats} onClick={() => setCountInStats((v) => !v)} className="flex items-center justify-between bg-transparent border-0 p-0 text-left text-on-surface" style={{ minHeight: 44 }}>
+            <span>Count in stats</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 40, width: 40, height: 40, color: countInStats ? 'var(--color-primary)' : 'var(--color-on-surface-variant)' }}>
+              {countInStats ? 'toggle_on' : 'toggle_off'}
+            </span>
+          </button>
+
+          {!isNew && kind === 'real' && (
+            <div className="m-fld">
+              <span className="m-lbl m-mut">Focus</span>
+              <div className="m-seg" role="radiogroup" aria-label="Focus quality">
+                {([1, 2, 3] as const).map((r) => (
+                  <button key={r} type="button" role="radio" aria-checked={focus === r} className={focus === r ? 'on' : ''} onClick={() => setFocus((cur) => (cur === r ? null : r))}>
+                    <span className="material-symbols-outlined m-ic s">{FOCUS_ICONS[r]}</span>
+                    {FOCUS_LABELS[r]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <label className="m-in">
+            <AutoGrowTextarea
+              multiline
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Optional notes"
+              aria-label="Notes"
+              className="flex-1 min-w-0 self-stretch py-[11px] bg-transparent border-0 outline-none text-[16px] leading-5 text-on-surface placeholder:text-on-surface-variant"
+            />
+          </label>
+
+          <ExpandRow icon="notifications" text={remind ? `Remind ${remind.charAt(0).toLowerCase()}${remind.slice(1)}` : 'Remind me'} empty={!remind} closedIcon="add">
+            <NotifyList
+              items={notifyItems}
+              onChange={(items) => {
+                setNotifyItems(items);
+                setError(null);
+              }}
+              anchor={Number.isFinite(combine(startDate, startTime).getTime()) ? combine(startDate, startTime) : null}
+              zeroLabel="At the start"
+            />
+          </ExpandRow>
+
+          <ExpandRow icon="repeat" text={REPEAT_LABELS[repeat] + (repeat !== 'none' && repeatUntil ? ` until ${shortDate(repeatUntil)}` : '')} empty={repeat === 'none'}>
+            <div className="m-scx" role="radiogroup" aria-label="Repeat">
+              {(Object.keys(REPEAT_LABELS) as RepeatFreq[]).map((f) => (
+                <button key={f} type="button" role="radio" aria-checked={repeat === f} className={`m-chip ${repeat === f ? 'on' : ''}`} onClick={() => changeRepeat(f)}>
+                  {REPEAT_CHIPS[f]}
+                </button>
+              ))}
+            </div>
+            {repeat !== 'none' && (
+              <PickerCard label="Until" type="date" value={repeatUntil} display={repeatUntil ? shortDate(repeatUntil) : 'Pick a day'} onChange={(v) => { setRepeatUntil(v); setError(null); }} />
+            )}
+            {!isNew && repeatChanged && (
+              <p className="m-sm m-mut">
+                {repeat === 'none'
+                  ? series ? 'The series stops here: later occurrences are removed.' : ''
+                  : series ? 'Applies to this and the following occurrences.' : 'Repeats of this event will be added after it.'}
+              </p>
+            )}
+          </ExpandRow>
+
+          {error && (
+            <p role="alert" className="m-sm" style={{ color: 'var(--color-error)' }}>
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-end" style={{ gap: 8, marginTop: 'auto' }}>
+            {event && onDelete && (
+              <button type="button" className="m-btn err sq" aria-label="Delete event" onClick={() => onDelete(event.id)}>
+                <span className="material-symbols-outlined m-ic s">delete</span>
+              </button>
+            )}
+            {event && onDuplicate && (
+              <button type="button" className="m-btn sq" aria-label="Duplicate event" onClick={() => onDuplicate(event.id)}>
+                <span className="material-symbols-outlined m-ic s">content_copy</span>
+              </button>
+            )}
+            <button type="submit" className="m-btn pri flex-1">
+              {event ? 'Save' : 'Add'}
+            </button>
+          </div>
+        </form>
+      </Sheet>
+    );
+  }
 
   return (
     // Phone: a bottom sheet over the nav, nearly full height.
@@ -468,16 +668,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                 </label>
                 <select
                   value={repeat}
-                  onChange={(e) => {
-                    const next = e.target.value as RepeatFreq;
-                    setRepeat(next);
-                    setError(null);
-                    if (next !== 'none' && !repeatUntil) {
-                      const base = combine(startDate, startTime);
-                      const anchor = isNaN(base.getTime()) ? new Date() : base;
-                      setRepeatUntil(defaultUntilFor(next, anchor));
-                    }
-                  }}
+                  onChange={(e) => changeRepeat(e.target.value as RepeatFreq)}
                   className={`${inputClass} appearance-none cursor-pointer`}
                 >
                   <option value="none">Does not repeat</option>

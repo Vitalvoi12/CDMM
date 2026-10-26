@@ -27,6 +27,7 @@ import { DayStats } from '../components/mobile/DayStats';
 import { Checklist } from '../components/mobile/Checklist';
 import { setDockHidden } from '../components/mobile/belowDock';
 import { SwipePager } from '../components/mobile/SwipePager';
+import { MonthAgenda } from '../components/mobile/MonthAgenda';
 import { useSlideIn } from '../hooks/useSlideIn';
 import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
@@ -1246,13 +1247,15 @@ export function CalendarPage() {
           <SwipePager
             axis="y"
             className="flex-1 min-h-0"
-            pageClassName="flex flex-col"
+            pageClassName="overflow-y-auto flex flex-col"
             pageKey={`${currentDate.getFullYear()}-${currentDate.getMonth()}`}
             onPrev={goToPrevious}
             onNext={goToNext}
-            prev={<MonthView date={new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)} events={events} subjects={subjects} mode={eventFilter} onDateSelect={noop} onEventClick={noop} liveSession={activeSession} />}
-            next={<MonthView date={new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)} events={events} subjects={subjects} mode={eventFilter} onDateSelect={noop} onEventClick={noop} liveSession={activeSession} />}
-            current={<MonthView date={currentDate} events={events} subjects={subjects} mode={eventFilter} onDateSelect={handleDaySelect} onEventClick={handleEventClick} liveSession={activeSession} />}
+            // A turned-to month opens on its 1st (goToNext / goToPrevious), so
+            // that is the day the copies beside the page select too.
+            prev={<MonthAgenda date={new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)} events={events} subjects={subjects} mode={eventFilter} liveSession={activeSession} onSelect={noop} onOpenDay={noop} onEventClick={noop} />}
+            next={<MonthAgenda date={new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)} events={events} subjects={subjects} mode={eventFilter} liveSession={activeSession} onSelect={noop} onOpenDay={noop} onEventClick={noop} />}
+            current={<MonthAgenda date={currentDate} events={events} subjects={subjects} mode={eventFilter} liveSession={activeSession} onSelect={setCurrentDate} onOpenDay={handleDaySelect} onEventClick={handleEventClick} />}
           />
         ) : (
           <MonthView

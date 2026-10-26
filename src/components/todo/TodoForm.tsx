@@ -3,10 +3,17 @@ import type { TodoReminder, TodoTask } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useSheetExit } from '../../hooks/useSheetExit';
 import { useSheetDrag } from '../../hooks/useSheetDrag';
-import { formatDuration } from '../../utils/time';
+import { addDays, formatDuration } from '../../utils/time';
+import { parseEstimate } from '../../utils/estimate';
 import { Toggle } from '../common/Toggle';
-import { NotifyList, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
+import { NotifyList, notifySummary, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
 import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { Sheet } from '../mobile/Sheet';
+import { ExpandRow } from '../mobile/ExpandRow';
+
+/** Phone estimate chips (minutes). */
+const EST_CHIPS = [15, 30, 60, 120];
 
 interface TodoFormProps {
   task: TodoTask | null;
@@ -78,6 +85,9 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   useSheetExit(overlayRef, dialogRef);
   useSheetDrag(dialogRef, onCancel);
   const formRef = useRef<HTMLFormElement>(null);
+  const isMobile = useIsMobile();
+  // Phone: the Custom estimate chip turns into a field while typing.
+  const [estEditing, setEstEditing] = useState(false);
 
   useEscapeOverlay(onCancel);
 
@@ -140,6 +150,172 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
       onDelete(task.id);
     }
   };
+
+  if (isMobile) {
+    // Phone (the "Edit task" sheet of the mobile design): the due day is a
+    // row of chips, a tap on the chosen one clears it.
+    const dayValue = (d: Date) => toInputValue(d.toISOString());
+    const today = new Date();
+    const presets = [
+      { label: 'Today', value: dayValue(today) },
+      { label: 'Tomorrow', value: dayValue(addDays(today, 1)) },
+      // The coming Saturday (today, on a Saturday).
+      { label: 'Weekend', value: dayValue(addDays(today, (6 - today.getDay() + 7) % 7)) },
+    ];
+    const otherDay = dueDate && !presets.some((p) => p.value === dueDate);
+    const pickDay = (v: string) => {
+      setDueDate(v);
+      if (!v) setDueTime('');
+      else setError(null);
+    };
+    const estMinutes = Number.parseInt(estInput, 10) || 0;
+    const customEst = estMinutes > 0 && !EST_CHIPS.includes(estMinutes);
+    const remind = notifySummary(notifyItems, 'At due time');
+    const chipText = 'flex-1 min-w-0 self-stretch py-[11px] bg-transparent border-0 outline-none text-[16px] leading-5 text-on-surface placeholder:text-on-surface-variant';
+    return (
+      <Sheet label={task ? 'Edit task' : 'New task'} onClose={onCancel} tall focusSelf={!!task}>
+        <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="flex-1 flex flex-col" style={{ gap: 14 }}>
+          <div className="m-shd">
+            <h2 className="m-h2">{task ? 'Edit task' : 'New task'}</h2>
+            <button type="button" className="m-ib" aria-label="Close" onClick={onCancel}>
+              <span className="material-symbols-outlined m-ic">close</span>
+            </button>
+          </div>
+
+          <label className="m-in">
+            <AutoGrowTextarea ref={titleRef} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What needs to be done?" aria-label="Title" className={chipText} />
+          </label>
+          <label className="m-in">
+            <AutoGrowTextarea multiline value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional notes" aria-label="Notes" className={chipText} />
+          </label>
+
+          <div className="flex" style={{ gap: 8 }}>
+            <button type="button" className={`m-chip flex-1 justify-center ${important ? 'on' : ''}`} aria-pressed={important} onClick={() => setImportant((v) => !v)}>
+              <span className="material-symbols-outlined m-ic s">flag</span>Important
+            </button>
+            <button
+              type="button"
+              className={`m-chip flex-1 justify-center ${urgent ? 'on' : ''}`}
+              aria-pressed={urgent}
+              onClick={() => {
+                setUrgent((v) => !v);
+                setError(null);
+              }}
+            >
+              <span className="material-symbols-outlined m-ic s">bolt</span>Urgent
+            </button>
+          </div>
+
+          <div className="m-fld">
+            <span className="m-lbl m-mut">
+              Due date{urgent && <span style={{ color: 'var(--color-error)' }}> *</span>}
+            </span>
+            <div className="m-scx" role="radiogroup" aria-label="Due date">
+              {presets.map((p) => (
+                <button key={p.label} type="button" role="radio" aria-checked={dueDate === p.value} className={`m-chip ${dueDate === p.value ? 'on' : ''}`} onClick={() => pickDay(dueDate === p.value ? '' : p.value)}>
+                  {p.label}
+                </button>
+              ))}
+              <label className={`m-chip relative ${otherDay ? 'on' : 'sq'}`} aria-label="Pick a date">
+                {otherDay ? new Date(`${dueDate}T00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : <span className="material-symbols-outlined m-ic s">event</span>}
+                <input type="date" value={dueDate} onChange={(e) => pickDay(e.target.value)} className="absolute inset-0 w-full h-full opacity-0 text-[16px]" />
+              </label>
+            </div>
+          </div>
+
+          <div className="m-fld">
+            <div className="flex items-center justify-between">
+              <span className="m-lbl m-mut">Time</span>
+              {dueTime && (
+                <button type="button" className="m-lbl bg-transparent border-0" style={{ color: 'var(--color-primary)', height: 24 }} onClick={() => setDueTime('')}>
+                  Clear
+                </button>
+              )}
+            </div>
+            <label className={`m-in relative justify-between ${dueDate ? '' : 'opacity-40'}`}>
+              <span className="flex items-center" style={{ gap: 10 }}>
+                <span className="material-symbols-outlined m-ic s m-mut">schedule</span>
+                <span className={dueTime ? 'm-num' : 'm-mut'}>{dueTime || (dueDate ? 'No time' : 'Pick a due date first')}</span>
+              </span>
+              <span className="material-symbols-outlined m-ic s m-mut">expand_more</span>
+              <input type="time" value={dueTime} disabled={!dueDate} onChange={(e) => setDueTime(e.target.value)} aria-label="Time" className="absolute inset-0 w-full h-full opacity-0 text-[16px]" />
+            </label>
+          </div>
+
+          <div className="m-fld">
+            <span className="m-lbl m-mut">Est. time</span>
+            <div className="m-scx" role="radiogroup" aria-label="Estimated time">
+              {EST_CHIPS.map((m) => (
+                <button key={m} type="button" role="radio" aria-checked={estMinutes === m} className={`m-chip m-num ${estMinutes === m ? 'on' : ''}`} onClick={() => setEstInput(estMinutes === m ? '' : String(m))}>
+                  {formatDuration(m)}
+                </button>
+              ))}
+              {estEditing ? (
+                <span className="m-chip on" style={{ padding: '0 10px' }}>
+                  <input
+                    autoFocus
+                    inputMode="text"
+                    defaultValue={customEst ? String(estMinutes) : ''}
+                    placeholder="1h20"
+                    aria-label="Custom estimate"
+                    className="bg-transparent border-0 outline-none text-[16px] text-on-surface"
+                    style={{ width: 64 }}
+                    onBlur={(e) => {
+                      const m = parseEstimate(e.target.value);
+                      if (m) setEstInput(String(m));
+                      setEstEditing(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                  />
+                </span>
+              ) : (
+                <button type="button" className={`m-chip ${customEst ? 'on m-num' : 'sq'}`} aria-label="Custom estimate" onClick={() => setEstEditing(true)}>
+                  {customEst ? formatDuration(estMinutes) : <span className="material-symbols-outlined m-ic s">edit</span>}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <ExpandRow icon="notifications" text={remind ? `Remind ${remind.charAt(0).toLowerCase()}${remind.slice(1)}` : 'Remind me'} empty={!remind} closedIcon="add">
+            <NotifyList
+              items={notifyItems}
+              onChange={setNotifyItems}
+              anchor={anchor}
+              zeroLabel="At due time"
+              noAnchorHint="No due date — pick a custom time, or set a due date for the other options."
+            />
+            {dueDate && !dueTime && notifyItems.some((item) => !item.customAt) && <p className="m-sm m-mut">No time set — counts from 9:00 on the due day.</p>}
+            {moments.some((m) => m !== null && m.getTime() <= Date.now()) && (
+              <p className="m-sm m-mut">{moments.length > 1 ? 'Some of these times have passed — those will not show.' : 'This time has passed — the reminder will not show.'}</p>
+            )}
+          </ExpandRow>
+
+          {error && (
+            <p role="alert" className="m-sm" style={{ color: 'var(--color-error)' }}>
+              {error}
+            </p>
+          )}
+
+          <div className="flex" style={{ gap: 8, marginTop: 'auto' }}>
+            {task && onDelete && (
+              <button type="button" className="m-btn err sq" aria-label="Delete task" onClick={() => onDelete(task.id)}>
+                <span className="material-symbols-outlined m-ic s">delete</span>
+              </button>
+            )}
+            <button type="submit" className="m-btn pri flex-1" disabled={!title.trim()}>
+              {task ? 'Save' : 'Add'}
+            </button>
+          </div>
+        </form>
+      </Sheet>
+    );
+  }
 
   return (
     <div

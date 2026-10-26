@@ -791,6 +791,22 @@ body {
   .m-bar > i { display: block; height: 100%; border-radius: 3px; }
   .m-tile { display: flex; flex-direction: column; gap: 2px; padding-left: 12px; border-left: 1px solid var(--color-outline-variant); min-width: 0; }
   .m-tile b { font: 700 19px/26px var(--font-headline-md); }
+
+  /* month (MonthAgenda) */
+  .m-mwd { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 0 12px; height: 24px; align-items: center; text-align: center; flex: none; }
+  .m-mg { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; padding: 0 12px; flex: none; }
+  .m-mc { height: 52px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0 0; border-radius: 9.6px; border: 1px solid transparent; background: none; color: var(--color-on-surface); font: 500 13px/16px var(--font-body-md); min-width: 0; }
+  .m-mc b { font-weight: 500; }
+  .m-mc i { display: block; width: 30px; max-width: 80%; height: 4px; border-radius: 2px; background: var(--c); flex: none; }
+  .m-mc i.p { background: transparent; border: 1.5px solid var(--c); }
+  .m-mc.out { color: var(--color-on-surface-variant); opacity: .45; }
+  .m-mc.today b { color: var(--color-primary); font-weight: 700; }
+  .m-mc.sel { background: var(--color-secondary-container); border-color: var(--color-outline); }
+  .m-mc.sel b { width: 22px; height: 22px; border-radius: 50%; background: var(--color-primary); color: var(--color-on-primary); line-height: 22px; text-align: center; font-weight: 700; }
+  .m-ag { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; border: 0; border-top: 1px solid var(--color-outline-variant); background: none; color: var(--color-on-surface); width: 100%; }
+  .m-ag .tm { width: 44px; flex: none; text-align: left; color: var(--color-on-surface-variant); font-size: 12px; }
+  .m-ag .bk { width: 4px; height: 28px; border-radius: 2px; background: var(--c); flex: none; }
+  .m-ag .bk.p { background: transparent; border: 1.5px solid var(--c); }
 }
 
 /* Phone add bar (Checklist, Todo): at the bottom of its pane, and while its
