@@ -1240,12 +1240,11 @@ export function CalendarPage() {
         <MultiDayView days={7} date={currentDate} events={events} subjects={subjects} onEventClick={handleEventClick} onEventMove={handleEventMove} onEventResize={handleEventResize} onDateSelect={handleDaySelect} onBackgroundClick={handleTimelineBackgroundClick} mode={eventFilter} onSwipeLeft={swipeNext} onSwipeRight={swipePrev} />
       )}
 
-      {/* Phone: months and years turn with a vertical swipe, the
-          neighbouring ones stacked above and below. */}
+      {/* Phone: months and years turn sideways like the days, each page
+          scrolling on its own. */}
       {view === 'month' &&
         (isMobile ? (
           <SwipePager
-            axis="y"
             className="flex-1 min-h-0"
             pageClassName="overflow-y-auto flex flex-col"
             pageKey={`${currentDate.getFullYear()}-${currentDate.getMonth()}`}
@@ -1273,7 +1272,6 @@ export function CalendarPage() {
       {view === 'year' &&
         (isMobile ? (
           <SwipePager
-            axis="y"
             className="flex-1 min-h-0"
             pageClassName="flex flex-col"
             pageKey={String(currentDate.getFullYear())}
