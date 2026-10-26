@@ -822,6 +822,20 @@ body {
     background: var(--color-surface-container-lowest);
     border-top: 1px solid var(--color-outline-variant);
   }
+  /* Notes tab: the formatting bar sits on the keyboard while the note is
+   * edited, like the add bar below; the note keeps room to scroll past it. */
+  .m-notes:focus-within .m-notes-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: calc((var(--vv-top, 0px) + var(--vv-height, 100vh)) / var(--app-zoom));
+    transform: translateY(-100%);
+    z-index: 90;
+  }
+  .m-notes:focus-within .m-notes-body {
+    padding-bottom: 72px !important;
+    scroll-padding-bottom: 72px;
+  }
   .m-addbar:focus-within {
     position: fixed;
     left: 0;

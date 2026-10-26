@@ -131,15 +131,17 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
     return (
       // No fade-in: a swipe remounts the panel for the new day, which must
       // show at once (the tab itself slides in).
-      <section aria-label={`Notes for ${dayLabel}`} className="flex flex-col min-h-0 flex-1">
-        <div className="flex-1 min-h-0 overflow-y-auto cursor-text" style={{ padding: '12px 16px' }} onClick={() => editor?.commands.focus()}>
+      // While typing, the formatting bar rides on top of the keyboard
+      // (.m-notes in index.css).
+      <section aria-label={`Notes for ${dayLabel}`} className="m-notes flex flex-col min-h-0 flex-1">
+        <div className="m-notes-body flex-1 min-h-0 overflow-y-auto cursor-text" style={{ padding: '12px 16px' }} onClick={() => editor?.commands.focus()}>
           <EditorContent editor={editor} />
         </div>
         {editor && (
           <div
             role="toolbar"
             aria-label="Formatting"
-            className="m-scx flex-none bg-surface-container-lowest border-t border-outline-variant"
+            className="m-notes-bar m-scx flex-none bg-surface-container-lowest border-t border-outline-variant"
             style={{ gap: 2, padding: '6px 8px' }}
           >
             {BUTTONS.map((b, i) => (
