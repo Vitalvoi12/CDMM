@@ -26,9 +26,9 @@ const VELOCITY_WINDOW_MS = 80;
 /** How far ahead a flick is projected when picking the page it lands on. */
 const PROJECT_MS = 250;
 /** Share of the page width the (projected) drag must pass to turn. */
-const TURN_FRACTION = 0.25;
+const TURN_FRACTION = 0.12;
 /** A flick at least this fast (px/ms) toward a side turns to it, however short. */
-const FLICK_SPEED = 0.3;
+const FLICK_SPEED = 0.15;
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -108,7 +108,7 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
       const v = velocity();
       const offset = el.scrollLeft - mid;
       if (Math.abs(offset) < 1 || !w) return false;
-      // Turn once the drag, carried on by the flick, passes a quarter page;
+      // Turn once the drag, carried on by the flick, passes TURN_FRACTION;
       // a clear flick the way the drag went turns regardless.
       const projected = offset + v * PROJECT_MS;
       const page =
