@@ -16,6 +16,12 @@ interface SwipeNavOptions {
 }
 
 const TURN_MS = 260;
+const EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
+/** The ease's starting slope (y1 / x1): how fast it leaves, in distances per
+ *  duration. Used to start the finish at the finger's own speed. */
+const EASE_SLOPE = 0.61 / 0.22;
+/** Finger samples older than this don't count toward the flick speed. */
+const VELOCITY_WINDOW_MS = 80;
 
 const reducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -45,8 +51,8 @@ export function useSwipeNav(options: SwipeNavOptions) {
   const offsetRef = useRef(0);
   const turningRef = useRef(false);
 
-  // Velocity tracking for a flick: the last two finger samples.
-  const lastRef = useRef<{ x: number; t: number; px: number; pt: number } | null>(null);
+  // Velocity tracking for a flick: the finger's recent positions.
+  const samplesRef = useRef<{ x: number; t: number }[]>([]);
   // A turn in flight: its animations and the swap that ends it. A new touch
   // finishes it at once, so quick flicks page through without waiting.
   const pendingRef = useRef<{ anims: Animation[]; commit: () => void } | null>(null);
@@ -75,6 +81,17 @@ export function useSwipeNav(options: SwipeNavOptions) {
     return el ? [el, ...siblings] : [];
   }, [strip]);
 
+  /** The finger's speed over the last few samples (px/ms; 0 if it paused). */
+  const velocity = useCallback(() => {
+    const s = samplesRef.current;
+    const now = performance.now();
+    const recent = s.filter((p) => now - p.t <= VELOCITY_WINDOW_MS);
+    if (recent.length < 2) return 0;
+    const a = recent[0];
+    const b = recent[recent.length - 1];
+    return b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0;
+  }, []);
+
   /** Sibling neighbours open at the page's scroll position, so hours line up. */
   const syncNeighbours = useCallback(() => {
     const { el, siblings } = strip();
@@ -99,7 +116,7 @@ export function useSwipeNav(options: SwipeNavOptions) {
     for (const n of stripEls()) {
       n.style.transform = '';
       if (!reducedMotion()) {
-        n.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(0)' }], { duration: 200, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' });
+        n.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(0)' }], { duration: 200, easing: EASE });
       }
     }
   }, [stripEls]);
@@ -130,8 +147,9 @@ export function useSwipeNav(options: SwipeNavOptions) {
   // rest of the way; only then does the period change, and since the page
   // now renders exactly what the neighbour showed, the swap is invisible.
   // Only transforms animate (iOS WebKit blanked pages fading in from
-  // opacity 0).
-  const navigate = useCallback((dir: 'left' | 'right' | null) => {
+  // opacity 0). `v` is the finger's speed at lift-off: the finish starts at
+  // that speed, so a flick carries on without a jolt.
+  const navigate = useCallback((dir: 'left' | 'right' | null, v = 0) => {
     const { el, prev, next } = strip();
     const from = offsetRef.current;
     offsetRef.current = 0;
@@ -144,9 +162,13 @@ export function useSwipeNav(options: SwipeNavOptions) {
     }
     const w = el.offsetWidth || window.innerWidth;
     const to = dir === 'left' ? -w : w;
-    // The shorter the way left, the quicker the finish.
-    const duration = Math.max(140, TURN_MS * Math.min(1, Math.abs(to - from) / w));
-    const timing = { duration, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' };
+    // The shorter the way left, the quicker the finish; a flick finishes at
+    // the finger's speed (the ease leaves at EASE_SLOPE × distance/duration).
+    const left = Math.abs(to - from);
+    const speed = Math.sign(v) === Math.sign(to) ? Math.abs(v) : 0;
+    const byDistance = Math.max(140, TURN_MS * Math.min(1, left / w));
+    const duration = speed > 0 ? Math.min(byDistance, Math.max(120, (EASE_SLOPE * left) / speed)) : byDistance;
+    const timing = { duration, easing: EASE };
     turningRef.current = true;
     const anims = els.map((n) => {
       n.style.transform = `translateX(${to}px)`;
@@ -162,6 +184,9 @@ export function useSwipeNav(options: SwipeNavOptions) {
     };
     pendingRef.current = { anims, commit };
     anims[0].onfinish = commit;
+    // iOS doesn't always deliver `finish` (the page then sat on the old
+    // period until the next touch), so a timer backs it up; commit runs once.
+    window.setTimeout(commit, duration + 60);
   }, [strip, stripEls, go]);
 
   /** Finish a running turn immediately (a new touch arrived). */
@@ -182,8 +207,12 @@ export function useSwipeNav(options: SwipeNavOptions) {
     }
     const t = e.touches[0];
     startRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
-    lastRef.current = { x: t.clientX, t: Date.now(), px: t.clientX, pt: Date.now() };
-  }, [enabled, finishTurn]);
+    samplesRef.current = [{ x: t.clientX, t: performance.now() }];
+    // Give the strip its own compositing layer before it moves, and keep it:
+    // a plain 2D translate is repainted every frame in WebKit, and promoting
+    // the layer on the first move costs a frame at the start of the drag.
+    for (const n of stripEls()) n.style.willChange = 'transform';
+  }, [enabled, finishTurn, stripEls]);
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
     const s = startRef.current;
@@ -205,8 +234,10 @@ export function useSwipeNav(options: SwipeNavOptions) {
       axisRef.current = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
       if (axisRef.current === 'x') syncNeighbours();
     }
-    const l = lastRef.current;
-    if (l) lastRef.current = { x: t.clientX, t: Date.now(), px: l.x, pt: l.t };
+    const now = performance.now();
+    const samples = samplesRef.current;
+    samples.push({ x: t.clientX, t: now });
+    while (samples.length > 2 && now - samples[0].t > VELOCITY_WINDOW_MS) samples.shift();
     if (axisRef.current === 'x') follow(dx);
     decide(dx, dy);
   }, [enabled, decide, follow, settle, syncNeighbours]);
@@ -224,10 +255,9 @@ export function useSwipeNav(options: SwipeNavOptions) {
       // The page is in the finger: where it was let go decides. Dragged back
       // toward home (and not flicked onward) means "stay".
       const dx = offsetRef.current;
-      const l = lastRef.current;
-      const v = l && l.t > l.pt ? (l.x - l.px) / (l.t - l.pt) : 0;
+      const v = velocity();
       const onward = Math.sign(v) === Math.sign(dx) && Math.abs(v) > 0.3;
-      if (Math.abs(dx) >= threshold || onward) navigate(dx < 0 ? 'left' : 'right');
+      if (Math.abs(dx) >= threshold || onward) navigate(dx < 0 ? 'left' : 'right', v);
       else settle();
       return;
     }
@@ -250,7 +280,7 @@ export function useSwipeNav(options: SwipeNavOptions) {
     }
     markGesture?.();
     navigate(dx < 0 ? 'left' : 'right');
-  }, [enabled, threshold, markGesture, navigate, settle]);
+  }, [enabled, threshold, markGesture, navigate, settle, velocity]);
 
   const onTouchCancel = useCallback(() => {
     // The browser took the gesture over mid-flight (scroll takeover, alert).
