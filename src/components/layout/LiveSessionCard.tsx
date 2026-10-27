@@ -31,7 +31,7 @@ import { SessionDock, SessionSheet } from '../mobile/SessionDock';
  * Inverse-surface so it stands out in both themes; English labels.
  */
 export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = false }: { shortcuts?: boolean; variant?: 'card' | 'dock'; hidden?: boolean } = {}) {
-  const { isActive, subjectId, title, color, startTime, elapsed, startSession, resumeSession, setStartTime, stopSession } = useActiveSession();
+  const { isActive, subjectId, title, color, startTime, elapsed, countInStats, startSession, resumeSession, setStartTime, setCountInStats, stopSession } = useActiveSession();
   const [showPicker, setShowPicker] = useState(false);
   const [showStartEditor, setShowStartEditor] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
@@ -43,7 +43,7 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
     id: string;
     name: string;
     minutes: number;
-    resume: { subjectId: string; title?: string; color?: string; start: string };
+    resume: { subjectId: string; title?: string; color?: string; start: string; countInStats?: boolean };
   } | null>(null);
 
   const subject = (subjectId ? subjectRepo.getById(subjectId) : undefined) ?? (title ? { name: title, color: color || DEFAULT_CUSTOM_COLOR } : undefined);
@@ -78,14 +78,14 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
       start: event.start,
       end: event.end,
       kind: 'real',
-      countInStats: true,
+      countInStats: event.countInStats,
     });
     setExpanded(false);
     setRating({
       id: event.id,
       name: subject?.name || event.title,
       minutes: Math.round((new Date(event.end).getTime() - new Date(event.start).getTime()) / 60000),
-      resume: { subjectId: event.subjectId, title: title || undefined, color: color || undefined, start: event.start },
+      resume: { subjectId: event.subjectId, title: title || undefined, color: color || undefined, start: event.start, countInStats: event.countInStats },
     });
   }, [stopSession, subject, title, color]);
 
@@ -159,6 +159,8 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
             <span className="material-symbols-outlined text-[13px] leading-none">edit</span>
           </button>
 
+          <StatsToggle checked={countInStats} onChange={setCountInStats} />
+
           <button
             type="button"
             onClick={finish}
@@ -193,6 +195,8 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
           startTime={startTime}
           elapsed={elapsed}
           onEditStart={() => setShowStartEditor(true)}
+          countInStats={countInStats}
+          onCountInStatsChange={setCountInStats}
           onFinish={finish}
           onClose={() => setExpanded(false)}
         />
@@ -201,9 +205,9 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
       {showPicker && (
         <SubjectPickerModal
           subjects={subjectRepo.getAll()}
-          onSelect={(id, custom) => {
+          onSelect={(id, custom, counted) => {
             setShowPicker(false);
-            startSession(id, custom);
+            startSession(id, custom, counted);
           }}
           onClose={() => setShowPicker(false)}
         />
@@ -247,5 +251,23 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
         />
       )}
     </>
+  );
+}
+/** Desktop card: whether the running session will count toward statistics. */
+function StatsToggle({ checked, onChange }: { checked: boolean; onChange: (count: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      title={checked ? 'This session counts toward statistics' : 'This session is excluded from statistics'}
+      className="self-start flex items-center gap-1.5 font-label-sm text-label-sm tracking-[0.12em] opacity-70 hover:opacity-100 transition-opacity"
+    >
+      <span className="material-symbols-outlined text-[14px] leading-none">
+        {checked ? 'check_box' : 'check_box_outline_blank'}
+      </span>
+      Count in stats
+    </button>
   );
 }

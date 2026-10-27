@@ -99,12 +99,13 @@ export function useActiveSession() {
   }, []);
 
   const startSession = useCallback(
-    (subjectId: string, custom?: { title: string; color: string }) => {
+    (subjectId: string, custom?: { title: string; color: string }, countInStats = true) => {
       mutate(() => ({
         id: genId(),
         subjectId: custom ? '' : subjectId,
         ...(custom ? { title: custom.title, color: custom.color } : {}),
         start: new Date().toISOString(),
+        ...(countInStats ? {} : { countInStats: false }),
         updatedAt: 0,
       }));
     },
@@ -117,13 +118,14 @@ export function useActiveSession() {
    * tombstones.
    */
   const resumeSession = useCallback(
-    (prev: { subjectId: string; title?: string; color?: string; start: string }) => {
+    (prev: { subjectId: string; title?: string; color?: string; start: string; countInStats?: boolean }) => {
       mutate(() => ({
         id: genId(),
         subjectId: prev.subjectId,
         ...(prev.title ? { title: prev.title } : {}),
         ...(prev.color ? { color: prev.color } : {}),
         start: prev.start,
+        ...(prev.countInStats === false ? { countInStats: false } : {}),
         updatedAt: 0,
       }));
     },
@@ -152,6 +154,18 @@ export function useActiveSession() {
     [mutate]
   );
 
+  /** Switch whether the running session will count toward statistics. */
+  const setCountInStats = useCallback(
+    (count: boolean) => {
+      mutate((prev) => {
+        if (!prev || (prev.countInStats !== false) === count) return prev;
+        // `undefined` drops out of the synced JSON: absent means it counts.
+        return { ...prev, countInStats: count ? undefined : false };
+      });
+    },
+    [mutate]
+  );
+
   /**
    * Close the session and return the event to persist.
    *
@@ -175,7 +189,7 @@ export function useActiveSession() {
       start: current.start,
       end: end.toISOString(),
       kind: 'real',
-      countInStats: true,
+      countInStats: current.countInStats !== false,
       updatedAt: Date.now(),
     };
   }, [mutate]);
@@ -187,14 +201,17 @@ export function useActiveSession() {
     title: session?.title || null,
     color: session?.color || null,
     /** Display reference for the running session, or null when idle. */
-    live: session ? { subjectId: session.subjectId, start: session.start, title: session.title, color: session.color } : null,
+    live: session ? { subjectId: session.subjectId, start: session.start, title: session.title, color: session.color, countInStats: session.countInStats } : null,
     startTime: session?.start || null,
+    /** False while the running session is excluded from statistics. */
+    countInStats: session?.countInStats !== false,
     /** Focus ms, ticking every second. */
     elapsed: session ? elapsed : 0,
     startSession,
     resumeSession,
     /** Move the session's origin, e.g. to count work that began before tracking. */
     setStartTime,
+    setCountInStats,
     stopSession,
   };
 }

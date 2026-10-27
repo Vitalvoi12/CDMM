@@ -26,30 +26,121 @@ interface DockProps {
 }
 
 /**
- * The phone's session bar, pinned above the bottom nav on every page. Idle it
- * offers Start; running it shows the subject, the timer and Finish, and a tap
- * anywhere else on it opens the session sheet.
+ * The phone's session bar, pinned above the bottom nav on every page. Idle,
+ * a tap anywhere on it opens the subject picker to start a session; running,
+ * it is the SwipeDock below.
  */
 export function SessionDock({ active, name, color, startTime, elapsed, onStart, onFinish, onExpand }: DockProps) {
   if (!active) {
     return (
-      <div className="m-dock lg:hidden">
+      <button type="button" className="m-dock lg:hidden w-[calc(100%-16px)] text-left" style={{ paddingRight: 14 }} onClick={onStart} aria-label="No active session. Tap to start one">
         <span className="m-dot" style={{ background: 'var(--color-outline)' }} />
         <span className="flex-1 min-w-0 font-semibold m-tr">No active session</span>
-        <button type="button" className="m-btn pri" onClick={onStart}>
-          Start
-        </button>
-      </div>
+        <span className="material-symbols-outlined m-ic m-mut" aria-hidden="true">play_arrow</span>
+      </button>
     );
   }
+  return <SwipeDock name={name} color={color} startTime={startTime} elapsed={elapsed} onFinish={onFinish} onExpand={onExpand} />;
+}
+
+/** Share of the bar's width a swipe must pass before letting go finishes. */
+const FINISH_AT = 0.4;
+
+/**
+ * The running bar: a tap opens the session sheet, a swipe to the left
+ * uncovers a red "Release to finish" strip, and letting go past FINISH_AT
+ * finishes. Short of it the bar slides back. The sheet's slide is the
+ * keyboard path to Finish.
+ */
+function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit<DockProps, 'active' | 'onStart'>) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; scale: number; width: number; on: boolean } | null>(null);
+  const moved = useRef(false);
+  const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+
+  const past = (x: number) => !!drag.current && -x >= drag.current.width * FINISH_AT;
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const bar = barRef.current;
+    if (!bar || e.button !== 0) return;
+    const rect = bar.getBoundingClientRect();
+    // clientX is in on-screen px, the translate in layout px (the body is zoomed).
+    const scale = rect.width / (bar.offsetWidth || rect.width);
+    drag.current = { x: e.clientX, y: e.clientY, scale, width: bar.offsetWidth, on: false };
+    moved.current = false;
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const mx = (e.clientX - d.x) / d.scale;
+    const my = (e.clientY - d.y) / d.scale;
+    if (!d.on) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      if (Math.abs(my) > Math.abs(mx)) {
+        drag.current = null;
+        return;
+      }
+      d.on = true;
+      moved.current = true;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      setDragging(true);
+    }
+    setDx(Math.max(-d.width, Math.min(0, mx)));
+  };
+  const onPointerUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.on) return;
+    setDragging(false);
+    if (-dx >= d.width * FINISH_AT) {
+      // Slide the bar off, then finish; the idle bar takes its place.
+      setDx(-d.width);
+      window.setTimeout(() => {
+        onFinish();
+        setDx(0);
+      }, 160);
+    } else {
+      setDx(0);
+    }
+  };
+
+  const ready = dragging ? past(dx) : dx < 0;
   return (
-    <div className="m-dock lg:hidden">
+    <div
+      ref={barRef}
+      className="m-dock lg:hidden relative overflow-hidden"
+      style={{ padding: 0, border: 0, boxShadow: 'none', background: dx < 0 ? 'var(--color-error)' : 'transparent' }}
+    >
+      {dx < 0 && (
+        <span
+          className="absolute inset-0 flex items-center justify-end"
+          style={{ gap: 8, padding: '0 18px', color: 'var(--color-background)', opacity: ready ? 1 : 0.6 }}
+          aria-hidden="true"
+        >
+          <span className="m-lbm">{ready ? 'Release to finish' : 'Swipe to finish'}</span>
+          <span className="material-symbols-outlined m-ic">stop_circle</span>
+        </span>
+      )}
       <button
         type="button"
-        onClick={onExpand}
-        aria-label={`${name} session, ${formatClock(elapsed)}. Open the session`}
-        className="flex-1 min-w-0 self-stretch flex items-center bg-transparent border-0 p-0 text-left text-inherit"
-        style={{ gap: 10 }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onClick={() => {
+          // A swipe ends in a click too; only a tap opens the sheet.
+          if (moved.current) moved.current = false;
+          else onExpand();
+        }}
+        aria-label={`${name} session, ${formatClock(elapsed)}. Tap to open, swipe left to finish`}
+        className="m-dock absolute inset-0 text-left [touch-action:pan-y] select-none"
+        style={{
+          margin: 0,
+          transform: `translateX(${dx}px)`,
+          transition: dragging ? 'none' : 'transform 160ms ease-out',
+          boxShadow: dx < 0 ? 'var(--shadow-elev-3)' : undefined,
+        }}
       >
         <span className="relative flex m-dot" style={{ background: color || 'currentColor' }}>
           <span className="absolute inset-0 rounded-full opacity-40 animate-ping" style={{ background: color || 'currentColor' }} />
@@ -59,27 +150,27 @@ export function SessionDock({ active, name, color, startTime, elapsed, onStart, 
           <span className="m-sm m-mut">Started {startTime ? timeFromDate(startTime) : '--:--'}</span>
         </span>
         <span className="m-h2 m-num">{formatClock(elapsed)}</span>
-      </button>
-      <button type="button" className="m-btn err" onClick={onFinish} aria-label="Finish session">
-        Finish
+        <span className="material-symbols-outlined m-ic s m-mut" style={{ margin: '0 8px 0 2px', opacity: 0.6 }} aria-hidden="true">
+          keyboard_double_arrow_left
+        </span>
       </button>
     </div>
   );
 }
 
 /** Today's focus minutes (running session included) and the day streak. */
-function useTodayAndStreak(startTime: string | null, elapsed: number) {
+function useTodayAndStreak(startTime: string | null, elapsed: number, countInStats: boolean) {
   // Recomputed once a minute, not every tick of the timer.
   const minute = Math.floor(elapsed / 60000);
   return useMemo(() => {
     const now = startTime ? new Date(startTime).getTime() + minute * 60000 : Date.now();
-    const live = startTime ? liveEventForDate({ subjectId: '', start: startTime }, new Date(now), now) : null;
+    const live = startTime ? liveEventForDate({ subjectId: '', start: startTime, countInStats }, new Date(now), now) : null;
     const events = live ? [...eventRepo.getAll(), live] : eventRepo.getAll();
     return {
       todayMinutes: calculateDailyStats(events, new Date(now)).totalMinutes,
       streak: focusStreak(events, new Date(now)),
     };
-  }, [startTime, minute]);
+  }, [startTime, countInStats, minute]);
 }
 
 interface SheetProps {
@@ -88,13 +179,15 @@ interface SheetProps {
   startTime: string | null;
   elapsed: number;
   onEditStart: () => void;
+  countInStats: boolean;
+  onCountInStatsChange: (count: boolean) => void;
   onFinish: () => void;
   onClose: () => void;
 }
 
 /** The expanded session: big timer, start fix, today / streak, slide to finish. */
-export function SessionSheet({ name, color, startTime, elapsed, onEditStart, onFinish, onClose }: SheetProps) {
-  const { todayMinutes, streak } = useTodayAndStreak(startTime, elapsed);
+export function SessionSheet({ name, color, startTime, elapsed, onEditStart, countInStats, onCountInStatsChange, onFinish, onClose }: SheetProps) {
+  const { todayMinutes, streak } = useTodayAndStreak(startTime, elapsed, countInStats);
   return (
     <Sheet label="Live session" onClose={onClose} className="!gap-[18px]">
       <div className="m-shd">
@@ -116,6 +209,7 @@ export function SessionSheet({ name, color, startTime, elapsed, onEditStart, onF
           Started {startTime ? timeFromDate(startTime) : '--:--'}
           <span className="material-symbols-outlined m-ic s">edit</span>
         </button>
+        <StatsCheck checked={countInStats} onChange={onCountInStatsChange} />
       </div>
 
       <div className="grid grid-cols-2" style={{ gap: 12 }}>
@@ -131,6 +225,23 @@ export function SessionSheet({ name, color, startTime, elapsed, onEditStart, onF
 
       <SlideToFinish onDone={onFinish} />
     </Sheet>
+  );
+}
+
+/** Phone: whether the session counts toward statistics, as a small checkbox chip. */
+export function StatsCheck({ checked, onChange }: { checked: boolean; onChange: (count: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      className="m-chip"
+      style={{ border: 0, background: 'none', color: 'var(--color-on-surface-variant)' }}
+      onClick={() => onChange(!checked)}
+    >
+      <span className="material-symbols-outlined m-ic s">{checked ? 'check_box' : 'check_box_outline_blank'}</span>
+      Count in stats
+    </button>
   );
 }
 

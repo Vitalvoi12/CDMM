@@ -19,6 +19,7 @@ export function StudyPage() {
     live,
     startTime,
     elapsed,
+    countInStats: liveCounted,
     startSession,
     setStartTime,
     stopSession,
@@ -77,7 +78,7 @@ export function StudyPage() {
       start: event.start,
       end: event.end,
       kind: 'real',
-      countInStats: true,
+      countInStats: event.countInStats,
     });
     setRating({
       id: event.id,
@@ -92,9 +93,9 @@ export function StudyPage() {
   }, []);
 
   const handleSubjectSelected = useCallback(
-    (id: string, custom?: { title: string; color: string }) => {
+    (id: string, custom?: { title: string; color: string }, counted?: boolean) => {
       setShowSubjectPicker(false);
-      startSession(id, custom);
+      startSession(id, custom, counted);
     },
     [startSession]
   );
@@ -113,7 +114,7 @@ export function StudyPage() {
     [todayEvents]
   );
 
-  const liveMinutes = isActive && startTime ? Math.floor(elapsed / 60000) : 0;
+  const liveMinutes = isActive && startTime && liveCounted ? Math.floor(elapsed / 60000) : 0;
 
   const todayTotalMinutes = useMemo(() => {
     let sum = liveMinutes;

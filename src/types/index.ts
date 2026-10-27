@@ -232,6 +232,11 @@ export interface SyncedSession {
    */
   start: string;
   /**
+   * `false` when the session was started as not counting toward statistics;
+   * absent means it counts. Finish copies it onto the saved event.
+   */
+  countInStats?: boolean;
+  /**
    * Timestamp of the last mutation. The session is a field inside the single
    * synced settings record, so it needs its own clock for last-write-wins —
    * otherwise a theme change on another device would clobber it.

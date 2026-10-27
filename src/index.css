@@ -744,6 +744,11 @@ body {
   .m-btn.sq { width: 44px; padding: 0; }
   .m-btn:disabled { opacity: .4; }
   .m-fab { position: absolute; right: 16px; bottom: 14px; width: 56px; height: 56px; border-radius: 12px; border: 0; background: var(--color-primary); color: var(--color-on-primary); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-elev-3); z-index: 20; }
+  /* Day view panel switch (Day / Stat / Check / Notes), floating over the panel. */
+  .m-pp { position: absolute; left: 50%; touch-action: manipulation; transform: translateX(-50%); display: flex; gap: 2px; padding: 4px; border-radius: 14px; background: var(--color-surface-container-lowest); border: 1px solid var(--color-outline-variant); box-shadow: var(--shadow-elev-3); z-index: 20; }
+  .m-pp > button { min-width: 48px; height: 44px; border: 0; border-radius: 10px; background: none; color: var(--color-on-surface-variant); display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; padding: 0; }
+  .m-pp > .on { background: var(--color-secondary-container); color: var(--color-on-secondary-container); padding: 0 12px 0 10px; }
+  .m-pp .m-badge { position: absolute; top: 3px; right: 4px; min-width: 14px; height: 14px; font-size: 9px; line-height: 14px; padding: 0 3px; }
 
   /* chips and fields */
   .m-chip { height: 44px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; flex: none; border: 1px solid var(--color-outline-variant); border-radius: 9.6px; background: var(--color-surface-container-low); color: var(--color-on-surface); font: 500 13px/19px var(--font-body-md); white-space: nowrap; }

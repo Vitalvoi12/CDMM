@@ -9,11 +9,15 @@ import { calculateDailyStats } from '../../utils/stats';
 import { weeklyGoalProgress } from '../../utils/goals';
 import { formatDuration } from '../../utils/time';
 import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
+import { StatsCheck } from '../mobile/SessionDock';
 
 interface SubjectPickerModalProps {
   subjects: Subject[];
-  /** `custom` is set for a free-form session not tied to any subject. */
-  onSelect: (subjectId: string, custom?: { title: string; color: string }) => void;
+  /**
+   * `custom` is set for a free-form session not tied to any subject.
+   * `countInStats` is false when the session starts excluded from statistics.
+   */
+  onSelect: (subjectId: string, custom: { title: string; color: string } | undefined, countInStats: boolean) => void;
   onClose: () => void;
 }
 
@@ -29,6 +33,7 @@ export function SubjectPickerModal(props: SubjectPickerModalProps) {
 function MobileSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModalProps) {
   const [title, setTitle] = useState('');
   const [color, setColor] = useState(DEFAULT_CUSTOM_COLOR);
+  const [counted, setCounted] = useState(true);
   const trimmed = title.trim();
   const { today, goals } = useMemo(() => {
     const events = eventRepo.getAll();
@@ -50,6 +55,10 @@ function MobileSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModal
         </button>
       </div>
 
+      <span className="self-start" style={{ marginTop: -8 }}>
+        <StatsCheck checked={counted} onChange={setCounted} />
+      </span>
+
       <div className="grid grid-cols-2" style={{ gap: 8 }}>
         {subjects.map((subject) => {
           const goal = goals.get(subject.id);
@@ -58,7 +67,7 @@ function MobileSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModal
             <button
               key={subject.id}
               type="button"
-              onClick={() => onSelect(subject.id)}
+              onClick={() => onSelect(subject.id, undefined, counted)}
               className="flex flex-col justify-between text-left"
               style={{ gap: 10, minHeight: 84, padding: '12px 14px', border: '1px solid var(--color-outline-variant)', borderRadius: 12, background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)' }}
             >
@@ -83,7 +92,7 @@ function MobileSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModal
         className="m-fld"
         onSubmit={(e) => {
           e.preventDefault();
-          if (trimmed) onSelect('', { title: trimmed, color });
+          if (trimmed) onSelect('', { title: trimmed, color }, counted);
         }}
       >
         <label className="m-lbl m-mut" htmlFor="m-custom-session">Custom event</label>
@@ -130,6 +139,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
   const [custom, setCustom] = useState(false);
   const [title, setTitle] = useState('');
   const [color, setColor] = useState(DEFAULT_CUSTOM_COLOR);
+  const [counted, setCounted] = useState(true);
   const trimmed = title.trim();
 
   useEscapeOverlay(onClose);
@@ -158,7 +168,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
             className="flex flex-col gap-4 max-lg:gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              if (trimmed) onSelect('', { title: trimmed, color });
+              if (trimmed) onSelect('', { title: trimmed, color }, counted);
             }}
           >
             <AutoGrowTextarea
@@ -198,7 +208,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
           {subjects.map((subject) => (
             <button
               key={subject.id}
-              onClick={() => onSelect(subject.id)}
+              onClick={() => onSelect(subject.id, undefined, counted)}
               className="flex items-center gap-4 max-lg:gap-3 px-4 py-3 max-lg:p-2.5 rounded-xl border border-transparent hover:border-outline-variant hover:bg-surface-container transition-colors text-left"
             >
               <div className="w-3 h-3 max-lg:w-2.5 max-lg:h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: subject.color }} />
@@ -214,6 +224,23 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
           </button>
         </div>
         )}
+        {/* Same checkbox as the event editor's "Count in stats?". */}
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={counted}
+          onClick={() => setCounted((v) => !v)}
+          className="mt-4 flex items-center gap-3 self-start px-1 py-1 group"
+        >
+          <span
+            className={`w-[18px] h-[18px] rounded-[5px] border flex items-center justify-center transition-colors ${
+              counted ? 'bg-primary border-primary' : 'border-outline bg-surface-container-low'
+            }`}
+          >
+            {counted && <span className="material-symbols-outlined text-[13px] text-on-primary leading-none">check</span>}
+          </span>
+          <span className="font-label-sm text-label-sm text-on-surface uppercase tracking-[0.16em]">Count in stats?</span>
+        </button>
         <button
           onClick={custom ? () => setCustom(false) : onClose}
           className="mt-5 max-lg:mt-4 w-full py-2.5 max-lg:py-2 max-lg:!text-[8px] border border-outline-variant rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"

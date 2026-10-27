@@ -35,13 +35,13 @@ function weekMinutes(events: CalendarEvent[], now: number): Map<string, number> 
  * the running one first (there is only ever one live session).
  */
 export function SubjectList({ subjects, onEdit, onAdd }: SubjectListProps) {
-  const { isActive, subjectId: liveId, startTime, elapsed, startSession } = useActiveSession();
+  const { isActive, subjectId: liveId, startTime, elapsed, countInStats, startSession } = useActiveSession();
   const minute = Math.floor(elapsed / 60000);
   const minutes = useMemo(() => {
     const now = startTime ? Date.parse(startTime) + minute * 60000 : Date.now();
-    const live = startTime ? liveEventForDate({ subjectId: liveId || '', start: startTime }, new Date(now), now) : null;
+    const live = startTime ? liveEventForDate({ subjectId: liveId || '', start: startTime, countInStats }, new Date(now), now) : null;
     return weekMinutes(live ? [...eventRepo.getAll(), live] : eventRepo.getAll(), now);
-  }, [startTime, liveId, minute]);
+  }, [startTime, liveId, countInStats, minute]);
   const undoName = undoLabel();
 
   return (

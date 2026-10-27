@@ -29,6 +29,7 @@ import { setDockHidden } from '../components/mobile/belowDock';
 import { SwipePager } from '../components/mobile/SwipePager';
 import { MonthAgenda } from '../components/mobile/MonthAgenda';
 import { useSlideIn } from '../hooks/useSlideIn';
+import { PanelPill, type PillItem } from '../components/mobile/PanelPill';
 import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
 import { DEFAULT_TASK_MINUTES, type TaskDragPayload } from '../services/taskDrag';
@@ -52,9 +53,22 @@ const FILTERS: { id: EventFilter; label: string; title: string }[] = [
 
 const noop = () => {};
 
-/** Height of the phone Notes tab's formatting bar (44px buttons, 6px
- *  padding, 1px top border). */
-const NOTES_BAR_PX = 57;
+/** Phone: the floating switch's bottom edge above the nav — 14px over the session bar (56 + 6). */
+const PILL_LIFT_PX = 14 + 62;
+
+/** Phone: the floating switch's items — the day's panels, and the ranges shown everywhere else. */
+const PANEL_ITEMS = [
+  { key: 'timeline', icon: 'view_timeline', label: 'Day' },
+  { key: 'stats', icon: 'insights', label: 'Stat' },
+  { key: 'tasks', icon: 'task_alt', label: 'Check' },
+  { key: 'notes', icon: 'edit_note', label: 'Notes' },
+] as const satisfies readonly PillItem<DayPanel>[];
+const RANGE_ITEMS = [
+  { key: 'day', icon: 'view_day', label: 'Day' },
+  { key: '3day', icon: 'view_column', label: '3 days' },
+  { key: 'month', icon: 'calendar_month', label: 'Month' },
+  { key: 'year', icon: 'calendar_view_month', label: 'Year' },
+] as const satisfies readonly PillItem<'day' | '3day' | 'month' | 'year'>[];
 
 /** Whether a touch began inside the handler's own DOM, not in a portal that
  *  React bubbles to it (portals sit elsewhere on the page). */
@@ -125,7 +139,7 @@ export function CalendarPage() {
   // Todo tasks due on the shown day are listed at the end of the Checklist.
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const [dayTasks, setDayTasks] = useState<DayTaskList[]>(() => dayTaskRepo.getAll());
-  const { isActive, subjectId, title: sessionTitle, color: sessionColor, startTime, elapsed } = useActiveSession();
+  const { isActive, subjectId, title: sessionTitle, color: sessionColor, startTime, elapsed, countInStats: sessionCounted } = useActiveSession();
   const navigate = useNavigate();
 
   // Deep link from the Statistics heatmap: jump to the tapped day.
@@ -156,15 +170,16 @@ export function CalendarPage() {
     recurrenceId?: string | null;
   } | null>(null);
   const [dayPanel, setDayPanel] = useState<DayPanel>('timeline');
-  // Phone: the session bar shows over the calendar itself, not the day's Stat / Check / Notes panels.
+  // Phone: the session bar shows over the calendar and the day's Stat panel, not over Check / Notes
+  // (they keep their add bar / formatting bar there).
   // The day's panels slide in from their side of Day → Stat → Check → Notes.
   const panelSlideIn = useSlideIn(dayPanel, DAY_PANELS);
-  const hideDock = isMobile && view === 'day' && dayPanel !== 'timeline';
+  const hideDock = isMobile && view === 'day' && (dayPanel === 'tasks' || dayPanel === 'notes');
   useEffect(() => {
     setDockHidden(hideDock);
     return () => setDockHidden(false);
   }, [hideDock]);
-  // Mobile view sheet (the date title or the tune icon).
+  // Mobile view sheet (the date title, or a double tap on the floating switch).
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
   // Desktop day view: the right column shows either statistics or tasks.
   const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks' | 'notes'>('stats');
@@ -294,9 +309,9 @@ export function CalendarPage() {
   const activeSession = useMemo(
     () =>
       isActive && startTime && (subjectId || sessionTitle)
-        ? { subjectId: subjectId || '', start: startTime, title: sessionTitle || undefined, color: sessionColor || undefined }
+        ? { subjectId: subjectId || '', start: startTime, title: sessionTitle || undefined, color: sessionColor || undefined, countInStats: sessionCounted }
         : null,
-    [isActive, subjectId, sessionTitle, sessionColor, startTime]
+    [isActive, subjectId, sessionTitle, sessionColor, startTime, sessionCounted]
   );
 
   // The day's statistics must include the running session: it has no stored
@@ -1005,8 +1020,8 @@ export function CalendarPage() {
   };
   const openTaskCount = shownTasks.filter((t) => !t.done).length;
 
-  // Phone header: ‹ title › Today. The title names the shown range and,
-  // like the tune button at the bottom right, opens the view sheet.
+  // Phone header: ‹ title › Today. The title names the shown range and opens
+  // the view sheet (a double tap on the floating switch does too).
   const mobileTitle = (() => {
     if (view === 'day') return currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
     if (view === '3day') {
@@ -1058,9 +1073,6 @@ export function CalendarPage() {
           onEventFilterChange={setEventFilter}
           date={currentDate}
           onDateChange={setCurrentDate}
-          dayPanel={dayPanel}
-          onDayPanelChange={setDayPanel}
-          openTaskCount={openTaskCount}
           onClose={() => setViewSettingsOpen(false)}
         />
       )}
@@ -1225,11 +1237,19 @@ export function CalendarPage() {
           </div>
         ))}
 
-      {isMobile && (
-        // On the Notes tab the button rides above the formatting bar.
-        <button type="button" className="m-fab" style={view === 'day' && dayPanel === 'notes' ? { bottom: 14 + NOTES_BAR_PX } : undefined} aria-label="View settings" onClick={() => setViewSettingsOpen(true)}>
-          <span className="material-symbols-outlined m-ic l">tune</span>
-        </button>
+      {isMobile && view === 'day' && (
+        <PanelPill
+          label="Day panel"
+          items={PANEL_ITEMS.map((i) => (i.key === 'tasks' ? { ...i, badge: openTaskCount } : i))}
+          value={dayPanel}
+          onChange={setDayPanel}
+          onDoubleTap={() => setViewSettingsOpen(true)}
+          lift={PILL_LIFT_PX}
+        />
+      )}
+      {/* Elsewhere it switches the range, so month and year have a visible way back to the days. */}
+      {isMobile && (view === '3day' || view === 'month' || view === 'year') && (
+        <PanelPill label="Range" items={RANGE_ITEMS} value={view} onChange={setView} onDoubleTap={() => setViewSettingsOpen(true)} lift={PILL_LIFT_PX} />
       )}
 
       {view === '3day' && (
@@ -1246,7 +1266,8 @@ export function CalendarPage() {
         (isMobile ? (
           <SwipePager
             className="flex-1 min-h-0"
-            pageClassName="overflow-y-auto flex flex-col"
+            // Room at the bottom to scroll the last days out from under the range switch.
+            pageClassName="overflow-y-auto flex flex-col pb-20"
             pageKey={`${currentDate.getFullYear()}-${currentDate.getMonth()}`}
             onPrev={goToPrevious}
             onNext={goToNext}

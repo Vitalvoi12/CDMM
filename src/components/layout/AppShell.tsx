@@ -85,7 +85,7 @@ export function AppShell() {
         {isMobile && <UndoToast />}
       </div>
       {/* The phone shows the session bar on the calendar's views only (not its
-          Stat / Check / Notes panels); elsewhere it stays mounted, hidden, for
+          Check / Notes panels); elsewhere it stays mounted, hidden, for
           its dialogs and the Subjects page's Finish. */}
       {isMobile && <LiveSessionCard variant="dock" shortcuts hidden={pathname !== '/' || dockHidden} />}
       {/* Phone pages can portal a bar here to sit under the session dock (see BELOW_DOCK_ID). */}

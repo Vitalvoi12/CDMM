@@ -674,6 +674,7 @@ function sanitizeSession(raw: unknown): SyncedSession | null {
     ...(title ? { title } : {}),
     ...(color ? { color } : {}),
     start,
+    ...(r.countInStats === false ? { countInStats: false } : {}),
     updatedAt: num(r.updatedAt),
   };
 }

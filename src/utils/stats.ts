@@ -59,6 +59,8 @@ export interface LiveSessionRef {
   /** Custom (subject-less) session name and color. */
   title?: string;
   color?: string;
+  /** `false` for a session started as not counting toward statistics. */
+  countInStats?: boolean;
 }
 
 /**
@@ -98,7 +100,7 @@ export function liveEventForDate(
     start: new Date(start).toISOString(),
     end: new Date(end).toISOString(),
     kind: 'real',
-    countInStats: true,
+    countInStats: session.countInStats !== false,
     updatedAt: 0,
   };
 }
