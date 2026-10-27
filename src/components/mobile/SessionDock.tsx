@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet } from './Sheet';
 import { eventRepo } from '../../services/repositories';
 import { focusStreak } from '../../utils/analytics';
@@ -37,11 +37,41 @@ export function SessionDock({ active, ...dock }: DockProps) {
 /** Share of the bar's width a swipe must pass before letting go finishes. */
 const FINISH_AT = 0.4;
 
+/** First-run hint: the bar slides itself this far left to show the finish strip… */
+const HINT_PX = 50;
+/** …for this long, on the first HINT_TIMES appearances, until a swipe has finished a session once. */
+const HINT_MS = 1200;
+const HINT_TIMES = 2;
+const HINT_COUNT_KEY = 'cdmm.dock-hint-count';
+const SWIPED_KEY = 'cdmm.dock-swiped';
+
+/** Whether this appearance of the bar shows the hint; counts it if so. */
+function takeHint(): boolean {
+  try {
+    if (localStorage.getItem(SWIPED_KEY)) return false;
+    const n = Number(localStorage.getItem(HINT_COUNT_KEY)) || 0;
+    if (n >= HINT_TIMES) return false;
+    localStorage.setItem(HINT_COUNT_KEY, String(n + 1));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function markSwiped(): void {
+  try {
+    localStorage.setItem(SWIPED_KEY, '1');
+  } catch {
+    // storage unavailable — the hint may show again
+  }
+}
+
 /**
  * The running bar: a tap opens the session sheet, a swipe to the left
  * uncovers a red "Release to finish" strip, and letting go past FINISH_AT
  * finishes. Short of it the bar slides back. The sheet's slide is the
- * keyboard path to Finish.
+ * keyboard path to Finish. The first times it appears it nudges itself left
+ * and says "Swipe left to finish" (just the words under reduced motion).
  */
 function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit<DockProps, 'active'>) {
   const barRef = useRef<HTMLDivElement>(null);
@@ -49,12 +79,42 @@ function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit
   const moved = useRef(false);
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [hint, setHint] = useState(false);
+  const hintMoved = useRef(false);
+
+  useEffect(() => {
+    if (!takeHint()) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let end = 0;
+    const start = window.setTimeout(() => {
+      setHint(true);
+      if (!still) {
+        hintMoved.current = true;
+        setDx(-HINT_PX);
+      }
+      end = window.setTimeout(stopHint, HINT_MS);
+    }, 600);
+    return () => {
+      window.clearTimeout(start);
+      window.clearTimeout(end);
+    };
+  }, []);
+
+  /** Ends the hint (its time is up, or a finger landed): the bar slides back. */
+  function stopHint() {
+    setHint(false);
+    if (hintMoved.current) {
+      hintMoved.current = false;
+      setDx(0);
+    }
+  }
 
   const past = (x: number) => !!drag.current && -x >= drag.current.width * FINISH_AT;
 
   const onPointerDown = (e: React.PointerEvent) => {
     const bar = barRef.current;
     if (!bar || e.button !== 0) return;
+    if (hint) stopHint();
     const rect = bar.getBoundingClientRect();
     // clientX is in on-screen px, the translate in layout px (the body is zoomed).
     const scale = rect.width / (bar.offsetWidth || rect.width);
@@ -87,6 +147,7 @@ function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit
     if (-dx >= d.width * FINISH_AT) {
       // Slide the bar off, then finish; the idle bar takes its place.
       setDx(-d.width);
+      markSwiped();
       window.setTimeout(() => {
         onFinish();
         setDx(0);
@@ -96,7 +157,7 @@ function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit
     }
   };
 
-  const ready = dragging ? past(dx) : dx < 0;
+  const ready = dragging ? past(dx) : dx < 0 && !hint;
   return (
     <div
       ref={barRef}
@@ -129,7 +190,7 @@ function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit
         style={{
           margin: 0,
           transform: `translateX(${dx}px)`,
-          transition: dragging ? 'none' : 'transform 160ms ease-out',
+          transition: dragging ? 'none' : hint ? 'transform 360ms cubic-bezier(0.22, 0.61, 0.36, 1)' : 'transform 160ms ease-out',
           boxShadow: dx < 0 ? 'var(--shadow-elev-3)' : undefined,
         }}
       >
@@ -138,7 +199,11 @@ function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit
         </span>
         <span className="flex flex-col flex-1 min-w-0">
           <span className="font-semibold m-tr">{name}</span>
-          <span className="m-sm m-mut">Started {startTime ? timeFromDate(startTime) : '--:--'}</span>
+          {hint ? (
+            <span className="m-sm" style={{ color: 'var(--color-on-surface)' }}>Swipe left to finish</span>
+          ) : (
+            <span className="m-sm m-mut">Started {startTime ? timeFromDate(startTime) : '--:--'}</span>
+          )}
         </span>
         <span className="m-h2 m-num">{formatClock(elapsed)}</span>
         <span className="material-symbols-outlined m-ic s m-mut" style={{ margin: '0 8px 0 2px', opacity: 0.6 }} aria-hidden="true">
