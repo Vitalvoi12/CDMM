@@ -11,66 +11,66 @@
    * spacing-based utility (p-*, m-*, gap-*, w-12, pl-72, …) shrinks 20%. */
   --spacing: 0.2rem;
 
-  --color-background: #e2e2e2;
-  --color-on-background: #1c0f13;
-  --color-surface: #ebebed;
-  --color-surface-dim: #c9cacc;
-  --color-surface-bright: #f7f7f8;
-  --color-surface-variant: #d3d4d8;
-  --color-on-surface: #1c0f13;
-  --color-on-surface-variant: #5d6d73;
-  --color-surface-container-lowest: #f8f8f9;
-  --color-surface-container-low: #eeeeef;
-  --color-surface-container: #e2e2e2;
-  --color-surface-container-high: #d2d2d8;
-  --color-surface-container-highest: #bbbac6;
-  --color-inverse-surface: #1c0f13;
-  --color-inverse-on-surface: #e2e2e2;
-  --color-inverse-primary: #b7cece;
-  --color-scrim: rgba(28, 15, 19, 0.45);
+  --color-background: #f4f1ea;
+  --color-on-background: #1f1d19;
+  --color-surface: #faf8f4;
+  --color-surface-dim: #e6e1d7;
+  --color-surface-bright: #ffffff;
+  --color-surface-variant: #ede9e1;
+  --color-on-surface: #1f1d19;
+  --color-on-surface-variant: #5e594f;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f8f6f1;
+  --color-surface-container: #f0ece4;
+  --color-surface-container-high: #e9e4da;
+  --color-surface-container-highest: #dfd9cd;
+  --color-inverse-surface: #1f1d19;
+  --color-inverse-on-surface: #f4f1ea;
+  --color-inverse-primary: #e9826a;
+  --color-scrim: rgba(31, 29, 25, 0.4);
 
-  --color-primary: #1c0f13;
-  --color-on-primary: #e2e2e2;
-  --color-primary-container: #bbbac6;
-  --color-on-primary-container: #1c0f13;
-  --color-primary-fixed: #bbbac6;
-  --color-primary-fixed-dim: #6e7e85;
-  --color-on-primary-fixed: #1c0f13;
-  --color-on-primary-fixed-variant: #3a3742;
+  --color-primary: #b04a34;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #f7dcd3;
+  --color-on-primary-container: #4a1a10;
+  --color-primary-fixed: #e9826a;
+  --color-primary-fixed-dim: #b04a34;
+  --color-on-primary-fixed: #1f1d19;
+  --color-on-primary-fixed-variant: #4a1a10;
 
-  --color-secondary: #6e7e85;
-  --color-on-secondary: #f4f4f5;
-  --color-secondary-container: #b7cece;
-  --color-on-secondary-container: #1c0f13;
-  --color-secondary-fixed: #b7cece;
-  --color-secondary-fixed-dim: #6e7e85;
-  --color-on-secondary-fixed: #16211f;
-  --color-on-secondary-fixed-variant: #2c383d;
+  --color-secondary: #6f695e;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #e8dfd2;
+  --color-on-secondary-container: #1f1d19;
+  --color-secondary-fixed: #e8dfd2;
+  --color-secondary-fixed-dim: #8c857a;
+  --color-on-secondary-fixed: #1f1d19;
+  --color-on-secondary-fixed-variant: #3d3932;
 
-  --color-tertiary: #5d6b71;
-  --color-tertiary-container: #c9c9d2;
-  --color-tertiary-fixed: #c9c9d2;
-  --color-tertiary-fixed-dim: #8b999e;
+  --color-tertiary: #6f695e;
+  --color-tertiary-container: #ede9e1;
+  --color-tertiary-fixed: #ede9e1;
+  --color-tertiary-fixed-dim: #a39d92;
 
-  --color-error: #83323f;
-  --color-on-error: #f7ecef;
-  --color-error-container: #e3c3cb;
-  --color-on-error-container: #4d1a24;
+  --color-error: #b3261e;
+  --color-on-error: #ffffff;
+  --color-error-container: #f9deda;
+  --color-on-error-container: #5c1410;
 
-  --color-success: #6e7e85;
+  --color-success: #2e7d5b;
 
-  --color-outline: #9aa5a9;
-  --color-outline-variant: #c6cbcd;
+  --color-outline: #8c867b;
+  --color-outline-variant: #e2dcd1;
 
-  --color-surface-tint: #6e7e85;
+  --color-surface-tint: #b04a34;
 
-  --color-now: #1c0f13;
+  --color-now: #1f8a5f;
 
-  --color-heatmap-0: #d4d8d8;
-  --color-heatmap-1: #b7cece;
-  --color-heatmap-2: #8fa1a6;
-  --color-heatmap-3: #6e7e85;
-  --color-heatmap-4: #1c0f13;
+  --color-heatmap-0: #ece7de;
+  --color-heatmap-1: #cde5d7;
+  --color-heatmap-2: #93c8ac;
+  --color-heatmap-3: #4f9a76;
+  --color-heatmap-4: #23664a;
 
   --font-body-sm: "Inter", system-ui, sans-serif;
   --font-body-md: "Inter", system-ui, sans-serif;
@@ -682,13 +682,8 @@ body {
     --app-zoom: 0.88;
   }
 
-  /* Design-system contrast fixes (tokens.json, 2026-10-10), phone only. */
-  html:not([data-theme='dark']) {
-    --color-on-surface-variant: #4a575c;
-    --color-secondary: #5a676d;
-    --color-outline: #748389;
-    --color-heatmap-3: #6a7980;
-  }
+  /* Design-system contrast fix (tokens.json, 2026-10-10), phone only. The
+   * light theme's fixes went into its palette (2026-10-27). */
   html[data-theme='dark'] {
     --color-outline: #67645b;
   }

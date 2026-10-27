@@ -4,7 +4,7 @@ import type { ThemeMode } from '../types';
 
 const META_ID = 'theme-color-meta';
 const THEME_COLORS: Record<ThemeMode, string> = {
-  light: '#e2e2e2',
+  light: '#f4f1ea',
   dark: '#120a0d',
 };
 

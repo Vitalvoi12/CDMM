@@ -21,7 +21,7 @@ export function isDarkTheme(): boolean {
 }
 
 let cachedTheme = '';
-let cachedBg = '#e2e2e2';
+let cachedBg = '#f4f1ea';
 
 /**
  * Page background color of the active theme, read from the CSS variable
@@ -29,7 +29,7 @@ let cachedBg = '#e2e2e2';
  * a dataset read is cheap, getComputedStyle runs only on theme switch.
  */
 export function pageBackground(): string {
-  if (typeof document === 'undefined') return '#e2e2e2';
+  if (typeof document === 'undefined') return '#f4f1ea';
   const t = document.documentElement.dataset.theme || '';
   if (t !== cachedTheme) {
     cachedTheme = t;

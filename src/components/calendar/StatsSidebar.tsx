@@ -125,7 +125,7 @@ export function StatsSidebar({ events, subjects, totalMinutes, goals = [] }: Sta
               <ul className="flex flex-col gap-4 max-lg:gap-2">
                 {planStats.map((stat) => {
                   const subject = subjectMap[stat.subjectId];
-                  const color = subject?.color || '#6e7e85';
+                  const color = subject?.color || '#8A857C';
                   return (
                     <li key={stat.subjectId}>
                       <div className="flex justify-between items-baseline mb-1.5 max-lg:mb-1">
@@ -169,7 +169,7 @@ export function StatsSidebar({ events, subjects, totalMinutes, goals = [] }: Sta
             <ul className="flex flex-col gap-4 max-lg:gap-2">
               {subjectStats.map((stat) => {
                 const subject = subjectMap[stat.subjectId];
-                const color = subject?.color || '#6e7e85';
+                const color = subject?.color || '#8A857C';
                 const barWidth = totalMinutes > 0 ? Math.round((stat.minutes / totalMinutes) * 100) : 0;
                 return (
                   <li key={stat.subjectId}>
