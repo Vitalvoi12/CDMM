@@ -730,6 +730,10 @@ body {
   .m-seg > * { flex: 1 1 0; min-width: 0; height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: none; border-radius: 7px; color: var(--color-on-surface-variant); font: 700 10px/13px var(--font-label-sm); letter-spacing: .12em; text-transform: uppercase; }
   .m-seg > .on { background: var(--color-secondary-container); color: var(--color-on-secondary-container); }
   .m-seg.sm2 > * { height: 30px; }
+  /* Todo quadrant tabs: icon + open count, the picked one also named and wider. */
+  .m-quad > * { gap: 5px; }
+  .m-quad > .on { flex-grow: 1.6; }
+  .m-quad .n { letter-spacing: 0; font-size: 12px; }
   .m-badge { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--color-primary); color: var(--color-on-primary); font: 700 10px/16px var(--font-label-sm); text-align: center; letter-spacing: 0; }
 
   /* bottom chrome */

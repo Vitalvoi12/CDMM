@@ -11,11 +11,12 @@ import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 export type QuadrantKey = 'ii' | 'in' | 'ni' | 'nn';
 
-export const MOBILE_QUADRANTS: { key: QuadrantKey; important: boolean; urgent: boolean; title: string }[] = [
-  { key: 'ii', important: true, urgent: true, title: 'Urgent & important' },
-  { key: 'in', important: true, urgent: false, title: 'Important' },
-  { key: 'ni', important: false, urgent: true, title: 'Urgent' },
-  { key: 'nn', important: false, urgent: false, title: 'Neither' },
+/** `title` is the full name; `short` and `icon` label the quadrant tab. */
+export const MOBILE_QUADRANTS: { key: QuadrantKey; important: boolean; urgent: boolean; title: string; short: string; icon: string }[] = [
+  { key: 'ii', important: true, urgent: true, title: 'Urgent & important', short: 'Do first', icon: 'local_fire_department' },
+  { key: 'in', important: true, urgent: false, title: 'Important', short: 'Important', icon: 'flag' },
+  { key: 'ni', important: false, urgent: true, title: 'Urgent', short: 'Urgent', icon: 'bolt' },
+  { key: 'nn', important: false, urgent: false, title: 'Neither', short: 'Later', icon: 'inbox' },
 ];
 
 const QUADRANT_KEY = 'cdmm.todo-quadrant';
@@ -45,8 +46,8 @@ function hasUpcomingReminder(task: TodoTask): boolean {
 }
 
 /**
- * The phone's Todo page: the four quadrants as 2×2 tiles (tap one to list
- * it), swipeable rows (right: done, left: delete), the done ones folded
+ * The phone's Todo page: the four quadrants as one row of tabs (icon and
+ * open count; the picked one also its name), swipeable rows (right: done, left: delete), the done ones folded
  * away, and an add bar whose Important / Urgent toggles start from the
  * picked quadrant.
  */
@@ -191,31 +192,28 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
         </button>
       </header>
 
-      <div className="grid grid-cols-2 flex-none" style={{ gap: 8, padding: 12, paddingTop: 8 }}>
-        {MOBILE_QUADRANTS.map((x) => {
-          const on = x.key === quadrant;
-          const count = byQuadrant[x.key].filter((t) => !t.completed).length;
-          return (
-            <button
-              key={x.key}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setQuadrant(x.key)}
-              className="flex flex-col justify-between text-left"
-              style={{
-                height: 64,
-                padding: '8px 12px',
-                borderRadius: 12,
-                border: `1px solid ${on ? 'var(--color-outline)' : 'var(--color-outline-variant)'}`,
-                background: on ? 'var(--color-secondary-container)' : 'var(--color-surface-container-low)',
-                color: on ? 'var(--color-on-secondary-container)' : 'var(--color-on-surface)',
-              }}
-            >
-              <span className="m-lbl">{x.title}</span>
-              <b className="m-num" style={{ font: '700 19px/22px var(--font-headline-md)' }}>{count}</b>
-            </button>
-          );
-        })}
+      <div className="flex-none" style={{ padding: '8px 12px 4px' }}>
+        <div className="m-seg m-quad" role="tablist" aria-label="Quadrant">
+          {MOBILE_QUADRANTS.map((x) => {
+            const on = x.key === quadrant;
+            const count = byQuadrant[x.key].filter((t) => !t.completed).length;
+            return (
+              <button
+                key={x.key}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                aria-label={`${x.title}, ${count} open`}
+                onClick={() => setQuadrant(x.key)}
+                className={on ? 'on' : ''}
+              >
+                <span className="material-symbols-outlined m-ic s">{x.icon}</span>
+                {on && <span>{x.short}</span>}
+                <span className="m-num n">{count}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto [touch-action:pan-y]">
