@@ -201,17 +201,6 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
             <DevicesPanel mobile />
           </section>
 
-          <section className="flex flex-col" style={{ gap: 8 }}>
-            <span className="m-lbl m-mut">Study preferences</span>
-            <div className={group} style={groupStyle}>
-              <div className={row} aria-disabled="true">
-                <span className="material-symbols-outlined m-ic s m-mut">tune</span>
-                <span className="flex-1">Study preferences</span>
-                <span className="m-sm m-mut">Coming soon</span>
-              </div>
-            </div>
-          </section>
-
           <button type="button" className="m-btn err wide" style={{ marginTop: 'auto' }} onClick={handleLogout}>
             <span className="material-symbols-outlined m-ic s">logout</span>
             Logout
