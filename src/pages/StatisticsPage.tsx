@@ -70,17 +70,49 @@ export function StatisticsPage() {
   if (isMobile) {
     return (
       <Statistics
-        summary={
-          totalMinutes > 0
-            ? `${formatDurationLong(totalMinutes)} of focus · ${totalSessions} session${totalSessions === 1 ? '' : 's'} · ${period.label}`
-            : period.label
-        }
+        range={period.label}
         preset={preset}
         onPreset={setPreset}
         customFrom={customFrom}
         customTo={customTo}
         onCustom={setCustom}
-        panels={panels}
+        tiles={[
+          { label: 'Focus', value: formatDurationLong(totalMinutes) },
+          { label: 'Sessions', value: totalSessions },
+          {
+            label: 'Avg focus',
+            value:
+              focus.average === null ? (
+                '—'
+              ) : (
+                <>
+                  {focus.average.toFixed(1)} <span className="m-sm m-mut font-normal">/ 3</span>
+                </>
+              ),
+          },
+          { label: 'Streak', value: `${consistency.currentStreak} day${consistency.currentStreak === 1 ? '' : 's'}` },
+        ]}
+        panels={{
+          overview: (
+            <>
+              {panels.subjects}
+              {panels.goals}
+            </>
+          ),
+          focus: panels.focus,
+          rhythm: (
+            <>
+              {panels.rhythm}
+              {panels.streak}
+            </>
+          ),
+          tasks: (
+            <>
+              {panels.tasks}
+              {panels.plan}
+            </>
+          ),
+        }}
       />
     );
   }
