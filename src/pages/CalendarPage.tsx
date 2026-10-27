@@ -26,6 +26,7 @@ import { QuickCreateSheet } from '../components/mobile/QuickCreateSheet';
 import { DayStats } from '../components/mobile/DayStats';
 import { Checklist } from '../components/mobile/Checklist';
 import { setDockHidden } from '../components/mobile/belowDock';
+import { requestSessionStart } from '../services/liveSession';
 import { SwipePager } from '../components/mobile/SwipePager';
 import { MonthAgenda } from '../components/mobile/MonthAgenda';
 import { useSlideIn } from '../hooks/useSlideIn';
@@ -55,6 +56,8 @@ const noop = () => {};
 
 /** Phone: the floating switch's bottom edge above the nav — 14px over the session bar (56 + 6). */
 const PILL_LIFT_PX = 14 + 62;
+/** With no session (no bar), it drops to just above the nav. */
+const PILL_IDLE_LIFT_PX = 9;
 
 /** Phone: the floating switch's items — the day's panels, and the ranges shown everywhere else. */
 const PANEL_ITEMS = [
@@ -1119,7 +1122,7 @@ export function CalendarPage() {
             // neighbouring days sit beside the page in a native scroller.
             <SwipePager
               className="flex-1 min-h-0"
-              pageClassName="overflow-y-auto flex flex-col"
+              pageClassName="overflow-y-auto flex flex-col m-pill-clear"
               pageKey={dateKey(currentDate)}
               onPrev={goToPrevious}
               onNext={goToNext}
@@ -1239,17 +1242,27 @@ export function CalendarPage() {
 
       {isMobile && view === 'day' && (
         <PanelPill
+          // Check and Notes keep it over their bottom bar (add bar, formatting) either way.
+          lift={isActive || hideDock ? PILL_LIFT_PX : PILL_IDLE_LIFT_PX}
+          onStart={isActive ? undefined : requestSessionStart}
           label="Day panel"
           items={PANEL_ITEMS.map((i) => (i.key === 'tasks' ? { ...i, badge: openTaskCount } : i))}
           value={dayPanel}
           onChange={setDayPanel}
           onDoubleTap={() => setViewSettingsOpen(true)}
-          lift={PILL_LIFT_PX}
         />
       )}
       {/* Elsewhere it switches the range, so month and year have a visible way back to the days. */}
       {isMobile && (view === '3day' || view === 'month' || view === 'year') && (
-        <PanelPill label="Range" items={RANGE_ITEMS} value={view} onChange={setView} onDoubleTap={() => setViewSettingsOpen(true)} lift={PILL_LIFT_PX} />
+        <PanelPill
+          label="Range"
+          items={RANGE_ITEMS}
+          value={view}
+          onChange={setView}
+          onDoubleTap={() => setViewSettingsOpen(true)}
+          lift={isActive ? PILL_LIFT_PX : PILL_IDLE_LIFT_PX}
+          onStart={isActive ? undefined : requestSessionStart}
+        />
       )}
 
       {view === '3day' && (
@@ -1266,8 +1279,8 @@ export function CalendarPage() {
         (isMobile ? (
           <SwipePager
             className="flex-1 min-h-0"
-            // Room at the bottom to scroll the last days out from under the range switch.
-            pageClassName="overflow-y-auto flex flex-col pb-20"
+            // Room at the bottom to scroll the agenda's last row out from under the range switch.
+            pageClassName="overflow-y-auto flex flex-col m-pill-clear"
             pageKey={`${currentDate.getFullYear()}-${currentDate.getMonth()}`}
             onPrev={goToPrevious}
             onNext={goToNext}

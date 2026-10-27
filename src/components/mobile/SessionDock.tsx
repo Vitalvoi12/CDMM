@@ -20,27 +20,18 @@ interface DockProps {
   color?: string;
   startTime: string | null;
   elapsed: number;
-  onStart: () => void;
   onFinish: () => void;
   onExpand: () => void;
 }
 
 /**
- * The phone's session bar, pinned above the bottom nav on every page. Idle,
- * a tap anywhere on it opens the subject picker to start a session; running,
- * it is the SwipeDock below.
+ * The phone's session bar, pinned above the bottom nav on the calendar while
+ * a session runs (the SwipeDock below). With none running there is no bar:
+ * the ▶ beside the calendar's floating switch starts one.
  */
-export function SessionDock({ active, name, color, startTime, elapsed, onStart, onFinish, onExpand }: DockProps) {
-  if (!active) {
-    return (
-      <button type="button" className="m-dock lg:hidden w-[calc(100%-16px)] text-left" style={{ paddingRight: 14 }} onClick={onStart} aria-label="No active session. Tap to start one">
-        <span className="m-dot" style={{ background: 'var(--color-outline)' }} />
-        <span className="flex-1 min-w-0 font-semibold m-tr">No active session</span>
-        <span className="material-symbols-outlined m-ic m-mut" aria-hidden="true">play_arrow</span>
-      </button>
-    );
-  }
-  return <SwipeDock name={name} color={color} startTime={startTime} elapsed={elapsed} onFinish={onFinish} onExpand={onExpand} />;
+export function SessionDock({ active, ...dock }: DockProps) {
+  if (!active) return null;
+  return <SwipeDock {...dock} />;
 }
 
 /** Share of the bar's width a swipe must pass before letting go finishes. */
@@ -52,7 +43,7 @@ const FINISH_AT = 0.4;
  * finishes. Short of it the bar slides back. The sheet's slide is the
  * keyboard path to Finish.
  */
-function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit<DockProps, 'active' | 'onStart'>) {
+function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit<DockProps, 'active'>) {
   const barRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; scale: number; width: number; on: boolean } | null>(null);
   const moved = useRef(false);

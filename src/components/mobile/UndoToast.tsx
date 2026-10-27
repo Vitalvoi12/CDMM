@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { subscribeCheckpoint, undoIfLatest } from '../../services/history';
+import { setToastUp, useBottomAboveNav, usePillLift } from './pillSlot';
 
 /** How long the toast offers Undo. */
 const SHOW_MS = 5000;
@@ -23,6 +24,8 @@ function message(label: string): string {
 /**
  * The phone's undo toast: after a delete or a check-off (checklist task,
  * todo; deleting an event) it offers Undo for a few seconds, above the session dock.
+ * Over the calendar it takes the floating switch's place (pillSlot): the
+ * switch hides and the toast's bottom edge sits where the switch's was.
  * A sideways swipe either way flings it off screen.
  */
 export function UndoToast() {
@@ -32,6 +35,13 @@ export function UndoToast() {
   // The swipe in progress; `expired` = the show time ran out mid-drag.
   const drag = useRef<{ x: number; y: number; dx: number; t: number; v: number; mode: 'none' | 'h' | 'v' } | null>(null);
   const expired = useRef(false);
+  const pillLift = usePillLift();
+  const pillBottom = useBottomAboveNav(toastRef, pillLift, shown?.n);
+
+  useEffect(() => {
+    setToastUp(!!shown);
+    return () => setToastUp(false);
+  }, [shown]);
 
   useEffect(
     () =>
@@ -125,7 +135,7 @@ export function UndoToast() {
       ref={toastRef}
       className={`m-toast undo z-40 ${leaving ? 'out' : ''}`}
       role="status"
-      style={{ bottom: 8, touchAction: 'none' }}
+      style={{ bottom: pillLift === null ? 8 : pillBottom, touchAction: 'none' }}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}

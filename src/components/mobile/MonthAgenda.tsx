@@ -54,7 +54,7 @@ export function MonthAgenda({ date, events, subjects, mode = 'all', liveSession 
   const dayLabel = date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
-    <div className="flex flex-col" style={{ paddingBottom: 84 }}>
+    <div className="flex flex-col">
       <div className="m-mwd m-lbl m-mut" aria-hidden="true">
         {WEEKDAYS.map((d) => (
           <span key={d}>{d}</span>

@@ -252,7 +252,7 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
 
   return (
     <section aria-label={`Checklist for ${dayLabel}`} className={`flex flex-col flex-1 min-h-0 ${peek ? '' : 'animate-fade-in'}`}>
-      <div className="flex-1 min-h-0 overflow-y-auto [touch-action:pan-y]">
+      <div className="flex-1 min-h-0 overflow-y-auto [touch-action:pan-y] m-pill-clear">
         <div className="flex items-center justify-between" style={{ height: 40, padding: '0 16px' }}>
           <span className="m-lbl m-mut">Checklist</span>
           <span className="m-sm m-mut m-num">
