@@ -52,7 +52,7 @@ export function YearView({ date, onDateSelect }: YearViewProps) {
           type one step down) to buy back what the two columns cost, and `py-1`
           on the day buys height, the other half of a tap target. The desktop
           keeps its roomy p-5/gap-6 at three columns. */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-6 max-lg:pb-[var(--pill-clear,80px)]">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 lg:gap-6 max-lg:pb-20">
         {months.map(({ monthDate, name, cells }) => (
           <div
             key={monthDate.getMonth()}

@@ -821,6 +821,30 @@ body {
   .m-ag .tm { width: 44px; flex: none; text-align: left; color: var(--color-on-surface-variant); font-size: 12px; }
   .m-ag .bk { width: 4px; height: 28px; border-radius: 2px; background: var(--c); flex: none; }
   .m-ag .bk.p { background: transparent; border: 1.5px solid var(--c); }
+
+  /* year (YearGrid): month cards, days tinted by focus minutes */
+  .m-yr { padding: 4px 16px 0; }
+  .m-yr-sum { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 4px 2px 12px; }
+  .m-yr-leg { display: flex; align-items: center; gap: 4px; padding-bottom: 4px; }
+  .m-yr-leg > i { display: block; width: 10px; height: 10px; border-radius: 3px; }
+  .m-yr-leg > :first-child { margin-right: 2px; }
+  .m-yr-leg > :last-child { margin-left: 2px; }
+  .m-yr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .m-ym { background: var(--color-surface-container-lowest); border: 1px solid var(--color-outline-variant); border-radius: 12px; padding: 10px 10px 8px; min-width: 0; }
+  .m-ym.cur { border-color: var(--color-outline); }
+  .m-ym-h { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 0 2px 6px; }
+  .m-ym-h .m-lbl { font-size: 11px; color: var(--color-on-surface); }
+  .m-ym.cur .m-ym-h .m-lbl { color: var(--color-primary); }
+  .m-ym-d { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 2px; column-gap: 1px; }
+  .m-ym-d .wd { text-align: center; font: 600 9px/14px var(--font-label-sm); letter-spacing: .06em; color: var(--color-on-surface-variant); opacity: .7; }
+  .m-yd { height: 22px; border: 0; padding: 0; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: none; color: var(--color-on-surface); font: 500 11px/1 var(--font-body-sm); font-variant-numeric: tabular-nums; }
+  .m-yd.l1 { background: var(--color-heatmap-1); }
+  .m-yd.l2 { background: var(--color-heatmap-2); }
+  .m-yd.l3 { background: var(--color-heatmap-3); color: #fff; }
+  .m-yd.l4 { background: var(--color-heatmap-4); color: #fff; }
+  html[data-theme='dark'] .m-yd:is(.l3, .l4) { color: var(--color-background); }
+  .m-yd.today { box-shadow: inset 0 0 0 1.5px var(--color-primary); font-weight: 700; }
+  .m-yd.fut { color: var(--color-on-surface-variant); opacity: .55; }
 }
 
 /* Phone add bar (Checklist, Todo): at the bottom of its pane, and while its

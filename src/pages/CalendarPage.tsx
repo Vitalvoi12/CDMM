@@ -29,6 +29,7 @@ import { setDockHidden } from '../components/mobile/belowDock';
 import { requestSessionStart } from '../services/liveSession';
 import { SwipePager } from '../components/mobile/SwipePager';
 import { MonthAgenda } from '../components/mobile/MonthAgenda';
+import { YearGrid } from '../components/mobile/YearGrid';
 import { useSlideIn } from '../hooks/useSlideIn';
 import { PanelPill, type PillItem } from '../components/mobile/PanelPill';
 import { focusStreak } from '../utils/analytics';
@@ -1311,9 +1312,9 @@ export function CalendarPage() {
             pageKey={String(currentDate.getFullYear())}
             onPrev={goToPrevious}
             onNext={goToNext}
-            prev={<YearView date={new Date(currentDate.getFullYear() - 1, 0, 1)} onDateSelect={noop} />}
-            next={<YearView date={new Date(currentDate.getFullYear() + 1, 0, 1)} onDateSelect={noop} />}
-            current={<YearView date={currentDate} onDateSelect={handleDaySelect} />}
+            prev={<YearGrid date={new Date(currentDate.getFullYear() - 1, 0, 1)} events={events} onDateSelect={noop} />}
+            next={<YearGrid date={new Date(currentDate.getFullYear() + 1, 0, 1)} events={events} onDateSelect={noop} />}
+            current={<YearGrid date={currentDate} events={events} onDateSelect={handleDaySelect} />}
           />
         ) : (
           <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} onDateSelect={handleDaySelect} />
