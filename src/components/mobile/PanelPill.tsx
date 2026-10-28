@@ -20,11 +20,9 @@ interface PanelPillProps<K extends string> {
   onDoubleTap: () => void;
   /** Distance of its bottom edge above the bottom nav, in layout px. */
   lift: number;
-  /** Shown with no session running: a ▶ button beside the switch starts one. */
-  onStart?: () => void;
 }
 
-/** Height of the switch (and the ▶ button): 44px items, 4px padding, 1px border. */
+/** Height of the switch: 44px items, 4px padding, 1px border. */
 const PILL_PX = 54;
 /** Room kept between the last row of a list and the switch. */
 const CLEAR_GAP_PX = 12;
@@ -43,7 +41,7 @@ const DOUBLE_TAP_MS = 300;
  * A double tap opens the view sheet; the first tap still switches.
  * Timed by hand, since iOS doesn't reliably fire dblclick on buttons.
  */
-export function PanelPill<K extends string>({ label, items, value, onChange, onDoubleTap, lift, onStart }: PanelPillProps<K>) {
+export function PanelPill<K extends string>({ label, items, value, onChange, onDoubleTap, lift }: PanelPillProps<K>) {
   const ref = useRef<HTMLDivElement>(null);
   const bottom = useBottomAboveNav(ref, lift);
   const toastUp = useToastUp();
@@ -75,29 +73,22 @@ export function PanelPill<K extends string>({ label, items, value, onChange, onD
   };
 
   return (
-    <>
-      <div ref={ref} className="m-pp" style={{ bottom, visibility: toastUp ? 'hidden' : undefined }} role="radiogroup" aria-label={label}>
-        {items.map(({ key, icon, label: name, badge }) => (
-          <button
-            key={key}
-            type="button"
-            role="radio"
-            aria-checked={value === key}
-            aria-label={badge ? `${name}, ${badge} open` : name}
-            className={value === key ? 'on' : ''}
-            onClick={() => tap(key)}
-          >
-            <span className="material-symbols-outlined m-ic s">{icon}</span>
-            {value === key && <span className="m-lbl">{name}</span>}
-            {!!badge && value !== key && <span className="m-badge">{badge}</span>}
-          </button>
-        ))}
-      </div>
-      {onStart && (
-        <button type="button" className="m-pp-start" style={{ bottom, visibility: toastUp ? 'hidden' : undefined }} aria-label="Start session" onClick={onStart}>
-          <span className="material-symbols-outlined m-ic l">play_arrow</span>
+    <div ref={ref} className="m-pp" style={{ bottom, visibility: toastUp ? 'hidden' : undefined }} role="radiogroup" aria-label={label}>
+      {items.map(({ key, icon, label: name, badge }) => (
+        <button
+          key={key}
+          type="button"
+          role="radio"
+          aria-checked={value === key}
+          aria-label={badge ? `${name}, ${badge} open` : name}
+          className={value === key ? 'on' : ''}
+          onClick={() => tap(key)}
+        >
+          <span className="material-symbols-outlined m-ic s">{icon}</span>
+          {value === key && <span className="m-lbl">{name}</span>}
+          {!!badge && value !== key && <span className="m-badge">{badge}</span>}
         </button>
-      )}
-    </>
+      ))}
+    </div>
   );
 }

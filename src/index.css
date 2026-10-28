@@ -733,6 +733,8 @@ body {
 
   /* bottom chrome */
   .m-dock { flex: none; margin: 0 8px 6px; height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 14px; background: var(--color-surface-container-lowest); border: 1px solid var(--color-outline-variant); border-radius: 12px; box-shadow: var(--shadow-elev-1); color: var(--color-on-surface); }
+  /* Idle bar's Start (StartDock). */
+  .m-dock-start { height: 40px; padding: 0 14px 0 10px; gap: 6px; }
   .m-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
 
   /* buttons */
@@ -748,8 +750,6 @@ body {
   .m-pp > button { min-width: 48px; height: 44px; border: 0; border-radius: 10px; background: none; color: var(--color-on-surface-variant); display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; padding: 0; }
   .m-pp > .on { background: var(--color-secondary-container); color: var(--color-on-secondary-container); padding: 0 12px 0 10px; }
   .m-pp .m-badge { position: absolute; top: 3px; right: 4px; min-width: 14px; height: 14px; font-size: 9px; line-height: 14px; padding: 0 3px; }
-  /* No session running: ▶ beside the switch, at its height. */
-  .m-pp-start { position: absolute; right: 16px; width: 54px; height: 54px; border-radius: 14px; border: 0; background: var(--color-primary); color: var(--color-on-primary); box-shadow: var(--shadow-elev-3); z-index: 20; display: flex; align-items: center; justify-content: center; touch-action: manipulation; }
   /* A list under the switch scrolls its last row clear of it (--pill-clear from PanelPill). */
   .m-pill-clear { padding-bottom: var(--pill-clear, 80px) !important; }
 

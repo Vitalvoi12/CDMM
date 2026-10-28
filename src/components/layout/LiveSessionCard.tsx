@@ -113,6 +113,8 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
       color={subject?.color}
       startTime={startTime}
       elapsed={elapsed}
+      onStartSubject={(id) => startSession(id)}
+      onPick={() => setShowPicker(true)}
       onFinish={finish}
       onExpand={() => setExpanded(true)}
     />

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet } from './Sheet';
-import { eventRepo } from '../../services/repositories';
+import { eventRepo, subjectRepo } from '../../services/repositories';
+import type { Subject } from '../../types';
 import { focusStreak } from '../../utils/analytics';
 import { calculateDailyStats, liveEventForDate } from '../../utils/stats';
 import { formatDuration, timeFromDate } from '../../utils/time';
@@ -20,18 +21,97 @@ interface DockProps {
   color?: string;
   startTime: string | null;
   elapsed: number;
+  /** Idle: start a session on this subject right away. */
+  onStartSubject: (subjectId: string) => void;
+  /** Idle: open the subject picker. */
+  onPick: () => void;
   onFinish: () => void;
   onExpand: () => void;
 }
 
 /**
- * The phone's session bar, pinned above the bottom nav on the calendar while
- * a session runs (the SwipeDock below). With none running there is no bar:
- * the ▶ beside the calendar's floating switch starts one.
+ * The phone's session bar, pinned above the bottom nav on the calendar. Idle,
+ * it offers the subject to start next (StartDock); running, it is the
+ * SwipeDock below. Both are the same height, so the floating switch above
+ * them never moves.
  */
-export function SessionDock({ active, ...dock }: DockProps) {
-  if (!active) return null;
+export function SessionDock({ active, onStartSubject, onPick, ...dock }: DockProps) {
+  if (!active) return <StartDock onStartSubject={onStartSubject} onPick={onPick} />;
   return <SwipeDock {...dock} />;
+}
+
+interface Suggestion {
+  subject: Subject;
+  /** "Planned now · 14:30 – 16:00", "Next · …" or "No more plans today · last subject". */
+  why: string;
+}
+
+/**
+ * What to start: the plan block running now, else today's next plan block,
+ * else the subject of the latest real session. Only blocks of a subject
+ * that still exists count; a custom (subject-less) block can't be started.
+ */
+function suggestStart(now: number): Suggestion | null {
+  const subjects = new Map(subjectRepo.getAll().map((s) => [s.id, s]));
+  const events = eventRepo.getAll().filter((e) => subjects.has(e.subjectId));
+  const today = new Date(now).toDateString();
+  const span = (e: { start: string; end: string }) => `${timeFromDate(e.start)} – ${timeFromDate(e.end)}`;
+
+  const plans = events
+    .filter((e) => e.kind === 'plan' && new Date(e.start).toDateString() === today && Date.parse(e.end) > now)
+    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  const current = plans.find((e) => Date.parse(e.start) <= now);
+  if (current) return { subject: subjects.get(current.subjectId)!, why: `Planned now · ${span(current)}` };
+  if (plans[0]) return { subject: subjects.get(plans[0].subjectId)!, why: `Next · ${span(plans[0])}` };
+
+  let last: (typeof events)[number] | null = null;
+  for (const e of events) if (e.kind !== 'plan' && Date.parse(e.start) <= now && (!last || e.start > last.start)) last = e;
+  if (last) return { subject: subjects.get(last.subjectId)!, why: 'No more plans today · last subject' };
+  return null;
+}
+
+/** Re-renders once a minute, so "now" and "next" follow the clock. */
+function useMinute(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
+
+/**
+ * Idle bar: the suggested subject with Start, and ⇄ to pick another. With
+ * nothing to suggest, a tap anywhere opens the picker.
+ */
+function StartDock({ onStartSubject, onPick }: Pick<DockProps, 'onStartSubject' | 'onPick'>) {
+  const now = useMinute();
+  const next = suggestStart(now);
+  if (!next) {
+    return (
+      <button type="button" className="m-dock lg:hidden w-[calc(100%-16px)] text-left" style={{ paddingRight: 14 }} onClick={onPick} aria-label="No active session. Tap to start one">
+        <span className="m-dot" style={{ background: 'var(--color-outline)' }} />
+        <span className="flex-1 min-w-0 font-semibold m-tr">No active session</span>
+        <span className="material-symbols-outlined m-ic m-mut" aria-hidden="true">play_arrow</span>
+      </button>
+    );
+  }
+  return (
+    <div className="m-dock lg:hidden w-[calc(100%-16px)]" style={{ paddingRight: 6 }} role="group" aria-label="Start a session">
+      <span className="m-dot" style={{ background: next.subject.color }} />
+      <div className="flex flex-col flex-1 min-w-0">
+        <span className="m-sm m-mut m-tr">{next.why}</span>
+        <span className="m-tr font-semibold">{next.subject.name}</span>
+      </div>
+      <button type="button" className="m-ib" aria-label="Start another subject" onClick={onPick}>
+        <span className="material-symbols-outlined m-ic">swap_horiz</span>
+      </button>
+      <button type="button" className="m-btn pri m-dock-start" aria-label={`Start ${next.subject.name}`} onClick={() => onStartSubject(next.subject.id)}>
+        <span className="material-symbols-outlined m-ic s">play_arrow</span>
+        Start
+      </button>
+    </div>
+  );
 }
 
 /** Share of the bar's width a swipe must pass before letting go finishes. */
@@ -73,7 +153,7 @@ function markSwiped(): void {
  * keyboard path to Finish. The first times it appears it nudges itself left
  * and says "Swipe left to finish" (just the words under reduced motion).
  */
-function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit<DockProps, 'active'>) {
+function SwipeDock({ name, color, startTime, elapsed, onFinish, onExpand }: Omit<DockProps, 'active' | 'onStartSubject' | 'onPick'>) {
   const barRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; scale: number; width: number; on: boolean } | null>(null);
   const moved = useRef(false);

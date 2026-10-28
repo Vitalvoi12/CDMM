@@ -26,7 +26,6 @@ import { QuickCreateSheet } from '../components/mobile/QuickCreateSheet';
 import { DayStats } from '../components/mobile/DayStats';
 import { Checklist } from '../components/mobile/Checklist';
 import { setDockHidden } from '../components/mobile/belowDock';
-import { requestSessionStart } from '../services/liveSession';
 import { SwipePager } from '../components/mobile/SwipePager';
 import { MonthAgenda } from '../components/mobile/MonthAgenda';
 import { YearGrid } from '../components/mobile/YearGrid';
@@ -57,8 +56,6 @@ const noop = () => {};
 
 /** Phone: the floating switch's bottom edge above the nav — 14px over the session bar (56 + 6). */
 const PILL_LIFT_PX = 14 + 62;
-/** With no session (no bar), it drops to just above the nav. */
-const PILL_IDLE_LIFT_PX = 9;
 
 /** Phone: the floating switch's items — the day's panels, and the ranges shown everywhere else. */
 const PANEL_ITEMS = [
@@ -1243,9 +1240,7 @@ export function CalendarPage() {
 
       {isMobile && view === 'day' && (
         <PanelPill
-          // Check and Notes keep it over their bottom bar (add bar, formatting) either way.
-          lift={isActive || hideDock ? PILL_LIFT_PX : PILL_IDLE_LIFT_PX}
-          onStart={isActive ? undefined : requestSessionStart}
+          lift={PILL_LIFT_PX}
           label="Day panel"
           items={PANEL_ITEMS.map((i) => (i.key === 'tasks' ? { ...i, badge: openTaskCount } : i))}
           value={dayPanel}
@@ -1261,8 +1256,7 @@ export function CalendarPage() {
           value={view}
           onChange={setView}
           onDoubleTap={() => setViewSettingsOpen(true)}
-          lift={isActive ? PILL_LIFT_PX : PILL_IDLE_LIFT_PX}
-          onStart={isActive ? undefined : requestSessionStart}
+          lift={PILL_LIFT_PX}
         />
       )}
 
