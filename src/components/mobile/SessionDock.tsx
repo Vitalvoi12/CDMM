@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useSyncRefresh } from '../../hooks/useServerSync';
 import { Sheet } from './Sheet';
 import { eventRepo, subjectRepo } from '../../services/repositories';
 import type { Subject } from '../../types';
@@ -86,6 +87,10 @@ function useMinute(): number {
  */
 function StartDock({ onStartSubject, onPick }: Pick<DockProps, 'onStartSubject' | 'onPick'>) {
   const now = useMinute();
+  // Any change to events or subjects (a moved block, a sync pull, an undo)
+  // can change the suggestion: render again on each.
+  const [, refresh] = useReducer((x: number) => x + 1, 0);
+  useSyncRefresh(useCallback(() => refresh(), []));
   const next = suggestStart(now);
   if (!next) {
     return (
