@@ -145,15 +145,19 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
       }}
     >
       <div className="flex items-center" style={{ gap: 8 }}>
-        <AutoGrowTextarea
-          ref={inputRef}
-          className="m-in flex-1"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`New task · ${MOBILE_QUADRANTS.find((x) => x.important === important && x.urgent === urgent)!.title}`}
-          aria-label="New task"
-          enterKeyHint="done"
-        />
+        {/* The box centres the line itself (flex), so the text sits mid-box
+            whatever padding a browser adds inside a textarea. */}
+        <label className="m-in flex-1" style={{ padding: '11px 14px' }}>
+          <AutoGrowTextarea
+            ref={inputRef}
+            className="flex-1 min-w-0 p-0 bg-transparent border-0 outline-none text-[16px] leading-[20px] text-on-surface placeholder:text-on-surface-variant"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={`New task · ${MOBILE_QUADRANTS.find((x) => x.important === important && x.urgent === urgent)!.title}`}
+            aria-label="New task"
+            enterKeyHint="done"
+          />
+        </label>
         {([
           ['Important', 'flag', important, setImportant],
           ['Urgent', 'bolt', urgent, setUrgent],
