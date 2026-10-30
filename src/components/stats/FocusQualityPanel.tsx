@@ -34,7 +34,7 @@ function GroupBars({
     <div
       className={
         layout === 'card'
-          ? 'min-w-0 pl-6 border-l border-outline-variant @max-[959px]:first:pl-0 @max-[959px]:first:border-l-0'
+          ? 'min-w-0 pt-5 border-t border-outline-variant @min-[960px]:pt-0 @min-[960px]:border-t-0 @min-[960px]:pl-6 @min-[960px]:border-l'
           : boxClass(layout, 'min-w-0')
       }
     >
@@ -76,7 +76,7 @@ function GroupBars({
 export function FocusQualityPanel({ stats, periodLabel, layout = 'section' }: FocusQualityPanelProps) {
   if (stats.rated === 0) {
     return (
-      <Section title="Focus quality" delay={280} layout={layout} wide>
+      <Section title="Focus quality" delay={280} layout={layout}>
         <EmptyState
           text="No rated sessions in this period"
           hint={`Nothing was rated between ${periodLabel}. Rate your focus (1–3) when you finish a session — after a few, this shows when you work best.`}
@@ -128,18 +128,18 @@ export function FocusQualityPanel({ stats, periodLabel, layout = 'section' }: Fo
         title="Focus quality"
         delay={280}
         layout="card"
-        wide
         aside={<span className="font-body-sm text-body-sm text-on-surface-variant">1 scattered · 2 okay · 3 deep</span>}
       >
-        {/* Side by side when the card is wide, the splits under the summary
-            when it is not; the columns are sized to their labels. */}
+        {/* A half-width card stacks the splits under the summary, each at
+            full width so its labels fit; a wide one sets them side by side
+            between hairlines. */}
         <div className="@container">
           <div className="flex flex-col gap-6 @min-[960px]:flex-row @min-[960px]:items-start @min-[960px]:gap-8">
             <div className="@min-[960px]:w-[230px] flex-none min-w-0 flex flex-col gap-5">
               <p className="font-body-lg text-body-lg text-on-surface">{summary}</p>
               {tileRow}
             </div>
-            <div className="flex-1 min-w-0 grid gap-6" style={{ gridTemplateColumns: '1.4fr 1fr 0.9fr' }}>
+            <div className="flex-1 min-w-0 grid gap-5 @min-[960px]:gap-6 @min-[960px]:grid-cols-[1.4fr_1fr_0.9fr]">
               {groupBars}
             </div>
           </div>

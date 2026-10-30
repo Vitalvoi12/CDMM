@@ -26,7 +26,6 @@ export function GoalsPanel({ goals, days, layout = 'section' }: GoalsPanelProps)
       title="Goals"
       delay={120}
       layout={layout}
-      wide
       aside={
         <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums">
           {reached}/{goals.length} reached
