@@ -185,6 +185,9 @@ export function CalendarPage() {
   // The Checklist's new-task form (inline on desktop, a window on the phone).
   const [taskAdding, setTaskAdding] = useState(false);
   const taskInputRef = useRef<HTMLTextAreaElement | null>(null);
+  // Desktop day view: the note under the checklist is folded to its first
+  // lines until opened (click, Show all or I).
+  const [notesOpen, setNotesOpen] = useState(false);
   // Set by the I shortcut; the notes panel focuses its editor once it is up.
   const [noteFocusPending, setNoteFocusPending] = useState(false);
   // Leaving the Checklist closes the form, so it does not pop back up later.
@@ -284,6 +287,7 @@ export function CalendarPage() {
         e.preventDefault();
         if (view !== 'day') setView('day');
         if (isMobile) setDayPanel('notes');
+        else setNotesOpen(true);
         setNoteFocusPending(true);
       }
     };
@@ -1204,7 +1208,7 @@ export function CalendarPage() {
             <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1 pb-32">
               <TodayStats events={statsEvents} subjects={subjects} totalMinutes={stats.totalMinutes} />
               <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} />
-              <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
+              <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} expanded={notesOpen} onExpandedChange={setNotesOpen} />
             </aside>
           </div>
         ))}

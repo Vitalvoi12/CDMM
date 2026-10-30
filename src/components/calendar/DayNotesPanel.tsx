@@ -8,6 +8,7 @@ import { Placeholder } from '@tiptap/extensions';
 import type { Editor } from '@tiptap/react';
 import { dayNoteRepo } from '../../services/repositories';
 import { subscribeSync } from '../../services/serverSync';
+import { useEscapeOverlay } from '../../services/overlays';
 
 interface DayNotesPanelProps {
   /** Calendar day the note belongs to. Remount (key) per day. */
@@ -18,6 +19,13 @@ interface DayNotesPanelProps {
   onAutoFocused?: () => void;
   /** Read-only copy of a neighbouring day beside the page (phone SwipePager). */
   peek?: boolean;
+  /**
+   * Desktop: whether the note is open in full (formatting bar, scrolls
+   * inside) or folded to its first lines. Owned by the page, which also
+   * lays the side column out around it. Leave it out for the full note.
+   */
+  expanded?: boolean;
+  onExpandedChange?: (open: boolean) => void;
 }
 
 /** Idle time after the last keystroke before the note is written to the repo. */
@@ -50,7 +58,7 @@ const BUTTONS: ToolbarButton[] = [
  * syncs as plain text) and autosaved shortly after typing stops, and again when
  * the panel goes away (day change, tab switch) so no keystroke is lost.
  */
-export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = false }: DayNotesPanelProps) {
+export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = false, expanded = true, onExpandedChange }: DayNotesPanelProps) {
   const isMobile = useIsMobile();
   // Markdown last seen in the repo for this day; the editor's own saves update
   // it, so only genuinely remote changes differ from it.
@@ -115,6 +123,12 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
     onAutoFocused?.();
   }, [editor, autoFocus, onAutoFocused]);
 
+  // Folded, the note shows its start, wherever editing left the scroll.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!expanded && bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [expanded]);
+
   // Save on the way out; the editor's `onUpdate` timer would otherwise be lost.
   useEffect(() => flush, [flush]);
 
@@ -122,6 +136,11 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
     editor,
     selector: ({ editor: e }) => (e ? BUTTONS.map((b) => b.active(e)) : []),
   });
+  // Lines of the note, for the folded card's "Show all · N lines".
+  const lineCount = useEditorState({
+    editor,
+    selector: ({ editor: e }) => (e ? e.getMarkdown().split('\n').filter((l) => l.trim()).length : 0),
+  }) ?? 0;
 
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
@@ -163,48 +182,105 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
     );
   }
 
+  const open = () => {
+    if (!expanded) onExpandedChange?.(true);
+  };
+
   return (
     <section
       aria-label={`Notes for ${dayLabel}`}
-      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 flex-1 animate-fade-in"
+      className={`bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 px-6 py-5 max-lg:p-4 flex flex-col gap-2 min-h-0 animate-fade-in ${
+        expanded ? 'flex-[1.6_1_0]' : 'flex-none'
+      }`}
     >
-      <div className="flex items-baseline justify-between gap-3 mb-3 max-lg:mb-2">
+      {expanded && onExpandedChange && <EscapeToCollapse onCollapse={onExpandedChange} editor={editor} />}
+      <div className="flex items-center gap-3 flex-none">
         <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
           Notes
         </h2>
-        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 tracking-[0.14em]">
+        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 tracking-[0.14em] mr-auto">
           {dayLabel}
         </span>
+        {onExpandedChange && (
+          <button
+            type="button"
+            onClick={() => onExpandedChange(!expanded)}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse the note' : 'Open the whole note'}
+            title={expanded ? 'Collapse (Esc)' : 'Open the whole note (Shortcut: I)'}
+            className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span className="material-symbols-outlined text-[16px] leading-none">{expanded ? 'close_fullscreen' : 'open_in_full'}</span>
+          </button>
+        )}
       </div>
 
-      {editor && (
-        <div className="flex flex-wrap gap-1 mb-3 pb-3 border-b border-outline-variant flex-shrink-0" role="toolbar" aria-label="Formatting">
+      {editor && expanded && (
+        <div className="flex gap-0.5 pb-2 border-b border-outline-variant flex-none" role="toolbar" aria-label="Formatting">
           {BUTTONS.map((b, i) => (
             <button
               key={b.title}
               type="button"
               title={b.title}
+              aria-label={b.title.replace(/ \(.*\)$/, '')}
+              aria-pressed={!!state[i]}
               // Keep the selection: a click must not blur the editor first.
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => b.run(editor)}
-              className={`min-w-8 h-8 px-2 rounded-lg font-label-sm text-label-sm transition-colors ${
+              className={`flex-1 min-w-0 h-7 flex items-center justify-center rounded-lg transition-colors ${
                 state[i]
                   ? 'bg-secondary-container text-on-secondary-container'
                   : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'
               }`}
             >
-              {b.label}
+              <span className="material-symbols-outlined text-[17px] leading-none">{b.icon}</span>
             </button>
           ))}
         </div>
       )}
 
       <div
-        className="flex-1 min-h-0 overflow-y-auto cursor-text"
-        onClick={() => editor?.commands.focus()}
+        ref={bodyRef}
+        className={expanded ? 'flex-1 min-h-0 overflow-y-auto cursor-text' : 'note-folded max-h-[4.5rem] overflow-hidden cursor-text'}
+        onClick={() => {
+          if (expanded) editor?.commands.focus();
+          else open();
+        }}
       >
         <EditorContent editor={editor} />
       </div>
+
+      {!expanded && lineCount > 0 && (
+        <button
+          type="button"
+          onClick={open}
+          title="Show the whole note (Shortcut: I)"
+          className="flex-none self-start flex items-center gap-1 font-label-sm text-label-sm uppercase tracking-[0.12em] text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          Show all · {lineCount} {lineCount === 1 ? 'line' : 'lines'}
+          <span className="material-symbols-outlined text-[14px] leading-none">expand_more</span>
+        </button>
+      )}
     </section>
   );
+}
+
+/**
+ * While mounted, Escape folds the note (via the shared overlay stack, so a
+ * window opened over it closes first) and leaves the editor, which saves.
+ * Not modal: the page's shortcuts stay on while the note is open.
+ */
+function EscapeToCollapse({ onCollapse, editor }: { onCollapse: (open: boolean) => void; editor: Editor | null }) {
+  // A stable callback: re-registering would move the note above windows
+  // opened after it.
+  const latest = useRef({ onCollapse, editor });
+  useEffect(() => {
+    latest.current = { onCollapse, editor };
+  });
+  const collapse = useCallback(() => {
+    (latest.current.editor?.view.dom as HTMLElement | undefined)?.blur();
+    latest.current.onCollapse(false);
+  }, []);
+  useEscapeOverlay(collapse, false);
+  return null;
 }

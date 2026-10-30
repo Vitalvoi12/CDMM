@@ -623,6 +623,12 @@ html[data-theme='dark'] .heat-num-hi {
 @media (max-width: 1023px) {
   .note-editor { font-size: 16px; line-height: 25px; min-height: 0; }
 }
+/* Desktop day: the folded note shows its first lines and fades out. */
+.note-folded {
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent);
+  mask-image: linear-gradient(to bottom, #000 45%, transparent);
+}
+.note-folded .note-editor { min-height: 0; }
 .note-editor a { text-decoration: underline; color: var(--color-secondary); }
 .note-editor hr { border: 0; border-top: 1px solid var(--color-outline-variant); }
 .note-editor p.is-editor-empty:first-child::before {

@@ -18,12 +18,22 @@ import { useEffect } from 'react';
 
 type Close = () => void;
 
+interface Entry {
+  close: Close;
+  /**
+   * False for something that only folds away on Escape (an opened panel),
+   * not a window over the page: it takes its turn for Escape but leaves the
+   * page's shortcuts on (see hasOpenOverlay).
+   */
+  modal: boolean;
+}
+
 /** Mount order = stacking order: the last overlay to mount is on top. */
-const stack: Close[] = [];
+const stack: Entry[] = [];
 let listening = false;
 
 function topmost(): Close | undefined {
-  return stack[stack.length - 1];
+  return stack[stack.length - 1]?.close;
 }
 
 function onKeyDown(e: KeyboardEvent) {
@@ -54,11 +64,12 @@ function stopListening() {
  * function that removes it again. Call it from an effect, passing the same
  * `onClose` the overlay is rendered with.
  */
-export function pushOverlay(close: Close): () => void {
-  stack.push(close);
+export function pushOverlay(close: Close, modal = true): () => void {
+  const entry: Entry = { close, modal };
+  stack.push(entry);
   startListening();
   return () => {
-    const i = stack.lastIndexOf(close);
+    const i = stack.lastIndexOf(entry);
     if (i !== -1) stack.splice(i, 1);
     if (stack.length === 0) stopListening();
   };
@@ -68,8 +79,8 @@ export function pushOverlay(close: Close): () => void {
  * Subscribe a mounted overlay to the shared Escape handling. Pass the same
  * `onClose` the overlay is rendered with.
  */
-export function useEscapeOverlay(onClose: Close): void {
-  useEffect(() => pushOverlay(onClose), [onClose]);
+export function useEscapeOverlay(onClose: Close, modal = true): void {
+  useEffect(() => pushOverlay(onClose, modal), [onClose, modal]);
 }
 
 /**
@@ -80,5 +91,5 @@ export function useEscapeOverlay(onClose: Close): void {
  * that way. This asks the stack instead.
  */
 export function hasOpenOverlay(): boolean {
-  return stack.length > 0;
+  return stack.some((e) => e.modal);
 }

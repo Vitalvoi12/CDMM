@@ -400,7 +400,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   return (
     <section
       aria-label={`Checklist for ${dayLabel}`}
-      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 flex-1 overflow-y-auto animate-fade-in"
+      // Desktop: shares the side column with the Today card and the note; keeps
+      // a few rows when the note is open, and scrolls inside.
+      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 lg:min-h-[9rem] flex-[1_1_0] overflow-y-auto animate-fade-in"
     >
       <div className="flex items-center justify-between gap-3 mb-4 max-lg:mb-2">
         <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
