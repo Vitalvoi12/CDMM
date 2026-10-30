@@ -4,13 +4,19 @@
   "description": "Self-hosted study time tracker",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fdf8f8",
-  "theme_color": "#fdf8f8",
+  "background_color": "#0B0B0A",
+  "theme_color": "#0B0B0A",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {

@@ -3,7 +3,7 @@
  * beat our size utilities. In a layer declared before Tailwind's, the
  * utilities layer wins and per-usage text-[Npx] applies. */
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap') layer(symbols);
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -81,6 +81,8 @@
   --font-headline-lg: "Inter", "Space Grotesk", sans-serif;
   --font-headline-lg-mobile: "Inter", "Space Grotesk", sans-serif;
   --font-display-lg: "Inter", "Space Grotesk", sans-serif;
+  /* Desktop type, next: titles, big numbers and the wordmark. */
+  --font-display: "Space Grotesk", "Inter", sans-serif;
 
   --radius-sm: 0.1rem;
   --radius-lg: 0.2rem;
@@ -322,6 +324,26 @@ html[data-theme='dark'] {
   --color-heatmap-2: #3E5A4C;
   --color-heatmap-3: #5E8A72;
   --color-heatmap-4: #8FD3B5;
+}
+
+/* Logo B3 (components/common/Logo.tsx). The bare mark follows the theme;
+ * the near-black tile always carries the dark set. */
+:root {
+  --logo-a: #B04A34;
+  --logo-b: #C9814E;
+  --logo-c: #9A3F2B;
+  --logo-done-a: #D7AB9D;
+  --logo-done-b: #DDB89C;
+  --logo-now: #1F8A5F;
+}
+html[data-theme='dark'],
+.logo-tile {
+  --logo-a: #E9826A;
+  --logo-b: #E0975A;
+  --logo-c: #D16A4E;
+  --logo-done-a: #683D32;
+  --logo-done-b: #653F2C;
+  --logo-now: #8FD3B5;
 }
 
 ::-webkit-scrollbar {

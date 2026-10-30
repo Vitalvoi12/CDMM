@@ -4,7 +4,7 @@
 // notifications via registration.showNotification (required on Android) and
 // brings the app forward on tap.
 
-const SHELL_CACHE = 'cdmm-shell-v1';
+const SHELL_CACHE = 'cdmm-shell-v2';
 const STATIC_FILES = ['/manifest.json', '/logo.png', '/favicon.svg'];
 const ASSET_RE = /\/assets\/[^"'\s>)]+/g;
 
