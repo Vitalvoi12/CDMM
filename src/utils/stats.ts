@@ -11,6 +11,14 @@ export function countsTowardStats(e: CalendarEvent): boolean {
   return e.kind !== 'plan' && e.countInStats !== false;
 }
 
+/**
+ * Plan events that count toward plan totals: the day's "plan vs real" and the
+ * year overview both sum exactly these.
+ */
+export function countsTowardPlan(e: CalendarEvent): boolean {
+  return e.kind === 'plan' && e.countInStats !== false;
+}
+
 export interface StudyHeatmapDay {
   date: string;
   totalMinutes: number;
@@ -24,6 +32,9 @@ export interface YearStudyStats {
   averageSessionMinutes: number;
   bestDay: { date: string; minutes: number } | null;
   longestStreakDays: number;
+  /** First and last day of the longest streak (the earliest one on a tie). */
+  longestStreakFrom: string | null;
+  longestStreakTo: string | null;
 }
 
 export function getEventsForDate(events: CalendarEvent[], date: Date): CalendarEvent[] {
@@ -185,9 +196,9 @@ export function calculatePlanStats(events: CalendarEvent[]): { stats: PlanStat[]
   const realBySubject: Record<string, number> = {};
   let totalPlan = 0;
   for (const e of events) {
-    if (e.countInStats === false) continue;
+    if (!countsTowardPlan(e) && !countsTowardStats(e)) continue;
     const mins = Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000));
-    if (e.kind === 'plan') {
+    if (countsTowardPlan(e)) {
       planBySubject[e.subjectId] = (planBySubject[e.subjectId] || 0) + mins;
       totalPlan += mins;
     } else {
@@ -298,14 +309,22 @@ export function calculateYearStats(heatmap: StudyHeatmapDay[]): YearStudyStats {
   let bestDay: { date: string; minutes: number } | null = null;
   let streak = 0;
   let longestStreak = 0;
+  let streakFrom: string | null = null;
+  let longestStreakFrom: string | null = null;
+  let longestStreakTo: string | null = null;
 
   for (const day of heatmap) {
     totalMinutes += day.totalMinutes;
     sessionCount += day.sessionCount;
     if (day.totalMinutes > 0) {
       activeDays++;
+      if (streak === 0) streakFrom = day.date;
       streak++;
-      if (streak > longestStreak) longestStreak = streak;
+      if (streak > longestStreak) {
+        longestStreak = streak;
+        longestStreakFrom = streakFrom;
+        longestStreakTo = day.date;
+      }
       if (!bestDay || day.totalMinutes > bestDay.minutes) {
         bestDay = { date: day.date, minutes: day.totalMinutes };
       }
@@ -321,5 +340,7 @@ export function calculateYearStats(heatmap: StudyHeatmapDay[]): YearStudyStats {
     averageSessionMinutes: sessionCount > 0 ? Math.round(totalMinutes / sessionCount) : 0,
     bestDay,
     longestStreakDays: longestStreak,
+    longestStreakFrom,
+    longestStreakTo,
   };
 }

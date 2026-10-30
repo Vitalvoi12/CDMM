@@ -754,6 +754,57 @@ html[data-theme='dark'] .heat-num-hi {
   .kbd-sm { font-size: 11px; }
 }
 
+/* Segmented switch (Claude Design cdmm-next): pick one view of the same
+ * thing. 32px tall, 28px for .sm (only inside cards), 3px inset, the chosen
+ * option lifted on secondary-container. Buttons carry role="tab" and
+ * aria-selected. */
+.seg {
+  display: inline-flex; align-items: center; gap: 2px; padding: 3px;
+  border: 1px solid var(--color-outline-variant); border-radius: 0.6rem;
+  background: var(--color-surface-container-low);
+}
+.seg > button {
+  height: 26px; padding: 0 0.75rem; border-radius: 0.45rem;
+  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
+  font: 500 13px/18px var(--font-body-md); letter-spacing: 0; text-transform: none;
+  color: var(--color-on-surface-variant);
+  transition: background-color .15s, color .15s;
+}
+.seg > button:hover { color: var(--color-on-surface); }
+.seg > button[aria-selected="true"] {
+  background: var(--color-secondary-container); color: var(--color-on-secondary-container);
+  font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.seg.sm > button { height: 22px; padding: 0 0.55rem; font-size: 12px; }
+.seg > button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+
+/* Desktop year (calendar/YearView.tsx): one day of a month card, and the
+ * legend swatches. l0–l4 = heat level (focus quartile or plan kept), np = a
+ * day without a plan in "Plan kept" mode, fut = still ahead (pl: has a plan),
+ * today = ringed. Levels 3–4 take dark ink (light on the light theme's dark
+ * greens) so the number stays readable. */
+:root { --yr-ink-strong: #ffffff; }
+html[data-theme='dark'] { --yr-ink-strong: #0B0B0A; }
+.yr-day {
+  position: relative; aspect-ratio: 1; border-radius: 3px; padding: 0; border: 0;
+  display: flex; align-items: center; justify-content: center;
+  font: 500 9.5px/1 var(--font-body-md); font-variant-numeric: tabular-nums;
+  color: var(--color-on-surface-variant); background: transparent;
+}
+.yr-day:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.yr-day:hover { filter: brightness(1.15); }
+.yr-day.l0, .yr-swatch.l0 { background: var(--color-heatmap-0); box-shadow: inset 0 0 0 1px rgb(103 100 91 / 0.35); }
+.yr-day.l1, .yr-swatch.l1 { background: var(--color-heatmap-1); }
+.yr-day.l2, .yr-swatch.l2 { background: var(--color-heatmap-2); }
+.yr-day.l3, .yr-swatch.l3 { background: var(--color-heatmap-3); }
+.yr-day.l4, .yr-swatch.l4 { background: var(--color-heatmap-4); }
+.yr-day.l3, .yr-day.l4 { color: var(--yr-ink-strong); }
+.yr-day.np { background: var(--color-surface-container); }
+.yr-day.fut { color: color-mix(in srgb, var(--color-on-surface-variant) 55%, transparent); }
+.yr-day.fut.pl, .yr-swatch.pl { box-shadow: inset 0 0 0 1.5px var(--color-primary); }
+.yr-day.today { box-shadow: 0 0 0 2px var(--color-on-surface); z-index: 1; }
+.yr-swatch { width: 0.7rem; height: 0.7rem; border-radius: 3px; flex: none; }
+
 /* Desktop day: the folded note shows its first lines and fades out. */
 .note-folded {
   -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent);

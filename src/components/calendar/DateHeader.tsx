@@ -10,9 +10,11 @@ interface DateHeaderProps {
   center?: React.ReactNode;
   /** Right slot (e.g. the event filter) — just left of the Today button. */
   right?: React.ReactNode;
+  /** Small print after the title, desktop only (the year's "302 days so far"). */
+  subtitle?: string;
 }
 
-export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center, right }: DateHeaderProps) {
+export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center, right, subtitle }: DateHeaderProps) {
   const getViewTitle = () => {
     switch (view) {
       case 'day':
@@ -63,6 +65,7 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
         >
           <span className="material-symbols-outlined text-[16px] max-lg:text-[14px]">chevron_right</span>
         </button>
+        {subtitle && <span className="max-lg:hidden ml-1 text-meta text-on-surface-variant whitespace-nowrap truncate">{subtitle}</span>}
       </div>
       {center && (
         <div className="flex-shrink-0 max-lg:hidden">

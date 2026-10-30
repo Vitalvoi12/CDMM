@@ -6,6 +6,7 @@ import { Timeline, TimelineColumnLabels } from '../components/calendar/Timeline'
 import { MultiDayView } from '../components/calendar/MultiDayView';
 import { MonthView } from '../components/calendar/MonthView';
 import { YearView } from '../components/calendar/YearView';
+import { buildYearOverview } from '../utils/yearOverview';
 import { TodayStats } from '../components/calendar/TodayStats';
 import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
 import { DayNotesPanel } from '../components/calendar/DayNotesPanel';
@@ -162,6 +163,26 @@ export function CalendarPage() {
   }, [location.state]);
 
   const subjects = subjectRepo.getAll();
+
+  // Desktop year overview, rebuilt only when the year, the events, the
+  // subjects (by their content: getAll() returns a fresh array) or the day change.
+  const overviewYear = currentDate.getFullYear();
+  const overviewDay = dateKey(new Date());
+  const subjectsSig = subjects.map((s) => `${s.id}|${s.name}|${s.color}|${s.weeklyGoalMinutes ?? ''}`).join(';');
+  const yearOverview = useMemo(
+    () => (view === 'year' && !isMobile ? buildYearOverview(overviewYear, events, subjectRepo.getAll(), new Date()) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subjectsSig and overviewDay stand in for the subject list and the clock
+    [view, isMobile, overviewYear, events, subjectsSig, overviewDay]
+  );
+  const yearSubtitle = yearOverview
+    ? `Jan 1 – Dec 31 · ${
+        yearOverview.totals.pastDays === 0
+          ? 'nothing yet'
+          : overviewYear < new Date().getFullYear()
+            ? `${yearOverview.totals.activeDays} active days`
+            : `${yearOverview.totals.pastDays} days so far`
+      }`
+    : undefined;
 
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   // `quick`: the phone's quick-create sheet instead of the full form;
@@ -1068,6 +1089,7 @@ export function CalendarPage() {
           view={view}
           center={renderViewSegmented()}
           right={view !== 'year' ? renderEventFilter() : undefined}
+          subtitle={view === 'year' ? yearSubtitle : undefined}
         />
       )}
       {viewSettingsOpen && (
@@ -1292,7 +1314,9 @@ export function CalendarPage() {
             current={<YearGrid date={currentDate} events={events} onDateSelect={handleDaySelect} />}
           />
         ) : (
-          <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} onDateSelect={handleDaySelect} />
+          yearOverview && (
+            <YearView key={`year-${currentDate.getFullYear()}`} date={currentDate} overview={yearOverview} onDateSelect={handleDaySelect} />
+          )
         ))}
 
       {/* Desktop day view: the floating New event button. Portalled to body:
