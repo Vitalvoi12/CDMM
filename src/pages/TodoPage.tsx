@@ -10,6 +10,8 @@ import { QuadrantDialog } from '../components/todo/QuadrantDialog';
 import { TodoForm } from '../components/todo/TodoForm';
 import { TodoList } from '../components/mobile/TodoList';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { matchShortcut } from '../services/shortcuts';
+import { hasOpenOverlay } from '../services/overlays';
 
 const QUADRANTS = [
   { key: 'ii', important: true, urgent: true, title: 'Urgent & Important' },
@@ -37,7 +39,7 @@ export function TodoPage() {
 
   useSyncRefresh(refresh);
 
-  // N or A opens a new task (plain quadrant: not urgent, not important);
+  // N or A (by default, see services/shortcuts) opens a new task (plain quadrant: not urgent, not important);
   // skipped while typing or when a modal is open, same guards as the
   // calendar shortcuts.
   useEffect(() => {
@@ -53,10 +55,10 @@ export function TodoPage() {
       ) {
         return;
       }
-      if (document.querySelector('.fixed.inset-0')) return;
-      const letter = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : '';
-      const key = letter || e.key.toLowerCase();
-      if (key === 'n' || key === 'a') {
+      // Asks the overlay stack: a DOM query for '.fixed.inset-0' matched the
+      // app shell itself, so the keys never fired.
+      if (hasOpenOverlay()) return;
+      if (matchShortcut(e, 'todo-new')) {
         // The form focuses its title field before the key finishes, so
         // without this the letter would be typed into it.
         e.preventDefault();

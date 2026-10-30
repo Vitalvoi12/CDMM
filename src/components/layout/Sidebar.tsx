@@ -6,14 +6,15 @@ import { hasTodoDueToday } from '../todo/TodoRows';
 import { LiveSessionCard } from './LiveSessionCard';
 import { WeeklyGoalsCard } from './WeeklyGoalsCard';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { keyLabel, shortcutHint, shortcutKeys, useShortcutSettings, type ShortcutId } from '../../services/shortcuts';
 
 // No FOCUS ROOM: on a PC the live session is driven from the panel at the
 // bottom of this sidebar, so a tab for it would be a second place to look.
-const navItems = [
-  { path: '/', label: 'CALENDAR', icon: 'calendar_today', shortcut: 'C' },
-  { path: '/todo', label: 'TODO', icon: 'checklist', shortcut: 'T' },
-  { path: '/statistics', label: 'STATISTICS', icon: 'bar_chart', shortcut: 'S' },
-  { path: '/subjects', label: 'SUBJECTS', icon: 'layers', shortcut: '' },
+const navItems: { path: string; label: string; icon: string; shortcut: ShortcutId }[] = [
+  { path: '/', label: 'CALENDAR', icon: 'calendar_today', shortcut: 'go-calendar' },
+  { path: '/todo', label: 'TODO', icon: 'checklist', shortcut: 'go-todo' },
+  { path: '/statistics', label: 'STATISTICS', icon: 'bar_chart', shortcut: 'go-stats' },
+  { path: '/subjects', label: 'SUBJECTS', icon: 'layers', shortcut: 'go-subjects' },
 ];
 
 function navClass({ isActive }: { isActive: boolean }): string {
@@ -30,6 +31,8 @@ export function Sidebar() {
   const todoDueToday = hasTodoDueToday(todos);
   // Below lg the sidebar is hidden and the phone's session bar answers F / B.
   const isMobile = useIsMobile();
+  // Settings → Shortcuts: the keys, and whether to label the menu with them.
+  const shortcuts = useShortcutSettings();
 
   return (
     <aside className="fixed left-0 top-0 h-full w-[19rem] bg-surface-dim border-r border-outline-variant z-50 flex flex-col max-lg:hidden">
@@ -40,19 +43,30 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-5 pt-5 flex flex-col gap-2">
-        {navItems.map((item) => (
-          <NavLink key={item.path} to={item.path} end={item.path === '/'} className={navClass} title={item.shortcut ? `${item.label} (Shortcut: ${item.shortcut})` : item.label}>
-            {({ isActive }) => (
-              <>
-                <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-on-secondary-container' : ''}`}>{item.icon}</span>
-                {item.label}
-                {item.path === '/todo' && todoDueToday && (
-                  <span aria-label="Tasks due today" className="ml-auto w-2 h-2 rounded-full bg-error flex-shrink-0" />
-                )}
-              </>
-            )}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          const hint = shortcuts.singleKey ? shortcutHint(item.shortcut) : '';
+          const keys = shortcuts.hints && shortcuts.singleKey ? shortcutKeys(item.shortcut, shortcuts) : [];
+          return (
+            <NavLink key={item.path} to={item.path} end={item.path === '/'} className={navClass} title={hint ? `${item.label} (Shortcut: ${hint})` : item.label}>
+              {({ isActive }) => (
+                <>
+                  <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-on-secondary-container' : ''}`}>{item.icon}</span>
+                  {item.label}
+                  {item.path === '/todo' && todoDueToday && (
+                    <span aria-label="Tasks due today" className={`${keys.length ? 'ml-2' : 'ml-auto'} w-2 h-2 rounded-full bg-error flex-shrink-0`} />
+                  )}
+                  {keys.length > 0 && (
+                    <span className="ml-auto -my-1 flex gap-1" aria-hidden="true">
+                      {keys.map((k) => (
+                        <span key={k} className="kbd kbd-sm">{keyLabel(k)}</span>
+                      ))}
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+          );
+        })}
         <div className="mt-auto pb-6 flex flex-col gap-3">
           <WeeklyGoalsCard />
           <LiveSessionCard shortcuts={!isMobile} />

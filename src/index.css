@@ -623,6 +623,30 @@ html[data-theme='dark'] .heat-num-hi {
 @media (max-width: 1023px) {
   .note-editor { font-size: 16px; line-height: 25px; min-height: 0; }
 }
+/* A keyboard key (Settings → Shortcuts, sidebar key hints). */
+.kbd {
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-outline-variant);
+  border-bottom-width: 2px;
+  border-radius: 0.4rem;
+  background: var(--color-surface-container);
+  font: 600 12px/1 var(--font-body-md);
+  color: var(--color-on-surface);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: 0;
+  text-transform: none;
+}
+@keyframes kbd-recording { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.kbd-recording { animation: kbd-recording 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .kbd-recording { animation: none; } }
+.kbd-sm { min-width: 1.25rem; height: 1.25rem; padding: 0 0.3rem; font-size: 11px; color: var(--color-on-surface-variant); }
+
 /* Desktop day: the folded note shows its first lines and fades out. */
 .note-folded {
   -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent);

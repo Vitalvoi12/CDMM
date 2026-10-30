@@ -11,6 +11,7 @@ import { DevicesPanel } from '../components/settings/DevicesPanel';
 import type { ThemeMode } from '../types';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { ensurePushSubscription, notificationPermission, pushEndpoint, requestNotificationPermission, sendTestPush, showNotification, type NotifyPermission } from '../services/notifications';
+import { ShortcutsPanel } from '../components/settings/ShortcutsPanel';
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; hint: string }[] = [
   { value: 'light', label: 'Light', hint: 'Warm paper' },
@@ -352,6 +353,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
               </div>
             </div>
           )}
+          {activeSection === 'shortcuts' && <ShortcutsPanel />}
           {activeSection === 'notifications' && (
             <div className="mb-20 flex flex-col gap-4">
               <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">

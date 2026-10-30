@@ -9,6 +9,13 @@ import { YearView } from '../components/calendar/YearView';
 import { TodayStats } from '../components/calendar/TodayStats';
 import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
 import { DayNotesPanel } from '../components/calendar/DayNotesPanel';
+import { matchShortcut, singleKeysOn, shortcutHint, type ShortcutId } from '../services/shortcuts';
+
+/** "New event (Shortcut: N)", or just the label when the shortcut has no key. */
+function withHint(label: string, id: ShortcutId): string {
+  const keys = shortcutHint(id);
+  return keys ? `${label} (Shortcut: ${keys})` : label;
+}
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { EventForm } from '../components/calendar/EventForm';
 import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
@@ -234,45 +241,44 @@ export function CalendarPage() {
         return;
       }
 
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      // Previous / next period: fixed arrows, off with the other single keys.
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && singleKeysOn()) {
         e.preventDefault();
         goToPrevious();
         return;
       }
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && singleKeysOn()) {
         e.preventDefault();
         goToNext();
         return;
       }
 
-      // Layout-independent letters/digits: e.code is the physical key, so the
-      // shortcuts keep working on the Russian layout (r → к, p → з, a → ф).
-      // e.key stays as the fallback for layouts without a usable code.
-      const letter = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : '';
-      const digit = /^Digit[0-9]$/.test(e.code) ? e.code.slice(5) : '';
-      const key = letter || digit || e.key.toLowerCase();
-      if (!isMobile && key === '3') setView('3day');
+      // Letters/digits from the shortcut registry (services/shortcuts). They
+      // match the physical key, so they keep working on the Russian layout
+      // (r → к, p → з, a → ф).
+      if (!isMobile && matchShortcut(e, 'view-3day')) setView('3day');
       // D: the day view. On mobile it cycles the tabs Stat → Tasks → Notes
       // (from the timeline it lands on Stat).
-      else if (key === 'd') {
+      else if (matchShortcut(e, 'view-day')) {
         if (!isMobile) setView('day');
         else setDayPanel((p) => (p === 'stats' ? 'tasks' : p === 'tasks' ? 'notes' : 'stats'));
       }
       // Week stays desktop-only: the view is not in the mobile set, so an
       // unguarded press would set it and immediately be bounced back to day.
-      else if (!isMobile && key === 'w') setView('week');
+      else if (!isMobile && matchShortcut(e, 'view-week')) setView('week');
       // Month is available on mobile too (the sheet's View row mirrors this),
       // so the shortcut is not gated like week.
-      else if (key === 'm') setView('month');
-      else if (key === 'r') setEventFilter('real');
-      else if (key === 'p') setEventFilter('plan');
-      else if (key === 'a') setEventFilter('all');
+      else if (matchShortcut(e, 'view-month')) setView('month');
+      else if (matchShortcut(e, 'view-year')) setView('year');
+      else if (matchShortcut(e, 'filter-real')) setEventFilter('real');
+      else if (matchShortcut(e, 'filter-plan')) setEventFilter('plan');
+      else if (matchShortcut(e, 'filter-all')) setEventFilter('all');
       // N opens a new event, same defaults as the New event button.
-      else if (key === 'n') {
+      else if (matchShortcut(e, 'new-event')) {
         setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter });
       }
       // V opens a new task in the shown day's Checklist.
-      else if (key === 'v') {
+      else if (matchShortcut(e, 'new-task')) {
         e.preventDefault();
         flushSync(() => {
           if (view !== 'day') setView('day');
@@ -283,7 +289,7 @@ export function CalendarPage() {
         taskInputRef.current?.focus();
       }
       // I opens the shown day's Notes and starts editing.
-      else if (key === 'i') {
+      else if (matchShortcut(e, 'edit-note')) {
         e.preventDefault();
         if (view !== 'day') setView('day');
         if (isMobile) setDayPanel('notes');
@@ -913,7 +919,7 @@ export function CalendarPage() {
       {VIEWS.map((v) => (
         <button
           key={v.id}
-          title={`Shortcut: ${v.id === '3day' ? '3' : v.id}`}
+          title={withHint(v.label, `view-${v.id}` as ShortcutId)}
           onClick={() => setView(v.id)}
           className={`px-5 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
             view === v.id
@@ -932,7 +938,7 @@ export function CalendarPage() {
       {FILTERS.map((f) => (
         <button
           key={f.id}
-          title={`${f.title} (Shortcut: ${f.id === 'real' ? 'R' : f.id === 'plan' ? 'P' : 'A'})`}
+          title={withHint(f.title, `filter-${f.id}` as ShortcutId)}
           onClick={() => setEventFilter(f.id)}
           className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors ${
             eventFilter === f.id
@@ -1299,7 +1305,7 @@ export function CalendarPage() {
           <div className="mt-auto pt-8 flex items-center gap-4 lg:fixed lg:bottom-14 lg:right-8 lg:z-10">
             <button
               onClick={() => setCreatingEvent({ start: new Date(currentDate), kind: eventFilter === 'all' ? 'plan' : eventFilter })}
-              title="New event (Shortcut: N)"
+              title={withHint('New event', 'new-event')}
               aria-label="New event"
               className="hidden lg:flex items-center justify-center bg-surface-container-high text-on-surface rounded-full hover:bg-surface-container-highest transition-colors w-16 h-16"
             >

@@ -9,6 +9,7 @@ import { NotificationPrompt } from './NotificationPrompt';
 import { requestSessionStart, requestSessionStartEdit } from '../../services/liveSession';
 import { settingsRepo } from '../../services/repositories';
 import { hasOpenOverlay } from '../../services/overlays';
+import { matchShortcut } from '../../services/shortcuts';
 import { startEventNotifications } from '../../services/notifications';
 import { BELOW_DOCK_ID, useDockHidden } from '../mobile/belowDock';
 import { UndoToast } from '../mobile/UndoToast';
@@ -30,11 +31,12 @@ export function AppShell() {
     startEventNotifications();
   }, []);
 
-  // Section shortcuts: C → calendar, B → change the live session's start
-  // (only while one runs), S → statistics, T → todo, F → start a session (or, while one runs, ask
-  // to end it). Physical keys
-  // (e.code) so they work on any layout; skipped while typing or with a modal
-  // open so they never hijack a form or dismiss an editor.
+  // Section shortcuts (keys from services/shortcuts, C/T/S by default):
+  // open Calendar, Todo, Statistics or Subjects; B → change the live
+  // session's start (only while one runs); F → start a session (or, while
+  // one runs, ask to end it). Physical keys (e.code) so they work on any
+  // layout; skipped while typing or with a modal open so they never hijack
+  // a form or dismiss an editor.
   //
   // F no longer navigates anywhere: with the Focus Room tab gone, the sidebar
   // panel is the single place a session is started, so the shortcut asks that
@@ -55,12 +57,13 @@ export function AppShell() {
       // Single-letter shortcuts must not fire behind a dialog. Asks the overlay
       // stack rather than guessing at markup with a DOM query.
       if (hasOpenOverlay()) return;
-      if (e.code === 'KeyC') navigate('/');
-      else if (e.code === 'KeyB') {
+      if (matchShortcut(e, 'go-calendar')) navigate('/');
+      else if (matchShortcut(e, 'session-start')) {
         if (settingsRepo.get().activeSession) requestSessionStartEdit();
-      } else if (e.code === 'KeyS') navigate('/statistics');
-      else if (e.code === 'KeyT') navigate('/todo');
-      else if (e.code === 'KeyF') requestSessionStart();
+      } else if (matchShortcut(e, 'go-stats')) navigate('/statistics');
+      else if (matchShortcut(e, 'go-todo')) navigate('/todo');
+      else if (matchShortcut(e, 'go-subjects')) navigate('/subjects');
+      else if (matchShortcut(e, 'session')) requestSessionStart();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);

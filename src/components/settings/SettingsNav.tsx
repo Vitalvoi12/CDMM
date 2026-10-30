@@ -3,8 +3,10 @@ interface SettingsNavProps {
   onChange: (section: string) => void;
 }
 
-const sections = [
+const sections: { id: string; label: string; desktopOnly?: boolean }[] = [
   { id: 'general', label: 'General' },
+  // Keyboard shortcuts are for the desktop layout only.
+  { id: 'shortcuts', label: 'Shortcuts', desktopOnly: true },
   { id: 'account', label: 'Account' },
   { id: 'study-preferences', label: 'Study Preferences' },
   { id: 'notifications', label: 'Notifications' },
@@ -20,7 +22,7 @@ export function SettingsNav({ active, onChange }: SettingsNavProps) {
           <button
             key={section.id}
             onClick={() => onChange(section.id)}
-            className={`font-label-md text-[12px] leading-[16px] uppercase tracking-[0.1em] transition-colors py-3 px-5 rounded-full flex justify-between items-center text-left ${
+            className={`${section.desktopOnly ? 'max-lg:hidden ' : ''}font-label-md text-[12px] leading-[16px] uppercase tracking-[0.1em] transition-colors py-3 px-5 rounded-full flex justify-between items-center text-left ${
               isActive
                 ? 'text-on-secondary-container bg-secondary-container'
                 : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low group'
