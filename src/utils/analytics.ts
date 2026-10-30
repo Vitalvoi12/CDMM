@@ -393,6 +393,8 @@ export interface ActivityHistory {
   /** Monday-first, whole weeks: `weeks × 7` days, future days included. */
   days: StudyDay[];
   weeks: number;
+  /** The grid ends with the current week (false: moved back to a past period). */
+  endsNow: boolean;
   /** Minutes of every active past day in `days`, ascending — the shade scale. */
   activeMinutes: number[];
   /** Days in a row up to today (or yesterday), over the whole history. */
@@ -403,16 +405,20 @@ export interface ActivityHistory {
 
 /**
  * The desktop Consistency grid: whole weeks ending with the current one (or
- * with the period's last week, if that is later), at least HISTORY_WEEKS and
- * as many as the period needs, capped at HISTORY_MAX_WEEKS. Unlike
+ * with the period's last week, if that is later or the period is too far
+ * back to reach), at least HISTORY_WEEKS and as many as the period needs,
+ * capped at HISTORY_MAX_WEEKS. Unlike
  * calculateConsistency, the current streak is not clipped to the period — a
  * 7-day window would otherwise never show more than 7.
  */
 export function buildActivityHistory(slices: FocusSlice[], period: Period, today = new Date()): ActivityHistory {
   const now = startOfDay(today);
-  const lastWeek = startOfWeek(period.to.getTime() > now.getTime() ? period.to : now);
-  const periodWeeks = Math.round((lastWeek.getTime() - startOfWeek(period.from).getTime()) / (7 * 86400000)) + 1;
-  const weeks = Math.min(HISTORY_MAX_WEEKS, Math.max(HISTORY_WEEKS, periodWeeks));
+  const weeksBetween = (a: Date, b: Date) => Math.round((startOfWeek(b).getTime() - startOfWeek(a).getTime()) / (7 * 86400000)) + 1;
+  let lastWeek = startOfWeek(period.to.getTime() > now.getTime() ? period.to : now);
+  // A period too far back to fit before the current week: the grid moves to
+  // it and ends with the period's own last week instead.
+  if (weeksBetween(period.from, lastWeek) > HISTORY_MAX_WEEKS) lastWeek = startOfWeek(period.to);
+  const weeks = Math.min(HISTORY_MAX_WEEKS, Math.max(HISTORY_WEEKS, weeksBetween(period.from, lastWeek)));
   const from = addDays(lastWeek, -(weeks - 1) * 7);
   const days = buildDaySeries(slices, from, addDays(lastWeek, 6));
 
@@ -439,7 +445,8 @@ export function buildActivityHistory(slices: FocusSlice[], period: Period, today
     cursor = addDays(cursor, -1);
   }
 
-  return { days, weeks, activeMinutes, currentStreak, longest };
+  const endsNow = days[days.length - 1].date >= todayKey;
+  return { days, weeks, endsNow, activeMinutes, currentStreak, longest };
 }
 
 /**

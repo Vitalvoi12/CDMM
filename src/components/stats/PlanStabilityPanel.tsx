@@ -20,6 +20,25 @@ interface PlanStabilityPanelProps {
  * times the calendar was touched.
  */
 export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 'section' }: PlanStabilityPanelProps) {
+  // Desktop: nothing lost is one line under a full bar, not a dashed box.
+  if (stats.lostMinutes === 0 && layout === 'card') {
+    return (
+      <Section
+        title="Plan stability"
+        delay={480}
+        layout="card"
+        aside={<span className="font-label-md text-label-md text-on-surface tabular-nums">100% kept</span>}
+      >
+        <div className="h-2 w-full rounded-full bg-primary origin-left animate-bar-grow-x" />
+        <p className="font-body-md text-body-md text-on-surface">No planned time was cut away in this period.</p>
+        <p className="font-body-sm text-body-sm text-on-surface-variant">
+          Only shortening or deleting a block costs plan time. Moving it to another hour, retitling or excluding it
+          from statistics doesn’t count.
+        </p>
+      </Section>
+    );
+  }
+
   if (stats.lostMinutes === 0) {
     return (
       <Section title="Plan stability" delay={480} layout={layout}>

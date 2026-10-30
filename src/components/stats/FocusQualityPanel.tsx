@@ -19,11 +19,27 @@ function fmtAvg(avg: number | null): string {
 }
 
 /** One split (time of day / weekday / length): a bar per group, height = mean rating. */
-function GroupBars({ title, groups, bestLabel, layout }: { title: string; groups: FocusGroup[]; bestLabel?: string; layout: StatLayout }) {
+function GroupBars({
+  title,
+  groups,
+  bestLabel,
+  layout,
+}: {
+  title: string;
+  groups: FocusGroup[];
+  bestLabel?: string;
+  layout: StatLayout;
+}) {
   return (
-    <div className={boxClass(layout, 'min-w-0')}>
-      <h3 className="font-label-sm text-label-sm text-on-surface uppercase tracking-widest mb-4">{title}</h3>
-      <div className="flex items-end gap-2 h-28">
+    <div
+      className={
+        layout === 'card'
+          ? 'min-w-0 pl-6 border-l border-outline-variant @max-[959px]:first:pl-0 @max-[959px]:first:border-l-0'
+          : boxClass(layout, 'min-w-0')
+      }
+    >
+      <h3 className={`font-label-sm text-label-sm uppercase tracking-widest ${layout === 'card' ? 'text-on-surface-variant mb-3' : 'text-on-surface mb-4'}`}>{title}</h3>
+      <div className={`flex items-end ${layout === 'card' ? 'gap-1 h-24' : 'gap-2 h-28'}`}>
         {groups.map((g) => {
           // 1 → a third of the height, 3 → full: the floor of the scale is a
           // rated session, not zero, so an "okay" bar is not drawn as nothing.
@@ -42,7 +58,7 @@ function GroupBars({ title, groups, bestLabel, layout }: { title: string; groups
                   style={{ height: `${h}%` }}
                 />
               </div>
-              <span className="font-label-sm text-[10px] text-on-surface-variant truncate max-w-full">{g.label}</span>
+              <span className={`font-label-sm text-[10px] text-on-surface-variant truncate max-w-full ${layout === 'card' ? 'tracking-normal' : ''}`}>{g.label}</span>
             </div>
           );
         })}
@@ -80,26 +96,67 @@ export function FocusQualityPanel({ stats, periodLabel, layout = 'section' }: Fo
     },
   ];
 
+  const summary = best
+    ? `You focus best ${DIMENSION_TEXT[best.dimension](best.group.label)} — ${fmtAvg(best.group.average)} on average over ${best.group.count} sessions.`
+    : `Rate at least ${MIN_FOCUS_SAMPLE} sessions in one time slot to see when you work best.`;
+  // The card's column is narrow: short captions, as on the mock-up.
+  const cardTiles = [
+    { value: tiles[0].value, label: 'Average', hint: undefined },
+    { value: tiles[1].value, label: 'Rated', hint: `of ${stats.sessions}` },
+    { value: tiles[2].value, label: 'Deep', hint: undefined },
+  ];
+  const tileRow = (
+    <div className={`grid grid-cols-3 ${layout === 'card' ? 'gap-4' : 'gap-6 mb-8'}`}>
+      {(layout === 'card' ? cardTiles : tiles).map((t, i) => (
+        <StatTile key={t.label} value={t.value} label={t.label} hint={t.hint} delay={320 + i * 60} />
+      ))}
+    </div>
+  );
+  const groupBars = (
+    <>
+      <GroupBars title="Time of day" groups={stats.byTimeOfDay} bestLabel={best?.dimension === 'time' ? best.group.label : undefined} layout={layout} />
+      <GroupBars title="Weekday" groups={stats.byWeekday} bestLabel={best?.dimension === 'weekday' ? best.group.label : undefined} layout={layout} />
+      <GroupBars title="Session length" groups={stats.byLength} bestLabel={best?.dimension === 'length' ? best.group.label : undefined} layout={layout} />
+    </>
+  );
+
+  // Desktop: the summary and tiles on the left, the three splits beside them
+  // divided by hairlines — one card, not three boxes inside it.
+  if (layout === 'card') {
+    return (
+      <Section
+        title="Focus quality"
+        delay={280}
+        layout="card"
+        wide
+        aside={<span className="font-body-sm text-body-sm text-on-surface-variant">1 scattered · 2 okay · 3 deep</span>}
+      >
+        {/* Side by side when the card is wide, the splits under the summary
+            when it is not; the columns are sized to their labels. */}
+        <div className="@container">
+          <div className="flex flex-col gap-6 @min-[960px]:flex-row @min-[960px]:items-start @min-[960px]:gap-8">
+            <div className="@min-[960px]:w-[230px] flex-none min-w-0 flex flex-col gap-5">
+              <p className="font-body-lg text-body-lg text-on-surface">{summary}</p>
+              {tileRow}
+            </div>
+            <div className="flex-1 min-w-0 grid gap-6" style={{ gridTemplateColumns: '1.4fr 1fr 0.9fr' }}>
+              {groupBars}
+            </div>
+          </div>
+        </div>
+        <Foot layout="card">Faint bars have fewer than {MIN_FOCUS_SAMPLE} ratings and never count as the best.</Foot>
+      </Section>
+    );
+  }
+
   return (
-    <Section title="Focus quality" delay={280} layout={layout} wide>
-      <p className={`font-body-lg text-body-lg text-on-surface ${layout === 'card' ? '' : 'mb-6'}`}>
-        {best
-          ? `You focus best ${DIMENSION_TEXT[best.dimension](best.group.label)} — ${fmtAvg(best.group.average)} on average over ${best.group.count} sessions.`
-          : `Rate at least ${MIN_FOCUS_SAMPLE} sessions in one time slot to see when you work best.`}
-      </p>
-      <div className={`grid grid-cols-3 gap-6 ${layout === 'card' ? '' : 'mb-8'}`}>
-        {tiles.map((t, i) => (
-          <StatTile key={t.label} value={t.value} label={t.label} hint={t.hint} delay={320 + i * 60} />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <GroupBars title="Time of day" groups={stats.byTimeOfDay} bestLabel={best?.dimension === 'time' ? best.group.label : undefined} layout={layout} />
-        <GroupBars title="Weekday" groups={stats.byWeekday} bestLabel={best?.dimension === 'weekday' ? best.group.label : undefined} layout={layout} />
-        <GroupBars title="Session length" groups={stats.byLength} bestLabel={best?.dimension === 'length' ? best.group.label : undefined} layout={layout} />
-      </div>
-      <Foot layout={layout}>
+    <Section title="Focus quality" delay={280}>
+      <p className="font-body-lg text-body-lg text-on-surface mb-6">{summary}</p>
+      {tileRow}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">{groupBars}</div>
+      <p className="font-body-sm text-body-sm text-on-surface-variant mt-3">
         Mean rating per group (1 scattered · 2 okay · 3 deep). Faint bars have fewer than {MIN_FOCUS_SAMPLE} ratings.
-      </Foot>
+      </p>
     </Section>
   );
 }

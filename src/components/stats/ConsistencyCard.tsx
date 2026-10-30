@@ -41,8 +41,8 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
     return (
       <Section title="Consistency" delay={320} layout="card">
         <EmptyState
-          text="No study days yet"
-          hint={`Nothing was studied in the last ${history.weeks} weeks. Finished Focus Room sessions fill this calendar.`}
+          text="No study days in these weeks"
+          hint={`Nothing was studied in these ${history.weeks} weeks. Finished Focus Room sessions fill this calendar.`}
         />
       </Section>
     );
@@ -68,7 +68,11 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
       title="Consistency"
       delay={320}
       layout="card"
-      aside={<span className="font-body-sm text-body-sm text-on-surface-variant">last {weeks} weeks</span>}
+      aside={
+        <span className="font-body-sm text-body-sm text-on-surface-variant">
+          {history.endsNow ? `last ${weeks} weeks` : `${weeks} weeks to ${shortDate(history.days[history.days.length - 1].date)}`}
+        </span>
+      }
     >
       <div className="grid grid-cols-3 gap-4">
         <StatTile value={`${stats.activeDays} / ${period.days}`} label="Active days" hint="in this period" />
@@ -123,7 +127,7 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
             return (
               <span
                 key={d.date}
-                className={`aspect-square rounded-[3px] ${future ? 'opacity-50' : heatmapCellClass(level)}`}
+                className={`aspect-square ${weeks > 30 ? 'rounded-[2px]' : 'rounded-[3px]'} ${future ? 'opacity-50' : heatmapCellClass(level)}`}
                 style={{ boxShadow: edge }}
                 onMouseEnter={(e) => setHover({ day: d, future, ...anchorOf(e.currentTarget) })}
                 onMouseLeave={() => setHover(null)}
