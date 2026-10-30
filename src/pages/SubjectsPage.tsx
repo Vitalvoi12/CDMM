@@ -6,6 +6,7 @@ import { SubjectsDesktop } from '../components/subjects/SubjectsDesktop';
 import { SubjectForm } from '../components/subjects/SubjectForm';
 import { SubjectList } from '../components/mobile/SubjectList';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { checkpoint } from '../services/history';
 
 export function SubjectsPage() {
   const isMobile = useIsMobile();
@@ -39,6 +40,13 @@ export function SubjectsPage() {
     setEditingSubject(null);
     refresh();
   }, [refresh]);
+
+  // Desktop panel, after its confirmation: undoable with Ctrl+Z. Events keep
+  // the subject id and stay in the calendar.
+  const handleConfirmedDelete = useCallback((id: string) => {
+    checkpoint('Delete subject', { subjects: true });
+    handleDelete(id);
+  }, [handleDelete]);
 
   const handleSave = useCallback(
     (data: { name: string; color: string; weeklyGoalMinutes: number | null }) => {
@@ -74,7 +82,7 @@ export function SubjectsPage() {
 
   return (
     <div className="flex flex-col w-full">
-      <SubjectsDesktop subjects={subjects} version={version} onAdd={handleAdd} onEdit={handleEdit} onDelete={handleDelete} />
+      <SubjectsDesktop subjects={subjects} version={version} onAdd={handleAdd} onEdit={handleEdit} onDelete={handleConfirmedDelete} />
       {form}
     </div>
   );

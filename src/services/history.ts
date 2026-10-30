@@ -1,18 +1,25 @@
 import {
   eventRepo,
+  subjectRepo,
   todoRepo,
   dayTaskRepo,
   tombstoneRepo,
   type Tombstone,
 } from './repositories';
 import { notifySync } from './serverSync';
-import type { CalendarEvent, DayTaskList, TodoTask } from '../types';
+import type { CalendarEvent, DayTaskList, Subject, TodoTask } from '../types';
 
 interface Snapshot {
   events: CalendarEvent[];
   todos: TodoTask[];
   dayTasks: DayTaskList[];
   tombstones: Tombstone[];
+  /**
+   * Only for subject actions (checkpoint's `subjects` option). Subject edits
+   * are not checkpointed, so restoring the list on every undo would revert
+   * them, or bring back a subject deleted without a checkpoint.
+   */
+  subjects?: Subject[];
 }
 
 interface HistoryEntry {
@@ -41,12 +48,13 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function takeSnapshot(): Snapshot {
+function takeSnapshot(withSubjects = false): Snapshot {
   return {
     events: clone(eventRepo.getAll()),
     todos: clone(todoRepo.getAll()),
     dayTasks: clone(dayTaskRepo.getAll()),
     tombstones: clone(tombstoneRepo.getAll()),
+    ...(withSubjects ? { subjects: clone(subjectRepo.getAll()) } : {}),
   };
 }
 
@@ -54,8 +62,8 @@ function takeSnapshot(): Snapshot {
  * Record the current state before a user mutation, so Ctrl+Z can revert it.
  * Call once per user action, right before mutating the repos.
  */
-export function checkpoint(label: string): void {
-  const entry = { label, snap: takeSnapshot() };
+export function checkpoint(label: string, opts: { subjects?: boolean } = {}): void {
+  const entry = { label, snap: takeSnapshot(opts.subjects) };
   undoStack.push(entry);
   if (undoStack.length > MAX_DEPTH) undoStack.shift();
   // A new action invalidates the redo trail.
@@ -93,6 +101,7 @@ function restore(snap: Snapshot): void {
 
   reconcile('events', curEvents, snap.events);
   reconcile('todos', curTodos, snap.todos);
+  if (snap.subjects) restoreSubjects(snap.subjects, snap.tombstones);
 
   // Day checklists are never deleted, only emptied: restore each day the
   // undone action touched and re-stamp it so the restored list wins LWW.
@@ -110,6 +119,33 @@ function restore(snap: Snapshot): void {
 
   // Pages hold useState copies of the repos — tell them to re-read.
   notifySync();
+}
+
+/**
+ * Subjects the undone action deleted come back (re-pushed so they win LWW);
+ * subjects the snapshot has tombstoned go again. Others are left alone.
+ */
+function restoreSubjects(snapSubjects: Subject[], snapTombs: Tombstone[]): void {
+  const cur = subjectRepo.getAll();
+  const curIds = new Set(cur.map((s) => s.id));
+  const gone = new Set(snapTombs.filter((t) => t.entity === 'subjects').map((t) => t.key));
+  const back = snapSubjects.filter((s) => !curIds.has(s.id));
+  // Snapshot order (a restored subject goes back to its place), then any
+  // subject added since.
+  const curById = new Map(cur.map((s) => [s.id, s]));
+  const snapIds = new Set(snapSubjects.map((s) => s.id));
+  const ordered = [
+    ...snapSubjects.map((s) => curById.get(s.id) ?? clone(s)),
+    ...cur.filter((s) => !snapIds.has(s.id)),
+  ].filter((s) => !gone.has(s.id));
+  subjectRepo.replaceAll(ordered);
+  for (const s of back) subjectRepo.update(s.id, {});
+  for (const s of cur) {
+    if (!gone.has(s.id)) continue;
+    // Re-add the tombstone so the deletion is pushed again.
+    tombstoneRepo.remove('subjects', s.id);
+    tombstoneRepo.add('subjects', s.id);
+  }
 }
 
 function reconcile(
@@ -154,7 +190,7 @@ function bump(entity: 'events' | 'todos', id: string): void {
 export function undo(): string | null {
   const entry = undoStack.pop();
   if (!entry) return null;
-  redoStack.push({ label: entry.label, snap: takeSnapshot() });
+  redoStack.push({ label: entry.label, snap: takeSnapshot(!!entry.snap.subjects) });
   restore(entry.snap);
   return entry.label;
 }
@@ -170,7 +206,7 @@ export function undoIfLatest(entry: object): boolean {
 export function redo(): string | null {
   const entry = redoStack.pop();
   if (!entry) return null;
-  undoStack.push({ label: entry.label, snap: takeSnapshot() });
+  undoStack.push({ label: entry.label, snap: takeSnapshot(!!entry.snap.subjects) });
   restore(entry.snap);
   return entry.label;
 }
