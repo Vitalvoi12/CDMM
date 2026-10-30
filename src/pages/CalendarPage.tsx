@@ -182,8 +182,6 @@ export function CalendarPage() {
   }, [hideDock]);
   // Mobile view sheet (the date title, or a double tap on the floating switch).
   const [viewSettingsOpen, setViewSettingsOpen] = useState(false);
-  // Desktop day view: the right column shows either statistics or tasks.
-  const [asidePanel, setAsidePanel] = useState<'stats' | 'tasks' | 'notes'>('stats');
   // The Checklist's new-task form (inline on desktop, a window on the phone).
   const [taskAdding, setTaskAdding] = useState(false);
   const taskInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -191,8 +189,8 @@ export function CalendarPage() {
   const [noteFocusPending, setNoteFocusPending] = useState(false);
   // Leaving the Checklist closes the form, so it does not pop back up later.
   useEffect(() => {
-    if ((isMobile ? dayPanel : asidePanel) !== 'tasks' || view !== 'day') setTaskAdding(false);
-  }, [isMobile, dayPanel, asidePanel, view]);
+    if ((isMobile && dayPanel !== 'tasks') || view !== 'day') setTaskAdding(false);
+  }, [isMobile, dayPanel, view]);
   // Which event kinds the calendars show. 'all' splits timeline days into
   // Real|Plan halves and lists the month cells in one column; 'real'/'plan'
   // renders a single full-width column. Persisted.
@@ -221,16 +219,15 @@ export function CalendarPage() {
       );
       if (isEditing || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
 
-      // Day view: Up/Down cycle the panels and wrap around, so holding one
-      // key keeps going. Desktop walks the side panel Stat → Tasks → Notes →
-      // Stat; the mobile layout (iPad keyboard) walks Day → Stat → Tasks →
-      // Notes → Day. Up goes forward, Down back (like swiping up on mobile).
-      if (view === 'day' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      // Mobile day view (iPad keyboard): Up/Down cycle the panels Day → Stat
+      // → Tasks → Notes → Day and wrap around, so holding one key keeps going.
+      // Up goes forward, Down back (like swiping up on mobile). The desktop
+      // day shows all of its side panels at once, so there Up/Down turn the
+      // day like in the other views.
+      if (isMobile && view === 'day' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
         const step = e.key === 'ArrowUp' ? 1 : -1;
-        const cycle = <T,>(order: readonly T[], p: T) => order[(order.indexOf(p) + step + order.length) % order.length];
-        if (isMobile) setDayPanel((p) => cycle(DAY_PANELS, p));
-        else setAsidePanel((p) => cycle(['stats', 'tasks', 'notes'] as const, p));
+        setDayPanel((p) => DAY_PANELS[(DAY_PANELS.indexOf(p) + step + DAY_PANELS.length) % DAY_PANELS.length]);
         return;
       }
 
@@ -252,11 +249,10 @@ export function CalendarPage() {
       const digit = /^Digit[0-9]$/.test(e.code) ? e.code.slice(5) : '';
       const key = letter || digit || e.key.toLowerCase();
       if (!isMobile && key === '3') setView('3day');
-      // D: first jump to the day view, then cycle the side panel Stat → Tasks → Notes.
-      // On mobile it cycles the same tabs (from the timeline it lands on Stat).
+      // D: the day view. On mobile it cycles the tabs Stat → Tasks → Notes
+      // (from the timeline it lands on Stat).
       else if (key === 'd') {
-        if (!isMobile && view !== 'day') setView('day');
-        else if (!isMobile) setAsidePanel((p) => (p === 'stats' ? 'tasks' : p === 'tasks' ? 'notes' : 'stats'));
+        if (!isMobile) setView('day');
         else setDayPanel((p) => (p === 'stats' ? 'tasks' : p === 'tasks' ? 'notes' : 'stats'));
       }
       // Week stays desktop-only: the view is not in the mobile set, so an
@@ -278,7 +274,6 @@ export function CalendarPage() {
         flushSync(() => {
           if (view !== 'day') setView('day');
           if (isMobile) setDayPanel('tasks');
-          else setAsidePanel('tasks');
           setTaskAdding(true);
         });
         // Also when the form was already open: autoFocus runs only on mount.
@@ -289,7 +284,6 @@ export function CalendarPage() {
         e.preventDefault();
         if (view !== 'day') setView('day');
         if (isMobile) setDayPanel('notes');
-        else setAsidePanel('notes');
         setNoteFocusPending(true);
       }
     };
@@ -1202,38 +1196,22 @@ export function CalendarPage() {
               mode={eventFilter}
               onTaskDrop={handleTaskDrop}
             />
-            {/* Right column: statistics or per-subject tasks, switched like Real/Plan. */}
+            {/* Right column: the day's numbers, its checklist and its note,
+                all at once. The checklist takes the free height and scrolls
+                inside; the note is folded until opened. */}
             {/* Bottom clearance: the action bar floats over this corner, so the
-                filling card must end above it at any zoom level. */}
+                last card must end above it at any zoom level. */}
             <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1 pb-32">
-              <div className="flex gap-1 border border-outline-variant rounded-full p-1 bg-surface-container-low self-start flex-shrink-0" role="group" aria-label="Side panel">
-                {(['stats', 'tasks', 'notes'] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setAsidePanel(p)}
-                    title="Switch Stat/Check/Notes (Shortcut: D, ↑/↓; I edits the note)"
-                    className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors whitespace-nowrap ${
-                      asidePanel === p
-                        ? 'bg-secondary-container text-on-secondary-container'
-                        : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
-                  >
-                    {p === 'stats' ? 'Stat' : p === 'tasks' ? 'Check' : 'Notes'}
-                  </button>
-                ))}
-              </div>
-              {asidePanel === 'stats' ? (
+              <div className="flex-none flex flex-col">
                 <StatsSidebar
                   events={statsEvents}
                   subjects={subjects}
                   totalMinutes={stats.totalMinutes}
                   goals={weekGoals}
                 />
-              ) : asidePanel === 'tasks' ? (
-                <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} />
-              ) : (
-                <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
-              )}
+              </div>
+              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} />
+              <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
             </aside>
           </div>
         ))}
