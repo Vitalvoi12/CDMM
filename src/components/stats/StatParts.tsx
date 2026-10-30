@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { StatLayout } from './statLayout';
+import { heatmapCellClass } from '../../utils/analytics';
 
 export type { StatLayout };
 
@@ -134,4 +135,20 @@ export function anchorOf(target: HTMLElement): { x: number; y: number; below: bo
     y: below ? rect.bottom : rect.top,
     below,
   };
+}
+
+/** Less … More key of the five heat steps, for the desktop cards' footers. */
+export function HeatLegend() {
+  return (
+    <div className="flex items-center gap-1.5 ml-auto">
+      <span className="font-body-sm text-body-sm text-on-surface-variant">Less</span>
+      {([0, 1, 2, 3, 4] as const).map((level) => (
+        <span
+          key={level}
+          className={`w-[0.65rem] h-[0.65rem] rounded-[3px] ${heatmapCellClass(level)} ${level === 0 ? 'border border-outline/60' : ''}`}
+        />
+      ))}
+      <span className="font-body-sm text-body-sm text-on-surface-variant">More</span>
+    </div>
+  );
 }

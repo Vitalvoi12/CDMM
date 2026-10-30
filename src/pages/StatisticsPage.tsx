@@ -5,6 +5,7 @@ import { formatDuration, formatDurationLong } from '../utils/time';
 import { PeriodSelect } from '../components/stats/PeriodSelect';
 import { SubjectBreakdown } from '../components/stats/SubjectBreakdown';
 import { TimeHeatmap } from '../components/stats/TimeHeatmap';
+import { WhenYouStudy } from '../components/stats/WhenYouStudy';
 import { ConsistencyPanel } from '../components/stats/ConsistencyPanel';
 import { TaskStatsPanel } from '../components/stats/TaskStatsPanel';
 import { PlanStabilityPanel } from '../components/stats/PlanStabilityPanel';
@@ -184,7 +185,7 @@ export function StatisticsPage() {
           layout="card"
         />
         <GoalsPanel goals={goals} days={period.days} layout="card" />
-        <TimeHeatmap rhythm={rhythm} periodLabel={period.label} layout="card" />
+        <WhenYouStudy rhythm={rhythm} periodLabel={period.label} />
         <ConsistencyPanel stats={consistency} days={days} periodLabel={period.label} layout="card" />
         <FocusQualityPanel stats={focus} periodLabel={period.label} layout="card" />
         <TaskStatsPanel stats={tasks} periodLabel={period.label} layout="card" />
