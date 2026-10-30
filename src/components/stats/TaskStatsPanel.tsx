@@ -1,9 +1,11 @@
 import type { TaskStats } from '../../utils/analytics';
-import { EmptyState, Section, StatTile } from './StatParts';
+import { EmptyState, Section, StatTile, type StatLayout } from './StatParts';
+import { boxClass } from './statLayout';
 
 interface TaskStatsPanelProps {
   stats: TaskStats;
   periodLabel: string;
+  layout?: StatLayout;
 }
 
 /**
@@ -11,10 +13,10 @@ interface TaskStatsPanelProps {
  * period" — created, done, still open and overdue all describe that same set,
  * while "completed" and the deadline split are measured by completion time.
  */
-export function TaskStatsPanel({ stats, periodLabel }: TaskStatsPanelProps) {
+export function TaskStatsPanel({ stats, periodLabel, layout = 'section' }: TaskStatsPanelProps) {
   if (stats.created === 0) {
     return (
-      <Section title="Tasks" delay={400}>
+      <Section title="Tasks" delay={400} layout={layout}>
         <EmptyState
           text="No tasks created in this period"
           hint={`Nothing was added to the todo list during ${periodLabel}.`}
@@ -31,13 +33,14 @@ export function TaskStatsPanel({ stats, periodLabel }: TaskStatsPanelProps) {
     <Section
       title="Tasks"
       delay={400}
+      layout={layout}
       aside={
         <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
           {done} / {stats.created} done
         </p>
       }
     >
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className={`grid grid-cols-2 lg:grid-cols-4 gap-6 ${layout === 'card' ? '' : 'mb-8'}`}>
         <StatTile value={`${stats.created}`} label="Created" delay={440} />
         <StatTile value={`${stats.completed}`} label="Completed" hint="finished in period" delay={500} />
         <StatTile value={`${ratePercent}%`} label="Done" hint={`${done} of ${stats.created}`} delay={560} />
@@ -49,7 +52,7 @@ export function TaskStatsPanel({ stats, periodLabel }: TaskStatsPanelProps) {
         />
       </div>
 
-      <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 p-5 flex flex-col gap-6">
+      <div className={boxClass(layout, `flex flex-col ${layout === 'card' ? 'gap-4' : 'gap-6'}`)}>
         <div>
           <div className="flex items-baseline justify-between gap-4 mb-2">
             <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">

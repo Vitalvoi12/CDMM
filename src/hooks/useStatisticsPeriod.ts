@@ -168,6 +168,8 @@ export function useStatisticsPeriod() {
     () => buildFocusBuckets(days, period.from, period.to, bucketSize),
     [days, period, bucketSize]
   );
+  // Mean per bucket, empty buckets included: the chart's reference line.
+  const averageMinutes = buckets.length > 0 ? totalMinutes / buckets.length : 0;
   const rhythm = useMemo(() => buildRhythm(inPeriod), [inPeriod]);
   const consistency = useMemo(() => calculateConsistency(days), [days]);
   const tasks = useMemo(
@@ -218,6 +220,7 @@ export function useStatisticsPeriod() {
     days,
     bucketSize,
     buckets,
+    averageMinutes,
     rhythm,
     consistency,
     tasks,

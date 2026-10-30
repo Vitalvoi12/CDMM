@@ -1,9 +1,11 @@
 import { FOCUS_LABELS, MIN_FOCUS_SAMPLE, type FocusGroup, type FocusQuality } from '../../utils/analytics';
-import { EmptyState, Section, StatTile } from './StatParts';
+import { EmptyState, Foot, Section, StatTile, type StatLayout } from './StatParts';
+import { boxClass } from './statLayout';
 
 interface FocusQualityPanelProps {
   stats: FocusQuality;
   periodLabel: string;
+  layout?: StatLayout;
 }
 
 const DIMENSION_TEXT = {
@@ -17,9 +19,9 @@ function fmtAvg(avg: number | null): string {
 }
 
 /** One split (time of day / weekday / length): a bar per group, height = mean rating. */
-function GroupBars({ title, groups, bestLabel }: { title: string; groups: FocusGroup[]; bestLabel?: string }) {
+function GroupBars({ title, groups, bestLabel, layout }: { title: string; groups: FocusGroup[]; bestLabel?: string; layout: StatLayout }) {
   return (
-    <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 p-5 min-w-0">
+    <div className={boxClass(layout, 'min-w-0')}>
       <h3 className="font-label-sm text-label-sm text-on-surface uppercase tracking-widest mb-4">{title}</h3>
       <div className="flex items-end gap-2 h-28">
         {groups.map((g) => {
@@ -55,10 +57,10 @@ function GroupBars({ title, groups, bestLabel }: { title: string; groups: FocusG
  * best", which hours at the desk alone cannot. Faint bars have fewer than
  * MIN_FOCUS_SAMPLE ratings and never count as the best group.
  */
-export function FocusQualityPanel({ stats, periodLabel }: FocusQualityPanelProps) {
+export function FocusQualityPanel({ stats, periodLabel, layout = 'section' }: FocusQualityPanelProps) {
   if (stats.rated === 0) {
     return (
-      <Section title="Focus quality" delay={280}>
+      <Section title="Focus quality" delay={280} layout={layout} wide>
         <EmptyState
           text="No rated sessions in this period"
           hint={`Nothing was rated between ${periodLabel}. Rate your focus (1–3) when you finish a session — after a few, this shows when you work best.`}
@@ -79,25 +81,25 @@ export function FocusQualityPanel({ stats, periodLabel }: FocusQualityPanelProps
   ];
 
   return (
-    <Section title="Focus quality" delay={280}>
-      <p className="font-body-lg text-body-lg text-on-surface mb-6">
+    <Section title="Focus quality" delay={280} layout={layout} wide>
+      <p className={`font-body-lg text-body-lg text-on-surface ${layout === 'card' ? '' : 'mb-6'}`}>
         {best
           ? `You focus best ${DIMENSION_TEXT[best.dimension](best.group.label)} — ${fmtAvg(best.group.average)} on average over ${best.group.count} sessions.`
           : `Rate at least ${MIN_FOCUS_SAMPLE} sessions in one time slot to see when you work best.`}
       </p>
-      <div className="grid grid-cols-3 gap-6 mb-8">
+      <div className={`grid grid-cols-3 gap-6 ${layout === 'card' ? '' : 'mb-8'}`}>
         {tiles.map((t, i) => (
           <StatTile key={t.label} value={t.value} label={t.label} hint={t.hint} delay={320 + i * 60} />
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <GroupBars title="Time of day" groups={stats.byTimeOfDay} bestLabel={best?.dimension === 'time' ? best.group.label : undefined} />
-        <GroupBars title="Weekday" groups={stats.byWeekday} bestLabel={best?.dimension === 'weekday' ? best.group.label : undefined} />
-        <GroupBars title="Session length" groups={stats.byLength} bestLabel={best?.dimension === 'length' ? best.group.label : undefined} />
+        <GroupBars title="Time of day" groups={stats.byTimeOfDay} bestLabel={best?.dimension === 'time' ? best.group.label : undefined} layout={layout} />
+        <GroupBars title="Weekday" groups={stats.byWeekday} bestLabel={best?.dimension === 'weekday' ? best.group.label : undefined} layout={layout} />
+        <GroupBars title="Session length" groups={stats.byLength} bestLabel={best?.dimension === 'length' ? best.group.label : undefined} layout={layout} />
       </div>
-      <p className="font-body-sm text-body-sm text-on-surface-variant mt-3">
+      <Foot layout={layout}>
         Mean rating per group (1 scattered · 2 okay · 3 deep). Faint bars have fewer than {MIN_FOCUS_SAMPLE} ratings.
-      </p>
+      </Foot>
     </Section>
   );
 }

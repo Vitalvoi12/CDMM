@@ -1,8 +1,7 @@
 import { useCallback, useReducer } from 'react';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { useStatisticsPeriod } from '../hooks/useStatisticsPeriod';
-import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
-import { formatDurationLong } from '../utils/time';
+import { formatDuration, formatDurationLong } from '../utils/time';
 import { PeriodSelect } from '../components/stats/PeriodSelect';
 import { SubjectBreakdown } from '../components/stats/SubjectBreakdown';
 import { TimeHeatmap } from '../components/stats/TimeHeatmap';
@@ -11,6 +10,8 @@ import { TaskStatsPanel } from '../components/stats/TaskStatsPanel';
 import { PlanStabilityPanel } from '../components/stats/PlanStabilityPanel';
 import { GoalsPanel } from '../components/stats/GoalsPanel';
 import { FocusQualityPanel } from '../components/stats/FocusQualityPanel';
+import { FocusTimeChart } from '../components/stats/FocusTimeChart';
+import { StatTile } from '../components/stats/StatParts';
 import { Statistics } from '../components/mobile/Statistics';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -20,7 +21,6 @@ import { useIsMobile } from '../hooks/useIsMobile';
  * stability always describe the same window.
  */
 export function StatisticsPage() {
-  const springRef = useOverscrollSpring<HTMLDivElement>();
   const [, forceRefresh] = useReducer((x: number) => x + 1, 0);
   const refresh = useCallback(() => forceRefresh(), []);
   useSyncRefresh(refresh);
@@ -39,6 +39,9 @@ export function StatisticsPage() {
     totalMinutes,
     totalSessions,
     days,
+    bucketSize,
+    buckets,
+    averageMinutes,
     rhythm,
     consistency,
     tasks,
@@ -117,43 +120,74 @@ export function StatisticsPage() {
     );
   }
 
+  // Desktop: header, summary tiles, then every block as a card in one grid.
   return (
-    <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-hidden">
-      <div className="mb-8 max-lg:mb-3 animate-fade-up flex-shrink-0">
-        <h1 className="font-headline-lg text-headline-lg max-lg:!text-[21px] max-lg:!leading-[27px] text-on-surface mb-1">Statistics</h1>
-        <p className="font-body-lg text-body-lg text-on-surface-variant">
-          {totalMinutes > 0
-            ? `${formatDurationLong(totalMinutes)} of focus time · ${totalSessions} session${totalSessions === 1 ? '' : 's'} · ${period.label}`
-            : period.label}
-        </p>
-        <div className="mt-6 max-lg:hidden">
-          <PeriodSelect
-            preset={preset}
-            onChange={setPreset}
-            customFrom={customFrom}
-            customTo={customTo}
-            onCustomChange={setCustom}
-          />
+    <div className="flex flex-col w-full gap-6 pb-12">
+      <header className="flex items-start justify-between gap-4 flex-wrap animate-fade-up">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-headline-lg text-headline-lg text-on-surface">Statistics</h1>
+          <p className="font-body-lg text-body-lg text-on-surface-variant tabular-nums">{period.label}</p>
         </div>
-      </div>
-
-      <div ref={springRef} className="flex flex-col flex-1 min-h-0 max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-8">
-      <div className="mb-6 lg:hidden">
         <PeriodSelect
           preset={preset}
           onChange={setPreset}
           customFrom={customFrom}
           customTo={customTo}
           onCustomChange={setCustom}
+          align="end"
+        />
+      </header>
+
+      <div className="grid gap-x-8 gap-y-5 py-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+        <StatTile
+          value={formatDurationLong(totalMinutes)}
+          label="Focus"
+          hint={`${formatDuration(Math.round(totalMinutes / period.days))} a day on average`}
+        />
+        <StatTile
+          value={totalSessions}
+          label="Sessions"
+          hint={totalSessions > 0 ? `${formatDuration(Math.round(totalMinutes / totalSessions))} on average` : undefined}
+          delay={60}
+        />
+        <StatTile
+          value={focus.average === null ? '—' : focus.average.toFixed(1)}
+          label="Avg focus"
+          hint={`${focus.rated} of ${focus.sessions} rated`}
+          delay={120}
+        />
+        <StatTile
+          value={`${consistency.currentStreak} day${consistency.currentStreak === 1 ? '' : 's'}`}
+          label="Streak"
+          hint={`longest ${consistency.longestStreak}`}
+          delay={180}
         />
       </div>
-      {panels.subjects}
-      {panels.goals}
-      {panels.rhythm}
-      {panels.focus}
-      {panels.streak}
-      {panels.tasks}
-      {panels.plan}
+
+      <div className="grid gap-6 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))' }}>
+        <FocusTimeChart
+          buckets={buckets}
+          size={bucketSize}
+          averageMinutes={averageMinutes}
+          totalMinutes={totalMinutes}
+          totalSessions={totalSessions}
+          periodLabel={period.label}
+        />
+        <SubjectBreakdown
+          rows={subjectRows}
+          metric={metric}
+          onMetricChange={setMetric}
+          totalMinutes={totalMinutes}
+          totalSessions={totalSessions}
+          periodLabel={period.label}
+          layout="card"
+        />
+        <GoalsPanel goals={goals} days={period.days} layout="card" />
+        <TimeHeatmap rhythm={rhythm} periodLabel={period.label} layout="card" />
+        <ConsistencyPanel stats={consistency} days={days} periodLabel={period.label} layout="card" />
+        <FocusQualityPanel stats={focus} periodLabel={period.label} layout="card" />
+        <TaskStatsPanel stats={tasks} periodLabel={period.label} layout="card" />
+        <PlanStabilityPanel stats={stability} subjectMap={subjectMap} periodLabel={period.label} layout="card" />
       </div>
     </div>
   );

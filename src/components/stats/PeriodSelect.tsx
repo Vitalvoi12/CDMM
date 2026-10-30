@@ -7,6 +7,8 @@ interface PeriodSelectProps {
   customFrom: string;
   customTo: string;
   onCustomChange: (from: string, to: string) => void;
+  /** `end`: right-aligned, the Custom fields drop under the switch. */
+  align?: 'start' | 'end';
 }
 
 /**
@@ -19,12 +21,13 @@ export function PeriodSelect({
   customFrom,
   customTo,
   onCustomChange,
+  align = 'start',
 }: PeriodSelectProps) {
   const inputClass =
     'px-3 py-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface font-body-sm text-body-sm normal-case tracking-normal [color-scheme:light] dark:[color-scheme:dark]';
 
   return (
-    <div className="flex items-end gap-3 flex-wrap">
+    <div className={align === 'end' ? 'flex flex-col items-end gap-3' : 'flex items-end gap-3 flex-wrap'}>
       <Segmented
         options={PERIOD_PRESETS.map((p) => ({ id: p.id, label: p.label }))}
         value={preset}

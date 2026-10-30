@@ -1,12 +1,14 @@
 import { PLAN_FIX_WINDOW_MS, type PlanStability } from '../../utils/analytics';
 import type { Subject } from '../../types';
-import { EmptyState, Section, StatTile } from './StatParts';
+import { EmptyState, Section, StatTile, type StatLayout } from './StatParts';
+import { boxClass } from './statLayout';
 import { formatDuration } from '../../utils/time';
 
 interface PlanStabilityPanelProps {
   stats: PlanStability;
   subjectMap: Record<string, Subject>;
   periodLabel: string;
+  layout?: StatLayout;
 }
 
 /**
@@ -17,11 +19,11 @@ interface PlanStabilityPanelProps {
  * block that only got shorter says more about stability than the number of
  * times the calendar was touched.
  */
-export function PlanStabilityPanel({ stats, subjectMap, periodLabel }: PlanStabilityPanelProps) {
+export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 'section' }: PlanStabilityPanelProps) {
   if (stats.lostMinutes === 0) {
     return (
-      <Section title="Plan stability" delay={480}>
-        <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 p-5 flex flex-col gap-4">
+      <Section title="Plan stability" delay={480} layout={layout}>
+        <div className={boxClass(layout, 'flex flex-col gap-4')}>
           <EmptyState
             text="No planned time was cut away"
             hint={`Nothing was shortened in ${periodLabel} — the plan kept its length.`}
@@ -41,8 +43,8 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel }: PlanStabi
     : 100;
 
   return (
-    <Section title="Plan stability" delay={480}>
-      <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 p-5 flex flex-col gap-6">
+    <Section title="Plan stability" delay={480} layout={layout}>
+      <div className={boxClass(layout, 'flex flex-col gap-6')}>
         <div>
           <div className="flex items-baseline justify-between gap-4 mb-2">
             <span className="font-label-sm text-label-sm text-on-surface uppercase tracking-widest">

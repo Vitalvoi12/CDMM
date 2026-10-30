@@ -1,7 +1,7 @@
 import { formatDuration, formatDurationLong } from '../../utils/time';
 import type { SubjectRow } from '../../hooks/useStatisticsPeriod';
 import type { SubjectMetric } from '../../hooks/useStatisticsPeriod';
-import { EmptyState, Section, anchorOf, Tooltip } from './StatParts';
+import { EmptyState, Foot, Section, anchorOf, Tooltip, type StatLayout } from './StatParts';
 import { Segmented } from './Segmented';
 import { useState } from 'react';
 
@@ -12,6 +12,7 @@ interface SubjectBreakdownProps {
   totalMinutes: number;
   totalSessions: number;
   periodLabel: string;
+  layout?: StatLayout;
 }
 
 const METRICS: { id: SubjectMetric; label: string }[] = [
@@ -44,6 +45,7 @@ export function SubjectBreakdown({
   totalMinutes,
   totalSessions,
   periodLabel,
+  layout = 'section',
 }: SubjectBreakdownProps) {
   const [hover, setHover] = useState<{ row: SubjectRow; x: number; y: number; below: boolean } | null>(
     null
@@ -54,6 +56,7 @@ export function SubjectBreakdown({
       <Section
         title="Subjects"
         delay={80}
+        layout={layout}
         aside={
           <Segmented options={METRICS} value={metric} onChange={onMetricChange} ariaLabel="Subject metric" />
         }
@@ -83,15 +86,16 @@ export function SubjectBreakdown({
     <Section
       title="Subjects"
       delay={80}
+      layout={layout}
       aside={
         <Segmented options={METRICS} value={metric} onChange={onMetricChange} ariaLabel="Subject metric" />
       }
     >
-      <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 overflow-hidden">
+      <div className={layout === 'card' ? 'flex flex-col gap-5' : 'rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 overflow-hidden'}>
         {/* Share is the one view that wants a single continuous bar, so the
             distribution is visible as a whole before the rows break it down. */}
         {metric === 'share' && (
-          <div className="px-5 pt-5">
+          <div className={layout === 'card' ? '' : 'px-5 pt-5'}>
             <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-variant">
               {rows.map((row) => (
                 <div
@@ -108,7 +112,7 @@ export function SubjectBreakdown({
           </div>
         )}
 
-        <div className="p-5 flex flex-col gap-5">
+        <div className={`flex flex-col ${layout === 'card' ? 'gap-4' : 'p-5 gap-5'}`}>
           {rows.map((row, i) => (
             <div
               key={row.subjectId}
@@ -147,7 +151,7 @@ export function SubjectBreakdown({
         </div>
       </div>
 
-      <p className="font-body-sm text-body-sm text-on-surface-variant mt-3">{METRIC_HINT[metric]}</p>
+      <Foot layout={layout}>{METRIC_HINT[metric]}</Foot>
 
       {hover && (
         <Tooltip x={hover.x} y={hover.y} below={hover.below}>

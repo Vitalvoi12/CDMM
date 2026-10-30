@@ -9,11 +9,13 @@ import {
   type Rhythm,
   type RhythmCell,
 } from '../../utils/analytics';
-import { EmptyState, Section, anchorOf, Tooltip } from './StatParts';
+import { EmptyState, Section, anchorOf, Tooltip, type StatLayout } from './StatParts';
+import { boxClass } from './statLayout';
 
 interface TimeHeatmapProps {
   rhythm: Rhythm;
   periodLabel: string;
+  layout?: StatLayout;
 }
 
 /**
@@ -27,7 +29,7 @@ interface TimeHeatmapProps {
  * so the cells neither animate nor scale, and the section skips the page's
  * entrance animation.
  */
-export function TimeHeatmap({ rhythm, periodLabel }: TimeHeatmapProps) {
+export function TimeHeatmap({ rhythm, periodLabel, layout = 'section' }: TimeHeatmapProps) {
   const [hover, setHover] = useState<{
     cell: RhythmCell;
     label: string;
@@ -39,7 +41,7 @@ export function TimeHeatmap({ rhythm, periodLabel }: TimeHeatmapProps) {
 
   if (rhythm.totalMinutes === 0) {
     return (
-      <Section title="Time heatmap" delay={240} still>
+      <Section title="Time heatmap" delay={240} still layout={layout}>
         <EmptyState
           text="No study hours in this period"
           hint={`${periodLabel} holds no focus sessions, so there is no rhythm to show yet.`}
@@ -56,6 +58,7 @@ export function TimeHeatmap({ rhythm, periodLabel }: TimeHeatmapProps) {
       title="Time heatmap"
       delay={240}
       still
+      layout={layout}
       aside={
         peak ? (
           <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
@@ -64,7 +67,7 @@ export function TimeHeatmap({ rhythm, periodLabel }: TimeHeatmapProps) {
         ) : undefined
       }
     >
-      <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 p-5">
+      <div className={boxClass(layout, '')}>
         {/* Two columns in one grid keeps every row label glued to its own row
             of cells at any width — a parallel flex column drifts otherwise. */}
         <div className="grid gap-x-3" style={{ gridTemplateColumns: '2.25rem minmax(0, 1fr)' }}>

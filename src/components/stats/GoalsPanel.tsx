@@ -1,12 +1,14 @@
 import type { GoalProgress } from '../../utils/goals';
 import { formatGoal } from '../../utils/goals';
 import { formatDurationLong } from '../../utils/time';
-import { Section } from './StatParts';
+import { Foot, Section, type StatLayout } from './StatParts';
+import { boxClass } from './statLayout';
 
 interface GoalsPanelProps {
   goals: GoalProgress[];
   /** Period length in days — the goal target is the weekly goal × days / 7. */
   days: number;
+  layout?: StatLayout;
 }
 
 /**
@@ -14,7 +16,7 @@ interface GoalsPanelProps {
  * period, so "7 days" reads as one week and "30 days" as about four. Hidden
  * entirely while no subject has a goal — set one on the Subjects page.
  */
-export function GoalsPanel({ goals, days }: GoalsPanelProps) {
+export function GoalsPanel({ goals, days, layout = 'section' }: GoalsPanelProps) {
   if (goals.length === 0) return null;
   const weeks = days / 7;
   const reached = goals.filter((g) => g.percent >= 100).length;
@@ -23,6 +25,7 @@ export function GoalsPanel({ goals, days }: GoalsPanelProps) {
     <Section
       title="Goals"
       delay={120}
+      layout={layout}
       aside={
         <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums">
           {reached}/{goals.length} reached
@@ -30,7 +33,7 @@ export function GoalsPanel({ goals, days }: GoalsPanelProps) {
         </span>
       }
     >
-      <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 p-5 flex flex-col gap-5">
+      <div className={boxClass(layout, `flex flex-col ${layout === 'card' ? 'gap-4' : 'gap-5'}`)}>
         {goals.map((g, i) => (
           <div key={g.subjectId} className="animate-fade-up" style={{ animationDelay: `${Math.min(i * 60, 420)}ms` }}>
             <div className="flex items-baseline justify-between gap-4 mb-2">
@@ -60,9 +63,7 @@ export function GoalsPanel({ goals, days }: GoalsPanelProps) {
           </div>
         ))}
       </div>
-      <p className="font-body-sm text-body-sm text-on-surface-variant mt-3">
-        Real focus time against each subject’s weekly goal, scaled to the period
-      </p>
+      <Foot layout={layout}>Real focus time against each subject’s weekly goal, scaled to the period</Foot>
     </Section>
   );
 }

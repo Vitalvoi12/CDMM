@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react';
+import type { StatLayout } from './statLayout';
+
+export type { StatLayout };
 
 interface SectionProps {
   title: string;
@@ -8,6 +11,9 @@ interface SectionProps {
   delay?: number;
   /** Opt out of the entrance animation (dense, grid-like blocks). */
   still?: boolean;
+  layout?: StatLayout;
+  /** Card layout only: span every column of the grid. */
+  wide?: boolean;
 }
 
 /**
@@ -15,7 +21,24 @@ interface SectionProps {
  * rhythm of the spacing and the entrance animation here is what makes the page
  * read as a single analytical screen instead of a pile of unrelated cards.
  */
-export function Section({ title, aside, children, delay = 0, still = false }: SectionProps) {
+export function Section({ title, aside, children, delay = 0, still = false, layout = 'section', wide = false }: SectionProps) {
+  if (layout === 'card') {
+    return (
+      <section
+        aria-label={title}
+        className={`min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 flex flex-col gap-5 ${
+          wide ? 'col-span-full' : ''
+        } ${still ? '' : 'animate-fade-up'}`}
+        style={still ? undefined : { animationDelay: `${delay}ms` }}
+      >
+        <div className="flex justify-between items-center flex-wrap gap-3 min-h-8">
+          <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">{title}</h2>
+          {aside}
+        </div>
+        {children}
+      </section>
+    );
+  }
   return (
     <section
       className={`mb-12 max-lg:mb-[26px] ${still ? '' : 'animate-fade-up'}`}
@@ -53,6 +76,13 @@ export function StatTile({ value, label, hint, delay = 0, className = '' }: Stat
       </p>
       {hint && <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{hint}</p>}
     </div>
+  );
+}
+
+/** Small print under a block; the card's gap already spaces it. */
+export function Foot({ layout, children }: { layout: StatLayout; children: ReactNode }) {
+  return (
+    <p className={`font-body-sm text-body-sm text-on-surface-variant ${layout === 'card' ? '' : 'mt-3'}`}>{children}</p>
   );
 }
 

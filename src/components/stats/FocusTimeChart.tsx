@@ -44,7 +44,7 @@ export function FocusTimeChart({
 
   if (totalMinutes === 0) {
     return (
-      <Section title="Focus time" delay={160}>
+      <Section title="Focus time" delay={160} layout="card" wide>
         <EmptyState
           text="No focus time recorded in this period"
           hint={`${periodLabel} holds no finished Focus Room sessions.`}
@@ -74,13 +74,15 @@ export function FocusTimeChart({
     <Section
       title="Focus time"
       delay={160}
+      layout="card"
+      wide
       aside={
         <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
           {formatDurationLong(totalMinutes)} · {totalSessions} session{totalSessions === 1 ? '' : 's'}
         </p>
       }
     >
-      <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 p-5">
+      <div>
         {/* Readout: the hovered bucket on pointer devices, the tapped one on
             touch — the same three numbers either way. */}
         <div className="flex items-baseline justify-between gap-4 mb-4 min-h-[26px]">
