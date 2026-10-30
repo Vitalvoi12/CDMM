@@ -25,17 +25,14 @@ export function TodayStats({ events, subjects, totalMinutes }: TodayStatsProps) 
       aria-label="Today's focus"
       className="flex-none bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 flex flex-col gap-4"
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-label-sm text-label-sm text-on-surface-variant tracking-[0.16em]">Today</h2>
-        <p className="flex items-baseline gap-1.5 min-w-0">
-          <span className="font-headline-md text-headline-md text-on-surface tabular-nums">{formatDuration(totalMinutes)}</span>
-          {dayPercent !== null && (
-            <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums whitespace-nowrap">
-              / {formatDuration(totalPlan)} · {dayPercent}%
-            </span>
-          )}
-        </p>
-      </div>
+      <p className="flex items-baseline gap-1.5 min-w-0">
+        <span className="font-headline-md text-headline-md text-on-surface tabular-nums">{formatDuration(totalMinutes)}</span>
+        {dayPercent !== null && (
+          <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums whitespace-nowrap">
+            / {formatDuration(totalPlan)} · {dayPercent}%
+          </span>
+        )}
+      </p>
 
       {stats.length > 0 && (
         <ul className="flex flex-col gap-3.5">
