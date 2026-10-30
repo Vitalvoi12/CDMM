@@ -163,6 +163,53 @@ export function calculateDailyStats(
   };
 }
 
+export interface PlanStat {
+  subjectId: string;
+  planMinutes: number;
+  realMinutes: number;
+  /** Real against plan, rounded; 0 when there is no plan. */
+  percentage: number;
+  hasPlan: boolean;
+}
+
+/**
+ * Plan vs real per subject for one day's events:
+ * percent = real minutes (subject) / plan minutes (subject) * 100.
+ * The stats flag drops the event from whichever side it belongs to: a real
+ * event leaves the numerator, a planned one leaves the plan sum (plans
+ * never touch Total Focus Time). Subjects with a plan or real time only,
+ * biggest first.
+ */
+export function calculatePlanStats(events: CalendarEvent[]): { stats: PlanStat[]; totalPlan: number } {
+  const planBySubject: Record<string, number> = {};
+  const realBySubject: Record<string, number> = {};
+  let totalPlan = 0;
+  for (const e of events) {
+    if (e.countInStats === false) continue;
+    const mins = Math.max(0, Math.round((new Date(e.end).getTime() - new Date(e.start).getTime()) / 60000));
+    if (e.kind === 'plan') {
+      planBySubject[e.subjectId] = (planBySubject[e.subjectId] || 0) + mins;
+      totalPlan += mins;
+    } else {
+      realBySubject[e.subjectId] = (realBySubject[e.subjectId] || 0) + mins;
+    }
+  }
+  const stats = [...new Set([...Object.keys(planBySubject), ...Object.keys(realBySubject)])]
+    .map((subjectId) => {
+      const plan = planBySubject[subjectId] || 0;
+      const real = realBySubject[subjectId] || 0;
+      return {
+        subjectId,
+        planMinutes: plan,
+        realMinutes: real,
+        percentage: plan > 0 ? Math.round((real / plan) * 100) : 0,
+        hasPlan: plan > 0,
+      };
+    })
+    .sort((a, b) => b.planMinutes + b.realMinutes - (a.planMinutes + a.realMinutes));
+  return { stats, totalPlan };
+}
+
 export function calculateSubjectStats(
   events: CalendarEvent[],
   totalMinutes: number

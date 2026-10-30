@@ -6,7 +6,7 @@ import { Timeline, TimelineColumnLabels } from '../components/calendar/Timeline'
 import { MultiDayView } from '../components/calendar/MultiDayView';
 import { MonthView } from '../components/calendar/MonthView';
 import { YearView } from '../components/calendar/YearView';
-import { StatsSidebar } from '../components/calendar/StatsSidebar';
+import { TodayStats } from '../components/calendar/TodayStats';
 import { SubjectTasksPanel } from '../components/calendar/SubjectTasksPanel';
 import { DayNotesPanel } from '../components/calendar/DayNotesPanel';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
@@ -1202,14 +1202,7 @@ export function CalendarPage() {
             {/* Bottom clearance: the action bar floats over this corner, so the
                 last card must end above it at any zoom level. */}
             <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1 pb-32">
-              <div className="flex-none flex flex-col">
-                <StatsSidebar
-                  events={statsEvents}
-                  subjects={subjects}
-                  totalMinutes={stats.totalMinutes}
-                  goals={weekGoals}
-                />
-              </div>
+              <TodayStats events={statsEvents} subjects={subjects} totalMinutes={stats.totalMinutes} />
               <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} />
               <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} />
             </aside>
