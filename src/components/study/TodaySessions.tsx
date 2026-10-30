@@ -44,15 +44,15 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId, 
       {opts.highlight && (
         <span className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: color || 'var(--color-primary)' }} />
       )}
-      <span className="font-label-sm text-label-sm max-lg:!text-[8px] tabular-nums text-on-surface-variant w-6 flex-shrink-0">
+      <span className="font-label-sm text-label-sm lg:text-caption max-lg:!text-[8px] tabular-nums text-on-surface-variant w-6 flex-shrink-0">
         {String(index).padStart(2, '0')}
       </span>
       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color || 'var(--color-on-surface-variant)' }} />
-      <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface truncate min-w-0 flex-1">
+      <span className="font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface truncate min-w-0 flex-1">
         {name}
       </span>
       {opts.live && <span className="w-1.5 h-1.5 bg-now rounded-full animate-pulse flex-shrink-0" />}
-      <span className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 ${opts.live ? 'text-error font-semibold' : 'text-on-surface-variant'}`}>
+      <span className={`font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] tabular-nums flex-shrink-0 ${opts.live ? 'text-error font-semibold' : 'text-on-surface-variant'}`}>
         {duration}
       </span>
     </div>
@@ -62,10 +62,10 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId, 
     <div className="flex-1 p-8 lg:p-12 max-lg:p-4 flex flex-col gap-4 max-lg:gap-3 min-h-0 overflow-y-auto">
       <div className="w-full max-w-xl mx-auto bg-surface-container-lowest border border-outline-variant rounded-2xl p-6 max-lg:p-4 flex flex-col min-h-0 max-h-full flex-shrink-0">
         <div className="flex items-center justify-between mb-5 max-lg:mb-3 flex-shrink-0">
-          <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-[0.18em]">
+          <h3 className="font-label-md text-label-md lg:text-section text-on-surface-variant uppercase tracking-[0.18em]">
             Today
           </h3>
-          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.14em] tabular-nums">
+          <span className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.14em] tabular-nums">
             {formatDuration(totalMinutes)} total
           </span>
         </div>
@@ -94,7 +94,7 @@ export function TodaySessions({ events, subjects, totalMinutes, currentEventId, 
             )}
           {sorted.length === 0 && !liveSession && (
             <div className="border border-dashed border-outline-variant rounded-xl py-10 px-4 flex items-center justify-center">
-              <p className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface-variant">No sessions today</p>
+              <p className="font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface-variant">No sessions today</p>
             </div>
           )}
         </div>

@@ -17,7 +17,7 @@ export function Toggle({ label, checked, onChange }: ToggleProps) {
           : 'border-outline-variant bg-surface-container-low hover:border-outline'
       }`}
     >
-      <span className="font-label-md text-label-md text-on-surface uppercase tracking-[0.1em]">{label}</span>
+      <span className="font-label-md text-label-md lg:text-body text-on-surface uppercase tracking-[0.1em]">{label}</span>
       <span
         className={`material-symbols-outlined text-[18px] ${checked ? 'text-primary' : 'text-on-surface-variant'}`}
       >

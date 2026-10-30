@@ -112,7 +112,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6 max-lg:mb-4">
-          <h2 className="font-headline-md text-headline-md max-lg:!text-[13px] text-on-surface">
+          <h2 className="font-headline-md text-headline-md lg:text-heading max-lg:!text-[13px] text-on-surface">
             {subject ? 'Edit Subject' : 'Add Subject'}
           </h2>
           <button
@@ -126,19 +126,19 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-lg:gap-4">
           <div className="flex flex-col gap-2">
-            <label className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
+            <label className="font-label-sm text-label-sm lg:text-caption max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
               Name
             </label>
             <AutoGrowTextarea
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Subject name"
-              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:py-2 max-lg:px-3 font-body-md text-body-md max-lg:!text-[10px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:py-2 max-lg:px-3 font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
               autoFocus
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label htmlFor="subject-goal" className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
+            <label htmlFor="subject-goal" className="font-label-sm text-label-sm lg:text-caption max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
               Weekly goal
             </label>
             <div className="flex items-center gap-3">
@@ -152,13 +152,13 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
                 value={goalHours}
                 onChange={(e) => setGoalHours(e.target.value)}
                 placeholder="No goal"
-                className="w-28 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:py-2 max-lg:px-3 font-body-md text-body-md max-lg:!text-[10px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 tabular-nums"
+                className="w-28 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:py-2 max-lg:px-3 font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 tabular-nums"
               />
-              <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface-variant">hours / week</span>
+              <span className="font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface-variant">hours / week</span>
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <label className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
+            <label className="font-label-sm text-label-sm lg:text-caption max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.16em]">
               Color
             </label>
             <div className="flex flex-col gap-3">
@@ -186,7 +186,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
           </div>
           <button
             type="submit"
-            className="w-full py-3 max-lg:py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+            className="w-full py-3 max-lg:py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control max-lg:!text-[10px] uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
           >
             {subject ? 'Save subject' : 'Add subject'}
           </button>

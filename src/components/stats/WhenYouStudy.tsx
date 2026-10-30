@@ -61,7 +61,7 @@ export function WhenYouStudy({ rhythm, periodLabel }: WhenYouStudyProps) {
       layout="card"
       aside={
         peak ? (
-          <span className="font-body-sm text-body-sm text-on-surface-variant">
+          <span className="text-meta text-on-surface-variant">
             most often {WEEKDAY_LABELS[peak.weekday]} {hh(peak.hour)}:00
           </span>
         ) : undefined
@@ -71,12 +71,12 @@ export function WhenYouStudy({ rhythm, periodLabel }: WhenYouStudyProps) {
         <span />
         <div className="grid gap-[3px] mb-0.5" style={{ gridTemplateColumns: cols }}>
           {hours.map((h) => (
-            <span key={h} className="font-label-sm text-label-sm text-on-surface-variant tabular-nums whitespace-nowrap">
+            <span key={h} className="text-caption text-on-surface-variant tabular-nums whitespace-nowrap">
               {h % 3 === 0 ? hh(h) : ''}
             </span>
           ))}
         </div>
-        <span className="text-right font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.06em]">
+        <span className="text-right text-caption text-on-surface-variant">
           Total
         </span>
 
@@ -84,7 +84,7 @@ export function WhenYouStudy({ rhythm, periodLabel }: WhenYouStudyProps) {
           const total = row.reduce((sum, c) => sum + c.minutes, 0);
           return (
             <Fragment key={weekday}>
-              <span className="font-label-sm text-label-sm text-on-surface-variant">{WEEKDAY_LABELS[weekday]}</span>
+              <span className="text-caption text-on-surface-variant">{WEEKDAY_LABELS[weekday]}</span>
               <div className="grid gap-[3px]" style={{ gridTemplateColumns: cols }}>
                 {hours.map((h) => {
                   const cell = row[h];
@@ -107,7 +107,7 @@ export function WhenYouStudy({ rhythm, periodLabel }: WhenYouStudyProps) {
                   );
                 })}
               </div>
-              <span className="text-right font-body-sm text-body-sm text-on-surface-variant tabular-nums whitespace-nowrap">
+              <span className="text-right text-meta text-on-surface-variant tabular-nums whitespace-nowrap">
                 {total > 0 ? formatDurationLong(total) : '—'}
               </span>
             </Fragment>
@@ -116,7 +116,7 @@ export function WhenYouStudy({ rhythm, periodLabel }: WhenYouStudyProps) {
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="font-body-sm text-body-sm text-on-surface-variant">
+        <p className="text-meta text-on-surface-variant">
           {hh(first)}:00–{hh(last + 1)}:00
           {first > 0 ? ' · quiet hours at either end are hidden' : ''}
         </p>
@@ -125,8 +125,8 @@ export function WhenYouStudy({ rhythm, periodLabel }: WhenYouStudyProps) {
 
       {hover && (
         <Tooltip x={hover.x} y={hover.y} below={hover.below}>
-          <p className="font-label-sm text-label-sm font-semibold whitespace-nowrap">{hover.label}</p>
-          <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
+          <p className="text-control whitespace-nowrap">{hover.label}</p>
+          <p className="text-meta whitespace-nowrap opacity-90">
             {hover.cell.minutes > 0 ? formatDurationLong(hover.cell.minutes) : 'No study'}
           </p>
         </Tooltip>

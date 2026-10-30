@@ -188,7 +188,7 @@ function DesktopSessionStartEditor({ startTime, elapsed, onApply, onCancel }: Se
         }}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-headline-md text-headline-md text-on-surface">
+          <h2 className="font-headline-md text-headline-md lg:text-heading text-on-surface">
             Session start
           </h2>
           <button
@@ -200,12 +200,12 @@ function DesktopSessionStartEditor({ startTime, elapsed, onApply, onCancel }: Se
             <span className="material-symbols-outlined text-[18px] leading-none">close</span>
           </button>
         </div>
-        <p className="font-body-md text-body-md text-on-surface-variant mb-6">
+        <p className="font-body-md text-body-md lg:text-body text-on-surface-variant mb-6">
           Started tracking late? Move the start back — the session keeps its length from that moment on.
         </p>
 
         <div className="flex flex-col gap-2 mb-3">
-          <label className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">
+          <label className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em]">
             Started at
           </label>
           <input
@@ -213,7 +213,7 @@ function DesktopSessionStartEditor({ startTime, elapsed, onApply, onCancel }: Se
             value={value}
             max={toLocalInputValue(now)}
             onChange={(e) => setValue(e.target.value)}
-            className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md text-on-surface outline-none transition-colors"
+            className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors"
           />
         </div>
 
@@ -223,16 +223,16 @@ function DesktopSessionStartEditor({ startTime, elapsed, onApply, onCancel }: Se
               key={q.label}
               type="button"
               onClick={() => applyOffset(q.minutes)}
-              className="px-4 py-2 rounded-full border border-outline-variant font-label-sm text-label-sm text-on-surface hover:bg-surface-container transition-colors uppercase tracking-[0.12em]"
+              className="px-4 py-2 rounded-full border border-outline-variant font-label-sm text-label-sm lg:text-caption text-on-surface hover:bg-surface-container transition-colors uppercase tracking-[0.12em]"
             >
               {q.label}
             </button>
           ))}
         </div>
 
-        <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] mb-6 flex items-baseline justify-between">
+        <p className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] mb-6 flex items-baseline justify-between">
           <span>Time on task</span>
-          <span className="font-display-lg text-display-lg max-lg:!text-[22px] text-on-surface tabular-nums tracking-tight">
+          <span className="font-display-lg text-display-lg max-lg:!text-[22px] text-on-surface tabular-nums tracking-tight lg:font-mono">
             {formatTimerDuration(preview)}
           </span>
         </p>
@@ -241,14 +241,14 @@ function DesktopSessionStartEditor({ startTime, elapsed, onApply, onCancel }: Se
           <button
             type="submit"
             disabled={clamped === null}
-            className="w-full py-2 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="w-full py-2 bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             Apply
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="w-full py-2 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest"
+            className="w-full py-2 font-label-md text-label-md lg:text-control text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest"
           >
             Cancel
           </button>

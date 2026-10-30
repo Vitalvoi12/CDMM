@@ -129,7 +129,7 @@ export function MonthView({
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto animate-view-enter">
       <div className="grid grid-cols-7 gap-px mb-4 flex-shrink-0 sticky top-0 z-10 bg-background">
         {WEEKDAYS.map((day) => (
-          <div key={day} className="py-2 text-center font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
+          <div key={day} className="py-2 text-center font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:overline">
             {day}
           </div>
         ))}
@@ -183,7 +183,7 @@ export function MonthView({
               }`}
             >
               <span className="flex items-center justify-between gap-1">
-                <span className={`font-label-md text-label-md max-lg:!text-[13px] ${today ? 'text-primary font-bold' : 'text-on-surface'}`}>
+                <span className={`font-label-md text-label-md lg:text-control max-lg:!text-[13px] ${today ? 'text-primary font-bold' : 'text-on-surface'}`}>
                   {formatDayOfMonth(d)}
                 </span>
                 {live && (
@@ -215,7 +215,7 @@ export function MonthView({
                     />
                   ))}
                   {hidden > 0 && (
-                    <span className={`font-label-sm text-label-sm leading-none text-on-surface-variant truncate ${isMobile ? '!text-[10px]' : ''}`}>
+                    <span className={`font-label-sm text-label-sm leading-none lg:text-caption lg:lg:leading-none text-on-surface-variant truncate ${isMobile ? '!text-[10px]' : ''}`}>
                       +{hidden} more
                     </span>
                   )}
@@ -287,13 +287,13 @@ function MonthEventBlock({
         style={{ backgroundColor: spine }}
       />
       <span
-        className="hidden @min-[7rem]:inline font-body-sm text-body-sm leading-none tabular-nums shrink-0 text-on-surface-variant opacity-80"
+        className="hidden @min-[7rem]:inline font-body-sm text-body-sm leading-none lg:text-meta lg:lg:leading-none tabular-nums shrink-0 text-on-surface-variant opacity-80"
         style={fgStyle}
       >
         {timeFromDate(event.start)}
       </span>
       <span
-        className={`font-body-sm text-body-sm leading-none font-medium truncate min-w-0 text-on-surface ${isMobile ? '!text-[10px]' : ''}`}
+        className={`font-body-sm text-body-sm leading-none font-medium lg:text-meta lg:lg:leading-none lg:lg:font-medium truncate min-w-0 text-on-surface ${isMobile ? '!text-[10px]' : ''}`}
         style={fgStyle}
       >
         {name}

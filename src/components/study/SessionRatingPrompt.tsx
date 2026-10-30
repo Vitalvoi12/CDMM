@@ -115,8 +115,8 @@ function DesktopSessionRatingPrompt({ subjectName, minutes, onRate, onSkip }: Se
         className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-md max-h-full overflow-y-auto animate-pop-in outline-none"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-headline-md text-headline-md text-on-surface mb-1">How was your focus?</h2>
-        <p className="font-body-md text-body-md text-on-surface-variant mb-5">
+        <h2 className="font-headline-md text-headline-md lg:text-heading text-on-surface mb-1">How was your focus?</h2>
+        <p className="font-body-md text-body-md lg:text-body text-on-surface-variant mb-5">
           {subjectName} · {minutes} min saved
         </p>
 
@@ -130,8 +130,8 @@ function DesktopSessionRatingPrompt({ subjectName, minutes, onRate, onSkip }: Se
               className="flex flex-col items-center gap-1.5 py-4 rounded-2xl border border-outline-variant bg-surface-container-low hover:border-primary hover:bg-secondary-container hover:text-on-secondary-container text-on-surface transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <span className="material-symbols-outlined text-[26px] leading-none">{icon}</span>
-              <span className="font-label-md text-label-md uppercase tracking-[0.12em]">{FOCUS_LABELS[rating]}</span>
-              <span className="max-lg:hidden font-label-sm text-[10px] text-on-surface-variant tabular-nums">{rating}</span>
+              <span className="font-label-md text-label-md lg:text-control uppercase tracking-[0.12em]">{FOCUS_LABELS[rating]}</span>
+              <span className="max-lg:hidden font-label-sm text-[10px] lg:text-caption text-on-surface-variant tabular-nums">{rating}</span>
             </button>
           ))}
         </div>
@@ -142,13 +142,13 @@ function DesktopSessionRatingPrompt({ subjectName, minutes, onRate, onSkip }: Se
           placeholder="Note (optional) — then tap a rating"
           aria-label="Session note"
           // 16px on the phone: iOS zooms into smaller fields on focus.
-          className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md max-lg:!text-[16px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 mb-3"
+          className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 font-body-md text-body-md lg:text-body max-lg:!text-[16px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 mb-3"
         />
 
         <button
           type="button"
           onClick={onSkip}
-          className="w-full py-2 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest"
+          className="w-full py-2 font-label-md text-label-md lg:text-control text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest"
         >
           Skip
         </button>

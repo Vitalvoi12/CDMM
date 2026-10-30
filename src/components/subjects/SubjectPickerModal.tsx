@@ -175,7 +175,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleListKeyDown}
       >
-        <h2 className="font-headline-md text-headline-md max-lg:!text-[12px] max-lg:mb-3 text-on-surface mb-5">
+        <h2 className="font-headline-md text-headline-md lg:text-heading max-lg:!text-[12px] max-lg:mb-3 text-on-surface mb-5">
           {custom ? 'Custom Session' : 'Select Subject'}
         </h2>
         {custom ? (
@@ -192,7 +192,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Gym, Reading, Meeting"
               aria-label="Session title"
-              className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+              className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
             />
             <div className="flex flex-wrap gap-2">
               {SUBJECT_COLORS.map((c) => (
@@ -213,7 +213,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
             <button
               type="submit"
               disabled={!trimmed}
-              className="w-full py-2.5 max-lg:py-2 max-lg:!text-[8px] bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity disabled:opacity-40"
+              className="w-full py-2.5 max-lg:py-2 max-lg:!text-[8px] bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] hover:opacity-90 transition-opacity disabled:opacity-40"
             >
               Start
             </button>
@@ -227,7 +227,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
               className="flex items-center gap-4 max-lg:gap-3 px-4 py-3 max-lg:p-2.5 rounded-xl border border-transparent hover:border-outline-variant hover:bg-surface-container focus-visible:border-outline focus-visible:bg-surface-container focus:outline-none transition-colors text-left"
             >
               <div className="w-3 h-3 max-lg:w-2.5 max-lg:h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: subject.color }} />
-              <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface">{subject.name}</span>
+              <span className="font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface">{subject.name}</span>
             </button>
           ))}
           <button
@@ -235,7 +235,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
             className="flex items-center gap-4 max-lg:gap-3 px-4 py-3 max-lg:p-2.5 rounded-xl border border-dashed border-outline-variant hover:border-outline hover:bg-surface-container focus-visible:border-outline focus-visible:bg-surface-container focus:outline-none transition-colors text-left"
           >
             <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none w-3 max-lg:w-2.5 flex justify-center text-on-surface-variant">add</span>
-            <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface">Custom event</span>
+            <span className="font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface">Custom event</span>
           </button>
         </div>
         )}
@@ -254,11 +254,11 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
           >
             {counted && <span className="material-symbols-outlined text-[13px] text-on-primary leading-none">check</span>}
           </span>
-          <span className="font-label-sm text-label-sm text-on-surface uppercase tracking-[0.16em]">Count in stats?</span>
+          <span className="font-label-sm text-label-sm lg:text-caption text-on-surface uppercase tracking-[0.16em]">Count in stats?</span>
         </button>
         <button
           onClick={custom ? () => setCustom(false) : onClose}
-          className="mt-5 max-lg:mt-4 w-full py-2.5 max-lg:py-2 max-lg:!text-[8px] border border-outline-variant rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
+          className="mt-5 max-lg:mt-4 w-full py-2.5 max-lg:py-2 max-lg:!text-[8px] border border-outline-variant rounded-full font-label-md text-label-md lg:text-control text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
         >
           {custom ? 'Back' : 'Cancel'}
         </button>

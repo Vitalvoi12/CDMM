@@ -21,10 +21,10 @@ export function SettingsNav({ active, onChange }: SettingsNavProps) {
           <button
             key={section.id}
             onClick={() => onChange(section.id)}
-            className={`${section.desktopOnly ? 'max-lg:hidden ' : ''}font-label-md text-[12px] leading-[16px] uppercase tracking-[0.1em] transition-colors py-3 px-5 rounded-full flex justify-between items-center text-left ${
+            className={`${section.desktopOnly ? 'max-lg:hidden ' : ''}font-label-md text-[12px] leading-[16px] uppercase tracking-[0.1em] lg:text-[14px] lg:leading-[20px] lg:normal-case lg:tracking-normal transition-colors py-3 px-5 rounded-full flex justify-between items-center text-left ${
               isActive
-                ? 'text-on-secondary-container bg-secondary-container'
-                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low group'
+                ? 'text-on-secondary-container bg-secondary-container lg:font-semibold'
+                : 'text-on-surface-variant lg:font-medium hover:text-on-surface hover:bg-surface-container-low group'
             }`}
           >
             {section.label}

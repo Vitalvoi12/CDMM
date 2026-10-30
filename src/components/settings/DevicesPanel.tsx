@@ -9,7 +9,7 @@ const DEVICES: { id: SignalDevice; label: string }[] = [
 ];
 
 const selectClass =
-  'w-full min-w-0 appearance-none cursor-pointer bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2 px-3 max-lg:min-h-[40px] max-lg:!text-[16px] font-body-md text-[14px] text-on-surface outline-none transition-colors';
+  'w-full min-w-0 appearance-none cursor-pointer bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2 px-3 max-lg:min-h-[40px] max-lg:!text-[16px] font-body-md text-[14px] lg:text-body text-on-surface outline-none transition-colors';
 
 function readSignals(): DeviceSignalSettings {
   return settingsRepo.get().signals ?? DEFAULT_SIGNALS;
@@ -36,8 +36,8 @@ export function DevicesPanel({ mobile }: { mobile: boolean }) {
 
   const label = mobile
     ? 'm-lbl m-mut'
-    : 'font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]';
-  const hint = mobile ? 'm-sm m-mut' : 'font-body-sm text-[13px] leading-[19px] text-on-surface-variant';
+    : 'text-caption text-on-surface-variant';
+  const hint = mobile ? 'm-sm m-mut' : 'text-meta text-on-surface-variant';
   const card = mobile
     ? 'flex flex-col gap-3 p-3'
     : 'bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl';

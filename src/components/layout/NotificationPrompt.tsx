@@ -39,8 +39,8 @@ export function NotificationPrompt() {
       <div className="flex items-start gap-3">
         <span className="material-symbols-outlined text-[20px] text-primary leading-none mt-0.5">notifications</span>
         <div className="flex flex-col gap-1">
-          <p className="font-label-md text-label-md text-on-surface uppercase tracking-[0.1em]">Event reminders</p>
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
+          <p className="font-label-md text-label-md lg:text-section text-on-surface uppercase tracking-[0.1em]">Event reminders</p>
+          <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">
             Allow notifications so CDMM can remind you before your events start.
           </p>
         </div>
@@ -49,7 +49,7 @@ export function NotificationPrompt() {
         <button
           type="button"
           onClick={dismiss}
-          className="flex-1 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md text-on-surface-variant uppercase tracking-[0.1em]"
+          className="flex-1 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md lg:text-control text-on-surface-variant uppercase tracking-[0.1em]"
         >
           Not now
         </button>
@@ -59,7 +59,7 @@ export function NotificationPrompt() {
             // Called straight from the tap, as iOS requires.
             void requestNotificationPermission().then(() => setOpen(false));
           }}
-          className="flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-[0.1em]"
+          className="flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em]"
         >
           Allow
         </button>

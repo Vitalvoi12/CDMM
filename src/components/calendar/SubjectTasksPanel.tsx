@@ -51,7 +51,7 @@ function scheduledLabel(startIso: string, date: Date): string {
 function ScheduledChip({ start, date }: { start: string; date: Date }) {
   return (
     <span
-      className="flex items-center gap-1 font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums text-on-surface-variant flex-shrink-0 mt-px"
+      className="flex items-center gap-1 font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] tabular-nums text-on-surface-variant flex-shrink-0 mt-px"
       title="Scheduled in the plan"
     >
       <span className="material-symbols-outlined text-[13px] max-lg:text-[10px] leading-none">event</span>
@@ -320,8 +320,8 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         className="sticky top-0 z-[1] w-full flex items-center gap-2 pt-1.5 pb-1 bg-surface-container-lowest text-left focus:outline-none focus-visible:underline"
       >
         {mark}
-        <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface font-semibold truncate min-w-0">{name}</span>
-        <span className="ml-auto font-body-sm text-body-sm text-on-surface-variant tabular-nums flex-shrink-0">{left} left</span>
+        <span className="font-body-md text-body-md lg:text-body max-lg:!text-[11px] text-on-surface font-semibold truncate min-w-0">{name}</span>
+        <span className="ml-auto font-body-sm text-body-sm lg:text-meta text-on-surface-variant tabular-nums flex-shrink-0">{left} left</span>
         <span className="material-symbols-outlined text-[14px] leading-none text-on-surface-variant flex-shrink-0" aria-hidden="true">
           {isFolded ? 'expand_more' : 'expand_less'}
         </span>
@@ -366,7 +366,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
           )}
         </button>
         <span
-          className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words ${
+          className={`font-body-md text-body-md lg:text-body max-lg:!text-[10px] min-w-0 flex-1 break-words ${
             task.completed ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
           }`}
         >
@@ -377,7 +377,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         {task.estMinutes ? (
           <span
             title="Estimated time"
-            className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
+            className={`font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
               task.completed ? 'text-on-surface-variant/50' : 'text-on-surface-variant'
             }`}
           >
@@ -386,7 +386,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         ) : null}
         {when && (
           <span
-            className={`font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
+            className={`font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
               overdue ? 'text-error' : 'text-on-surface-variant'
             }`}
           >
@@ -426,7 +426,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
           onClick={() => openEdit(item.id)}
           {...editTouch}
           title={onEditTask ? 'Edit task' : undefined}
-          className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words text-left focus:outline-none focus-visible:underline ${
+          className={`font-body-md text-body-md lg:text-body max-lg:!text-[10px] min-w-0 flex-1 break-words text-left focus:outline-none focus-visible:underline ${
             item.done ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
           } ${onEditTask ? 'cursor-pointer hover:underline decoration-outline-variant underline-offset-2' : ''}`}
         >
@@ -443,7 +443,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             {...editTouch}
             aria-label={item.estMinutes ? `Estimate ${formatDuration(item.estMinutes)}, change` : `Add an estimate to "${item.text}"`}
             title={item.estMinutes ? 'Estimated time — click to edit' : 'Add an estimate'}
-            className={`flex items-center gap-0.5 flex-shrink-0 mt-px font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums rounded-full transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            className={`flex items-center gap-0.5 flex-shrink-0 mt-px font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] tabular-nums rounded-full transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               item.estMinutes
                 ? item.done ? 'text-on-surface-variant/50' : 'text-on-surface-variant hover:text-on-surface'
                 : 'text-on-surface-variant/50 hover:text-on-surface lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100'
@@ -491,7 +491,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
               aria-label="New task"
               enterKeyHint="done"
               // 16px on the phone: iOS zooms into smaller fields on focus.
-              className={`flex-1 min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 ${
+              className={`flex-1 min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 ${
                 isMobile ? 'py-3 px-4 !text-[16px]' : 'py-2 px-3'
               }`}
             />
@@ -517,7 +517,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                   // Keep the caret (and the phone keyboard) in the text field.
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => pickSubject(s.id)}
-                  className={`flex items-center gap-1.5 rounded-full border font-body-sm text-body-sm transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-full border font-body-sm text-body-sm lg:text-meta transition-colors ${
                     isMobile ? 'px-3 py-1.5 !text-[14px]' : 'px-2.5 py-1'
                   } ${
                     selected
@@ -550,7 +550,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                     setEstText('');
                     inputRef.current?.focus();
                   }}
-                  className={`rounded-full border font-body-sm text-body-sm tabular-nums transition-colors ${
+                  className={`rounded-full border font-body-sm text-body-sm lg:text-meta tabular-nums transition-colors ${
                     isMobile ? 'px-3 py-1.5 !text-[14px]' : 'px-2.5 py-1'
                   } ${
                     selected
@@ -574,12 +574,12 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
               aria-invalid={estInvalid}
               title="Any length: 50, 50m, 1.5h, 1h 20m or 1:20"
               enterKeyHint="done"
-              className={`w-24 rounded-full border bg-transparent font-body-sm text-body-sm tabular-nums text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus:border-primary ${
+              className={`w-24 rounded-full border bg-transparent font-body-sm text-body-sm lg:text-meta tabular-nums text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus:border-primary ${
                 isMobile ? 'px-3 py-1.5 !text-[16px]' : 'px-2.5 py-1'
               } ${estInvalid ? '!border-error' : est && !EST_PRESETS.includes(est) ? 'border-secondary-container bg-secondary-container' : 'border-outline-variant'}`}
             />
           </div>
-          <p className="max-lg:hidden font-body-sm text-[11px] text-on-surface-variant/70">
+          <p className="max-lg:hidden font-body-sm text-[11px] lg:text-caption text-on-surface-variant/70">
             ↑ / ↓ or Tab — subject · Shift+← / → — estimate · Enter — add · Esc — close
           </p>
         </form>
@@ -593,10 +593,10 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
       className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 px-6 pt-6 max-lg:px-4 max-lg:pt-4 flex flex-col min-h-0 lg:min-h-[9rem] flex-[1_1_0] overflow-hidden animate-fade-in"
     >
       <div className="flex-none flex items-center justify-between gap-3 mb-3 max-lg:mb-2">
-        <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
+        <h2 className="font-label-sm text-label-sm lg:text-section max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
           Checklist
         </h2>
-        <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-auto">
+        <span className="font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-auto">
           {openEstimate > 0 && <span className="text-on-surface-variant/70" title="Estimated time of the open tasks">~{formatDuration(openEstimate)} · </span>}
           {total > 0 ? `${done}/${total}` : '0'}
         </span>
@@ -635,7 +635,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="font-headline-md text-headline-md !text-[16px] text-on-surface">
+              <h2 className="font-headline-md text-headline-md lg:text-heading !text-[16px] text-on-surface">
                 New task <span className="text-on-surface-variant font-normal">· {dayLabel}</span>
               </h2>
               <button
@@ -689,14 +689,14 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
           {adding && !isMobile && addForm}
           {groups.length === 0 && dayTodos.length === 0 && otherTodos.length === 0 ? (
             !adding && (
-              <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
+              <p className="font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] text-on-surface-variant">
                 Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
               </p>
             )
           ) : (
             <ul className="flex flex-col gap-3 max-lg:gap-3">
               {groups.length === 0 && dayTodos.length === 0 && !adding && (
-                <li className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
+                <li className="font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] text-on-surface-variant">
                   Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
                 </li>
               )}
@@ -737,7 +737,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                     <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
                       {showDone ? 'expand_more' : 'chevron_right'}
                     </span>
-                    <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
+                    <span className="font-body-md text-body-md lg:text-body max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
                       Done · {doneCount}
                     </span>
                   </button>
@@ -760,7 +760,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                     <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
                       {showOther ? 'expand_more' : 'chevron_right'}
                     </span>
-                    <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
+                    <span className="font-body-md text-body-md lg:text-body max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
                       Other todos · {otherTodos.length}
                     </span>
                   </button>

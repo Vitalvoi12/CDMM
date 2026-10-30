@@ -43,7 +43,7 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
     <header className="@container flex flex-wrap items-center gap-x-4 gap-y-2 mb-5 max-lg:mb-2 flex-shrink-0">
       {/* Too narrow for one row: the date keeps the first line (full width)
           and the view switcher / filter / Today drop below it. */}
-      <div className="order-first w-auto min-w-0 flex items-center gap-2 lg:@max-[64rem]:w-full lg:@min-[64rem]:flex-1">
+      <div className="order-first w-auto min-w-0 flex items-center gap-2 lg:@max-[64rem]:w-full lg:@min-[64rem]:flex-auto">
         <button
           onClick={onPrev}
           aria-label="Previous"
@@ -52,7 +52,7 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
         >
           <span className="material-symbols-outlined text-[16px] max-lg:text-[14px]">chevron_left</span>
         </button>
-        <h1 className="font-headline-md text-headline-md max-lg:!text-[14px] max-lg:leading-tight text-on-surface tracking-tight truncate">
+        <h1 className="font-headline-md text-headline-md max-lg:!text-[14px] max-lg:leading-tight text-on-surface tracking-tight truncate lg:text-date">
           {getViewTitle()}
         </h1>
         <button
@@ -77,7 +77,7 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
       )}
       <button
         onClick={onToday}
-        className="px-5 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[9px] bg-transparent border border-outline-variant text-on-surface-variant font-label-md text-label-md rounded-full max-lg:rounded-[8px] hover:text-on-surface hover:border-outline transition-colors uppercase tracking-[0.12em] flex-shrink-0"
+        className="px-5 py-2 max-lg:px-3 max-lg:py-1 max-lg:!text-[9px] bg-transparent border border-outline-variant text-on-surface-variant font-label-md text-label-md rounded-full max-lg:rounded-[8px] hover:text-on-surface hover:border-outline transition-colors uppercase tracking-[0.12em] lg:text-control flex-shrink-0"
       >
         Today
       </button>

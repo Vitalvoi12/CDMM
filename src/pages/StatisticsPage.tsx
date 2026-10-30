@@ -129,8 +129,8 @@ export function StatisticsPage() {
     <div className="flex flex-col w-full gap-6 pb-12">
       <header className="flex items-start justify-between gap-4 flex-wrap animate-fade-up">
         <div className="flex flex-col gap-1">
-          <h1 className="font-headline-lg text-headline-lg text-on-surface">Statistics</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant tabular-nums">{period.label}</p>
+          <h1 className="text-title text-on-surface">Statistics</h1>
+          <p className="text-lead text-on-surface-variant tabular-nums">{period.label}</p>
         </div>
         <PeriodSelect
           preset={preset}

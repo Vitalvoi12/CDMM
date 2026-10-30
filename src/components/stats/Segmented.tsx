@@ -29,8 +29,8 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.id)}
           className={`px-4 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
             value === o.id
-              ? 'bg-secondary-container text-on-secondary-container'
-              : 'text-on-surface-variant hover:text-on-surface'
+              ? 'bg-secondary-container text-on-secondary-container lg:text-control'
+              : 'text-on-surface-variant hover:text-on-surface lg:text-tab'
           }`}
         >
           {o.label}

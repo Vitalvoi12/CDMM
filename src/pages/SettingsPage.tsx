@@ -215,26 +215,26 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
     <div className="flex flex-col w-full h-full relative overflow-anchor-none flex-1 min-h-0 overflow-hidden lg:flex-none lg:h-[calc(100dvh/var(--app-zoom)-4rem)]">
       <div className="grid grid-cols-12 gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10 lg:grid-rows-[minmax(0,1fr)] lg:items-start relative max-lg:flex max-lg:flex-col flex-1 min-h-0 lg:h-full">
         <div className="col-span-12 lg:col-span-1 lg:self-start mb-10 max-lg:mb-3 lg:mb-0 overflow-anchor-none max-lg:flex-shrink-0">
-          <h2 className="font-headline-lg text-[30px] leading-[36px] text-on-surface mb-10 max-lg:mb-3">Settings</h2>
+          <h2 className="text-title text-on-surface mb-10 max-lg:mb-3">Settings</h2>
           <SettingsNav active={activeSection} onChange={setActiveSection} />
         </div>
         <div ref={springRef} className="col-span-12 lg:col-span-1 overflow-anchor-none flex-1 min-h-0 overflow-y-auto overscroll-contain lg:h-full">
           {activeSection === 'account' && (
             <div className="mb-20 flex flex-col gap-6">
-              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">Account</h1>
+              <h1 className="text-title text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">Account</h1>
               <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-7 max-w-xl">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
+                  <span className="text-caption text-on-surface-variant">
                     Username
                   </span>
-                  <span className="font-body-lg text-[16px] leading-[23px] text-on-surface">{getUsername() ?? '—'}</span>
+                  <span className="text-lead text-on-surface">{getUsername() ?? '—'}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
                     onClick={handleSync}
                     disabled={syncing}
-                    className="px-6 py-3 rounded-full bg-surface-container-high text-on-surface font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] flex items-center gap-2 hover:bg-surface-container-highest disabled:opacity-50 transition-colors"
+                    className="px-6 py-3 rounded-full bg-surface-container-high text-on-surface text-control flex items-center gap-2 hover:bg-surface-container-highest disabled:opacity-50 transition-colors"
                   >
                     <span className={`material-symbols-outlined text-[14px] ${syncing ? 'animate-spin' : ''}`}>
                       sync
@@ -244,18 +244,18 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="px-6 py-3 rounded-full bg-error-container text-on-error-container font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
+                    className="px-6 py-3 rounded-full bg-error-container text-on-error-container text-control hover:opacity-80 transition-opacity"
                   >
                     Logout
                   </button>
                 </div>
                 {syncMessage && (
-                  <p className="font-body-sm text-[13px] leading-[19px] text-success">{syncMessage}</p>
+                  <p className="text-meta text-success">{syncMessage}</p>
                 )}
                 {syncError && (
-                  <p role="alert" className="font-body-sm text-[13px] leading-[19px] text-error">{syncError}</p>
+                  <p role="alert" className="text-meta text-error">{syncError}</p>
                 )}
-                <p className="font-body-sm text-[13px] leading-[19px] text-on-surface-variant">
+                <p className="text-meta text-on-surface-variant">
                   Your data syncs across devices under this account.
                 </p>
               </div>
@@ -263,9 +263,9 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           )}
           {activeSection === 'general' && (
             <div className="mb-20 flex flex-col gap-6">
-              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">General</h1>
+              <h1 className="text-title text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">General</h1>
               <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
-                <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
+                <label className="text-caption text-on-surface-variant">
                   Appearance
                 </label>
                 <div className="flex flex-col gap-3 mt-1">
@@ -283,7 +283,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                             : 'border-outline-variant hover:border-outline bg-transparent'
                         }`}
                       >
-                        <span className="flex items-center gap-3 font-body-md text-[15px] leading-[22px] text-on-surface">
+                        <span className="flex items-center gap-3 text-body text-on-surface">
                           <span
                             className={`w-4 h-4 rounded-full border flex items-center justify-center ${isSelected ? 'border-primary' : 'border-outline'}`}
                           >
@@ -292,7 +292,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                           {option.label}
                         </span>
                         {isSelected && (
-                          <span className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.14em]">
+                          <span className="text-caption text-on-surface-variant">
                             Active
                           </span>
                         )}
@@ -300,7 +300,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     );
                   })}
                 </div>
-                <label id="set-scale" className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em] mt-4">
+                <label id="set-scale" className="text-caption text-on-surface-variant mt-4">
                   Interface size
                 </label>
                 <div className="flex gap-2 mt-1" role="radiogroup" aria-labelledby="set-scale">
@@ -313,7 +313,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                         role="radio"
                         aria-checked={isSelected}
                         onClick={() => setScale(v)}
-                        className={`flex-1 px-3 py-3 rounded-2xl border font-body-md text-[15px] leading-[22px] text-on-surface tabular-nums transition-colors ${
+                        className={`flex-1 px-3 py-3 rounded-2xl border text-body text-on-surface tabular-nums transition-colors ${
                           isSelected ? 'border-outline bg-surface-container' : 'border-outline-variant hover:border-outline bg-transparent'
                         }`}
                       >
@@ -325,7 +325,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
               </div>
 
               <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
-                <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
+                <label className="text-caption text-on-surface-variant">
                   Synchronization
                 </label>
                 <div className="flex flex-wrap items-center gap-3">
@@ -333,7 +333,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     type="button"
                     onClick={handleSync}
                     disabled={syncing}
-                    className="px-6 py-3 rounded-full bg-primary text-on-primary font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] flex items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
+                    className="px-6 py-3 rounded-full bg-primary text-on-primary text-control flex items-center gap-2 disabled:opacity-50 hover:opacity-90 transition-opacity"
                   >
                     <span className={`material-symbols-outlined text-[14px] ${syncing ? 'animate-spin' : ''}`}>
                       sync
@@ -341,13 +341,13 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     {syncing ? 'Syncing…' : 'Sync'}
                   </button>
                   {syncMessage && (
-                    <span className="font-body-sm text-[13px] leading-[19px] text-success">{syncMessage}</span>
+                    <span className="text-meta text-success">{syncMessage}</span>
                   )}
                   {syncError && (
-                    <span role="alert" className="font-body-sm text-[13px] leading-[19px] text-error">{syncError}</span>
+                    <span role="alert" className="text-meta text-error">{syncError}</span>
                   )}
                 </div>
-                <p className="font-body-sm text-[13px] leading-[19px] text-on-surface-variant">
+                <p className="text-meta text-on-surface-variant">
                   Force push/pull all local changes right now.
                 </p>
               </div>
@@ -356,17 +356,17 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           {activeSection === 'shortcuts' && <ShortcutsPanel />}
           {activeSection === 'notifications' && (
             <div className="mb-20 flex flex-col gap-4">
-              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">
+              <h1 className="text-title text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">
                 Notifications
               </h1>
               <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-4 max-w-xl">
-                <label className="font-label-sm text-[12px] leading-[16px] text-on-surface-variant uppercase tracking-[0.16em]">
+                <label className="text-caption text-on-surface-variant">
                   Reminders
                 </label>
-                <p className="font-body-sm text-[13px] leading-[19px] text-on-surface-variant">
+                <p className="text-meta text-on-surface-variant">
                   Pick a reminder per event in the event editor, or per task in the task editor. With push enabled, the server sends reminders even when CDMM is closed.
                 </p>
-                <p className="font-body-md text-[14px] leading-[20px] text-on-surface">
+                <p className="text-body text-on-surface">
                   {permission === 'granted'
                     ? pushOn
                       ? 'Push notifications are on for this device.'
@@ -382,7 +382,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     <button
                       type="button"
                       onClick={() => void requestNotificationPermission().then(setPermission)}
-                      className="px-6 py-3 rounded-full bg-primary text-on-primary font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+                      className="px-6 py-3 rounded-full bg-primary text-on-primary text-control hover:opacity-90 transition-opacity"
                     >
                       Enable
                     </button>
@@ -391,13 +391,13 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
                     <button
                       type="button"
                       onClick={() => void handleTestNotification()}
-                      className="px-6 py-3 rounded-full border border-outline-variant text-on-surface-variant font-label-md text-[13px] leading-[18px] uppercase tracking-[0.1em] hover:bg-surface-container hover:text-on-surface transition-colors"
+                      className="px-6 py-3 rounded-full border border-outline-variant text-on-surface-variant text-control hover:bg-surface-container hover:text-on-surface transition-colors"
                     >
                       Send test
                     </button>
                   )}
                   {testMessage && (
-                    <span className="font-body-sm text-[13px] leading-[19px] text-on-surface-variant">{testMessage}</span>
+                    <span className="text-meta text-on-surface-variant">{testMessage}</span>
                   )}
                 </div>
               </div>
@@ -405,7 +405,7 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
           )}
           {activeSection === 'devices' && (
             <div className="mb-20 flex flex-col gap-4">
-              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">
+              <h1 className="text-title text-on-surface lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">
                 Phone
               </h1>
               <DevicesPanel mobile={false} />

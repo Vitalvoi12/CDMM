@@ -923,8 +923,8 @@ export function CalendarPage() {
           onClick={() => setView(v.id)}
           className={`px-5 py-1.5 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
             view === v.id
-              ? 'bg-secondary-container text-on-secondary-container'
-              : 'text-on-surface-variant hover:text-on-surface'
+              ? 'bg-secondary-container text-on-secondary-container lg:text-control'
+              : 'text-on-surface-variant hover:text-on-surface lg:text-tab'
           }`}
         >
           {v.label}
@@ -942,8 +942,8 @@ export function CalendarPage() {
           onClick={() => setEventFilter(f.id)}
           className={`px-3 py-1.5 rounded-full font-label-sm text-label-sm max-lg:!text-[9px] uppercase tracking-[0.12em] transition-colors ${
             eventFilter === f.id
-              ? 'bg-secondary-container text-on-secondary-container'
-              : 'text-on-surface-variant hover:text-on-surface'
+              ? 'bg-secondary-container text-on-secondary-container lg:text-control'
+              : 'text-on-surface-variant hover:text-on-surface lg:text-tab'
           }`}
         >
           {f.label}

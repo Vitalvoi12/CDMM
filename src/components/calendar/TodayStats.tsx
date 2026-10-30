@@ -26,9 +26,9 @@ export function TodayStats({ events, subjects, totalMinutes }: TodayStatsProps) 
       className="flex-none bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 flex flex-col gap-4"
     >
       <p className="flex items-baseline gap-1.5 min-w-0">
-        <span className="font-headline-md text-headline-md text-on-surface tabular-nums">{formatDuration(totalMinutes)}</span>
+        <span className="text-stat text-on-surface tabular-nums">{formatDuration(totalMinutes)}</span>
         {dayPercent !== null && (
-          <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums whitespace-nowrap">
+          <span className="text-meta text-on-surface-variant tabular-nums whitespace-nowrap">
             / {formatDuration(totalPlan)} · {dayPercent}%
           </span>
         )}
@@ -49,10 +49,10 @@ export function TodayStats({ events, subjects, totalMinutes }: TodayStatsProps) 
               >
                 <div className="flex items-baseline gap-2">
                   <span className="w-2 h-2 rounded-full flex-shrink-0 self-center" style={{ backgroundColor: color }} />
-                  <span className="font-body-md text-body-md text-on-surface truncate flex-1 min-w-0">{name}</span>
-                  <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums flex-shrink-0">{value}</span>
+                  <span className="text-body text-on-surface truncate flex-1 min-w-0">{name}</span>
+                  <span className="text-meta text-on-surface-variant tabular-nums flex-shrink-0">{value}</span>
                   <span
-                    className={`font-label-sm text-label-sm tabular-nums w-10 text-right flex-shrink-0 ${
+                    className={`text-caption tabular-nums w-10 text-right flex-shrink-0 ${
                       reached ? 'text-success' : 'text-on-surface-variant'
                     }`}
                   >

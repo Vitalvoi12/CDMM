@@ -61,8 +61,8 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
     <div className="flex flex-col w-full gap-6 pb-8">
       <header className="flex flex-wrap items-end justify-between gap-4 flex-shrink-0">
         <div className="flex flex-col gap-1">
-          <h1 className="font-headline-lg text-headline-lg text-on-surface">Subjects</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant tabular-nums">
+          <h1 className="text-title text-on-surface">Subjects</h1>
+          <p className="text-lead text-on-surface-variant tabular-nums">
             {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'} · {formatDuration(weekTotal)} this week · {goalCount}{' '}
             {goalCount === 1 ? 'weekly goal' : 'weekly goals'}
           </p>
@@ -70,7 +70,7 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
         <button
           type="button"
           onClick={onAdd}
-          className="flex items-center gap-1.5 bg-primary hover:opacity-90 transition-opacity text-on-primary pl-4 pr-5 py-2.5 rounded-full font-label-md text-label-md uppercase tracking-[0.1em]"
+          className="flex items-center gap-1.5 bg-primary hover:opacity-90 transition-opacity text-on-primary pl-4 pr-5 py-2.5 rounded-full text-control"
         >
           <span className="material-symbols-outlined text-[16px] leading-none" aria-hidden="true">add</span>
           Add subject
@@ -80,11 +80,11 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
       {subjects.length === 0 ? (
         <div className="border border-dashed border-outline-variant rounded-2xl py-14 px-4 flex flex-col items-center justify-center gap-3 text-center">
           <span className="material-symbols-outlined text-[22px] text-on-surface-variant opacity-60">layers</span>
-          <p className="font-body-md text-body-md text-on-surface-variant">No subjects yet</p>
+          <p className="text-body text-on-surface-variant">No subjects yet</p>
           <button
             type="button"
             onClick={onAdd}
-            className="bg-primary hover:opacity-90 transition-opacity text-on-primary px-5 py-2 rounded-full font-label-md text-label-md uppercase tracking-[0.1em]"
+            className="bg-primary hover:opacity-90 transition-opacity text-on-primary px-5 py-2 rounded-full text-control"
           >
             Add subject
           </button>
@@ -97,7 +97,7 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
           >
             <div className={`grid ${COLUMNS} gap-x-4 items-center px-5 pt-3.5 pb-2.5`}>
               {['Subject', 'This week', 'Last studied', 'Next in plan'].map((h) => (
-                <span key={h} className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] truncate">
+                <span key={h} className="overline text-on-surface-variant truncate">
                   {h}
                 </span>
               ))}
@@ -128,8 +128,8 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
                     className="self-stretch flex items-center gap-2.5 min-w-0 text-left focus:outline-none focus-visible:underline"
                   >
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                    <span className="font-body-md text-body-md font-medium text-on-surface truncate">{s.name}</span>
-                    {live && <span className="font-label-sm text-label-sm uppercase tracking-[0.12em] text-now flex-shrink-0">Live</span>}
+                    <span className="text-body font-medium text-on-surface truncate">{s.name}</span>
+                    {live && <span className="overline text-now flex-shrink-0">Live</span>}
                   </button>
                   <div className="flex flex-col gap-1.5 min-w-0">
                     {goal > 0 && (
@@ -137,15 +137,15 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
                         <div className="h-full rounded-full" style={{ width: `${Math.min(100, (week / goal) * 100)}%`, backgroundColor: s.color }} />
                       </div>
                     )}
-                    <span className={`flex items-center gap-1 font-body-sm text-body-sm tabular-nums ${goal > 0 ? 'text-on-surface' : 'text-on-surface-variant'}`}>
+                    <span className={`flex items-center gap-1 text-meta tabular-nums ${goal > 0 ? 'text-on-surface' : 'text-on-surface-variant'}`}>
                       {goal > 0 ? `${formatDuration(week)} / ${formatGoal(goal)}` : `${formatDuration(week)} · no goal`}
                       {reached && (
                         <span className="material-symbols-outlined text-[13px] leading-none text-success" aria-label="Goal reached">check</span>
                       )}
                     </span>
                   </div>
-                  <span className={`font-body-sm text-body-sm tabular-nums truncate ${live ? 'text-now' : 'text-on-surface-variant'}`}>{r?.lastStudied}</span>
-                  <span className="font-body-sm text-body-sm tabular-nums text-on-surface-variant truncate">{r?.nextPlanned}</span>
+                  <span className={`text-meta tabular-nums truncate ${live ? 'text-now' : 'text-on-surface-variant'}`}>{r?.lastStudied}</span>
+                  <span className="text-meta tabular-nums text-on-surface-variant truncate">{r?.nextPlanned}</span>
                   <button
                     type="button"
                     onClick={() => startOrFinish(s)}

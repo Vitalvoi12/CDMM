@@ -22,13 +22,13 @@ export function WeeklyGoalsCard() {
 
   return (
     <div className="rounded-2xl border border-outline-variant px-5 py-4 flex flex-col gap-3">
-      <span className="font-label-sm text-label-sm tracking-[0.18em] opacity-60">Weekly goals</span>
+      <span className="text-section text-on-surface">Weekly goals</span>
       <ul className="flex flex-col gap-2.5">
         {goals.map((g) => (
           <li key={g.subjectId} title={`${g.name}: ${formatDuration(g.minutes)} of ${formatGoal(g.goalMinutes)} this week`}>
             <div className="flex justify-between items-baseline gap-2 mb-1">
-              <span className="font-body-sm text-body-sm text-on-surface truncate">{g.name}</span>
-              <span className="font-label-sm text-label-sm text-on-surface-variant tabular-nums flex-shrink-0">
+              <span className="text-meta text-on-surface truncate">{g.name}</span>
+              <span className="text-caption text-on-surface-variant tabular-nums flex-shrink-0">
                 {formatDuration(g.minutes)} / {formatGoal(g.goalMinutes)}
               </span>
             </div>

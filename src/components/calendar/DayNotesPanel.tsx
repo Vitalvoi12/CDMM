@@ -195,10 +195,10 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
     >
       {expanded && onExpandedChange && <EscapeToCollapse onCollapse={onExpandedChange} editor={editor} />}
       <div className="flex items-center gap-3 flex-none">
-        <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
+        <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em] lg:text-section">
           Notes
         </h2>
-        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 tracking-[0.14em] mr-auto">
+        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 tracking-[0.14em] lg:text-caption mr-auto">
           {dayLabel}
         </span>
         {onExpandedChange && (
@@ -255,7 +255,7 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
           type="button"
           onClick={open}
           title="Show the whole note (Shortcut: I)"
-          className="flex-none self-start flex items-center gap-1 font-label-sm text-label-sm uppercase tracking-[0.12em] text-on-surface-variant hover:text-on-surface transition-colors"
+          className="flex-none self-start flex items-center gap-1 font-label-sm text-label-sm uppercase tracking-[0.12em] lg:text-caption text-on-surface-variant hover:text-on-surface transition-colors"
         >
           Show all · {lineCount} {lineCount === 1 ? 'line' : 'lines'}
           <span className="material-symbols-outlined text-[14px] leading-none">expand_more</span>

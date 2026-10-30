@@ -35,7 +35,7 @@ export function TaskStatsPanel({ stats, periodLabel, layout = 'section' }: TaskS
       delay={400}
       layout={layout}
       aside={
-        <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
+        <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:text-caption">
           {done} / {stats.created} done
         </p>
       }
@@ -55,10 +55,10 @@ export function TaskStatsPanel({ stats, periodLabel, layout = 'section' }: TaskS
       <div className={boxClass(layout, `flex flex-col ${layout === 'card' ? 'gap-4' : 'gap-6'}`)}>
         <div>
           <div className="flex items-baseline justify-between gap-4 mb-2">
-            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
+            <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:text-caption">
               Completion
             </span>
-            <span className="font-label-sm text-label-sm text-on-surface tabular-nums">
+            <span className="font-label-sm text-label-sm lg:text-caption text-on-surface tabular-nums">
               {ratePercent}%
             </span>
           </div>
@@ -73,10 +73,10 @@ export function TaskStatsPanel({ stats, periodLabel, layout = 'section' }: TaskS
         {stats.withDeadline > 0 && (
           <div>
             <div className="flex items-baseline justify-between gap-4 mb-2">
-              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
+              <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:text-caption">
                 Deadline
               </span>
-              <span className="font-label-sm text-label-sm text-on-surface tabular-nums">
+              <span className="font-label-sm text-label-sm lg:text-caption text-on-surface tabular-nums">
                 {stats.onTime} on time · {stats.late} late
               </span>
             </div>

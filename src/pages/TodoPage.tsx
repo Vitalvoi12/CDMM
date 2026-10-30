@@ -210,8 +210,8 @@ export function TodoPage() {
   return (
     <div className="flex flex-col w-full flex-1 min-h-0 relative max-lg:overflow-hidden">
       <div className="mb-8 max-lg:mb-3 flex-shrink-0">
-        <h1 className="font-headline-lg text-headline-lg text-on-surface mb-1">Todo</h1>
-        <p className="font-body-lg text-body-lg text-on-surface-variant">
+        <h1 className="text-title text-on-surface mb-1">Todo</h1>
+        <p className="text-lead text-on-surface-variant">
           {todos.filter((t) => !t.completed).length} open tasks
         </p>
       </div>

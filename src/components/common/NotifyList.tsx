@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { NOTIFY_OPTIONS, notificationPermission, requestNotificationPermission, type NotifyPermission } from '../../services/notifications';
 
-const labelClass = 'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]';
+const labelClass = 'font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em]';
 const fieldClass =
-  'w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors';
+  'w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors';
 
 const CUSTOM = 'custom';
 const MAX_ITEMS = 5;
@@ -157,17 +157,17 @@ export function NotifyList({ items, onChange, anchor, zeroLabel, noAnchorHint }:
         <button
           type="button"
           onClick={addRow}
-          className="self-start inline-flex items-center gap-1 font-label-sm text-label-sm text-primary uppercase tracking-[0.1em] py-1"
+          className="self-start inline-flex items-center gap-1 font-label-sm text-label-sm lg:text-caption text-primary uppercase tracking-[0.1em] py-1"
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
           Add notification
         </button>
       )}
       {!anchor && !items.some((r) => r.customAt) && noAnchorHint && (
-        <p className="font-body-sm text-body-sm text-on-surface-variant">{noAnchorHint}</p>
+        <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">{noAnchorHint}</p>
       )}
       {active && permission !== 'granted' && (
-        <p className="font-body-sm text-body-sm text-on-surface-variant">
+        <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">
           {permission === 'denied'
             ? 'Notifications are blocked for this site — allow them in the browser settings.'
             : permission === 'unsupported'

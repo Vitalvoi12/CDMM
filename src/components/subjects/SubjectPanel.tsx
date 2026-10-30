@@ -19,7 +19,7 @@ interface SubjectPanelProps {
   onDelete: () => void;
 }
 
-const CAPTION = 'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]';
+const CAPTION = 'text-caption text-on-surface-variant';
 
 /**
  * Desktop Subjects page: the selected subject — its session, this week
@@ -45,7 +45,7 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
     >
       <div className="flex items-center gap-2.5">
         <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: subject.color }} />
-        <h2 className="font-headline-md text-headline-md text-on-surface truncate flex-1 min-w-0">{subject.name}</h2>
+        <h2 className="text-heading text-on-surface truncate flex-1 min-w-0">{subject.name}</h2>
         <button
           type="button"
           onClick={onEdit}
@@ -60,15 +60,15 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
       {live ? (
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
-            <span className="font-label-sm text-label-sm uppercase tracking-[0.16em] text-now">Live session</span>
+            <span className="overline text-now">Live session</span>
             {session.startTime && (
-              <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums">Started {timeFromDate(session.startTime)}</span>
+              <span className="text-meta text-on-surface-variant tabular-nums">Started {timeFromDate(session.startTime)}</span>
             )}
           </div>
           <button
             type="button"
             onClick={onStartOrFinish}
-            className="w-full py-2.5 rounded-[0.6rem] bg-error-container text-on-error-container font-label-md text-label-md uppercase tracking-[0.12em] flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+            className="w-full py-2.5 rounded-[0.6rem] bg-error-container text-on-error-container text-control flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
           >
             <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">stop</span>
             Finish · <span className="tabular-nums">{formatTimerDuration(session.elapsed)}</span>
@@ -78,7 +78,7 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
         <button
           type="button"
           onClick={onStartOrFinish}
-          className="w-full py-2.5 rounded-[0.6rem] bg-primary text-on-primary font-label-md text-label-md uppercase tracking-[0.12em] flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
+          className="w-full py-2.5 rounded-[0.6rem] bg-primary text-on-primary text-control flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity"
         >
           <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">play_arrow</span>
           {session.isActive ? 'Switch session here' : 'Start session'}
@@ -88,15 +88,15 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
       <section className="flex flex-col gap-2">
         <span className={CAPTION}>This week</span>
         <p className="flex items-baseline gap-1.5">
-          <span className="font-headline-lg text-[30px] leading-[34px] text-on-surface tabular-nums">{formatDuration(d.thisWeek)}</span>
-          <span className="font-body-md text-body-md text-on-surface-variant tabular-nums">{goal > 0 ? `/ ${formatGoal(goal)} goal` : 'this week'}</span>
+          <span className="text-big text-on-surface">{formatDuration(d.thisWeek)}</span>
+          <span className="text-body text-on-surface-variant tabular-nums">{goal > 0 ? `/ ${formatGoal(goal)} goal` : 'this week'}</span>
         </p>
         {goal > 0 && (
           <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, (d.thisWeek / goal) * 100)}%`, backgroundColor: subject.color }} />
           </div>
         )}
-        <p className={`font-body-sm text-body-sm tabular-nums ${reached ? 'text-success' : 'text-on-surface-variant'}`}>
+        <p className={`text-meta tabular-nums ${reached ? 'text-success' : 'text-on-surface-variant'}`}>
           {goal <= 0
             ? 'No weekly goal. Set one with Edit.'
             : reached
@@ -109,7 +109,7 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
         <div className="flex items-baseline justify-between">
           <span className={CAPTION}>Last 8 weeks</span>
           {goal > 0 && (
-            <span className="flex items-center gap-1.5 font-body-sm text-body-sm text-on-surface-variant">
+            <span className="flex items-center gap-1.5 text-meta text-on-surface-variant">
               <span className="w-3.5 border-t border-dashed border-on-surface-variant" aria-hidden="true" />
               goal
             </span>
@@ -163,41 +163,41 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
             {d.upcoming.map((p, i) => (
               <li key={p.id} className={`flex items-center gap-2.5 py-1.5 ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
                 <span className="w-[3px] h-5 rounded-sm flex-shrink-0" style={{ backgroundColor: subject.color }} />
-                <span className="font-body-md text-body-md text-on-surface tabular-nums w-[4.6rem] flex-shrink-0">{p.day}</span>
-                <span className="font-body-md text-body-md text-on-surface-variant tabular-nums flex-1">{p.time}</span>
-                <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums">{p.length}</span>
+                <span className="text-body text-on-surface tabular-nums w-[4.6rem] flex-shrink-0">{p.day}</span>
+                <span className="text-body text-on-surface-variant tabular-nums flex-1">{p.time}</span>
+                <span className="text-meta text-on-surface-variant tabular-nums">{p.length}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="font-body-sm text-body-sm text-on-surface-variant">Nothing planned. Drag a block onto the calendar’s Plan column.</p>
+          <p className="text-meta text-on-surface-variant">Nothing planned. Drag a block onto the calendar’s Plan column.</p>
         )}
       </section>
 
       <section className="flex flex-col gap-1.5">
         <div className="flex items-baseline justify-between">
           <span className={CAPTION}>Open tasks</span>
-          <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums">{d.openTaskCount}</span>
+          <span className="text-meta text-on-surface-variant tabular-nums">{d.openTaskCount}</span>
         </div>
         {d.openTasks.length > 0 ? (
           <ul className="flex flex-col gap-1">
             {d.openTasks.map((t) => (
               <li key={t.id} className="flex items-start gap-2 py-0.5">
                 <span className="w-4 h-4 mt-px rounded-full border border-outline flex-shrink-0" aria-hidden="true" />
-                <span className="font-body-md text-body-md text-on-surface flex-1 min-w-0 break-words">{t.text}</span>
-                <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums flex-shrink-0 mt-px">{t.day}</span>
+                <span className="text-body text-on-surface flex-1 min-w-0 break-words">{t.text}</span>
+                <span className="text-meta text-on-surface-variant tabular-nums flex-shrink-0 mt-px">{t.day}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="font-body-sm text-body-sm text-on-surface-variant">No open checklist tasks.</p>
+          <p className="text-meta text-on-surface-variant">No open checklist tasks.</p>
         )}
       </section>
 
       <div className="border-t border-outline-variant pt-3">
         {askDelete ? (
           <div role="alertdialog" aria-label={`Delete ${subject.name}?`} className="flex flex-col gap-2.5 p-3 rounded-[0.6rem] bg-error-container">
-            <p className="font-body-md text-body-md text-on-error-container">
+            <p className="text-body text-on-error-container">
               <b>Delete {subject.name}?</b> Its {d.realCount} logged {d.realCount === 1 ? 'session' : 'sessions'} and {d.planCount} planned{' '}
               {d.planCount === 1 ? 'block' : 'blocks'} stay in the calendar without a subject
               {goal > 0 ? ', and its weekly goal is removed.' : '.'}
@@ -207,21 +207,21 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
                 type="button"
                 autoFocus
                 onClick={() => setAskDelete(false)}
-                className="px-3 py-1.5 rounded-[0.6rem] font-label-md text-label-md uppercase tracking-[0.1em] text-on-surface-variant hover:text-on-surface"
+                className="px-3 py-1.5 rounded-[0.6rem] text-control text-on-surface-variant hover:text-on-surface"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={onDelete}
-                className="px-3 py-1.5 rounded-[0.6rem] font-label-md text-label-md uppercase tracking-[0.1em] bg-error text-on-error hover:opacity-90"
+                className="px-3 py-1.5 rounded-[0.6rem] text-control bg-error text-on-error hover:opacity-90"
               >
                 Delete
               </button>
             </div>
           </div>
         ) : (
-          <button type="button" onClick={() => setAskDelete(true)} className="font-body-md text-body-md text-error hover:underline">
+          <button type="button" onClick={() => setAskDelete(true)} className="text-body text-error hover:underline">
             Delete subject…
           </button>
         )}

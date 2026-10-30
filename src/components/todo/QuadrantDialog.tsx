@@ -45,8 +45,8 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
       >
         <header className="flex items-center justify-between gap-4 px-6 py-4 border-b border-outline-variant flex-shrink-0">
           <div className="min-w-0">
-            <h2 className="font-headline-md text-headline-md text-on-surface truncate">{title}</h2>
-            <p className="font-label-sm text-label-sm text-on-surface-variant tabular-nums mt-1">
+            <h2 className="font-headline-md text-headline-md lg:text-heading text-on-surface truncate">{title}</h2>
+            <p className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant tabular-nums mt-1">
               {active.length} active{completed.length > 0 ? ` · ${completed.length} completed` : ''}
             </p>
           </div>
@@ -54,7 +54,7 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
             <button
               type="button"
               onClick={onAdd}
-              className="px-4 py-2 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+              className="px-4 py-2 bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
             >
               Add task
             </button>
@@ -74,8 +74,8 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
           {active.length === 0 && completed.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
               <span className="material-symbols-outlined text-[32px] text-on-surface-variant opacity-50">task_alt</span>
-              <p className="font-body-lg text-body-lg text-on-surface-variant">Nothing here yet</p>
-              <p className="font-body-sm text-body-sm text-on-surface-variant opacity-70">
+              <p className="font-body-lg text-body-lg lg:text-lead text-on-surface-variant">Nothing here yet</p>
+              <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant opacity-70">
                 Add a task to this quadrant.
               </p>
             </div>
@@ -86,7 +86,7 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
               ))}
               {completed.length > 0 && (
                 <>
-                  <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest pt-6 pb-1">
+                  <p className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-widest pt-6 pb-1">
                     Completed
                   </p>
                   {completed.map((task) => (

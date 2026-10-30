@@ -36,10 +36,10 @@ export function ConsistencyPanel({ stats, days, periodLabel }: ConsistencyPanelP
       </div>
       <div className="rounded-2xl border border-outline-variant bg-surface-container shadow-elev-1 p-5">
         <div className="flex items-baseline justify-between gap-4 mb-4 flex-wrap">
-          <h3 className="font-label-sm text-label-sm text-on-surface uppercase tracking-widest">
+          <h3 className="font-label-sm text-label-sm text-on-surface uppercase tracking-widest lg:text-section">
             Activity calendar
           </h3>
-          <p className="font-body-sm text-body-sm text-on-surface-variant tabular-nums">
+          <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant tabular-nums">
             {formatDurationLong(
               days.reduce((sum, d) => sum + d.minutes, 0)
             )}{' '}

@@ -254,9 +254,9 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   };
 
   const inputClass =
-    'w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60';
+    'w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:px-3 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60';
   const labelClass =
-    'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl';
+    'font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl';
 
   if (isMobile) {
     // Phone (the "Edit event" sheet of the mobile design): the times are one
@@ -443,7 +443,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
         onKeyDown={handleKeyDown}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-headline-md text-headline-md max-lg:m-h2 text-on-surface">
+          <h2 className="font-headline-md text-headline-md lg:text-heading max-lg:m-h2 text-on-surface">
             {event ? 'Edit Event' : 'New Study Event'}
           </h2>
           <button
@@ -528,7 +528,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                 type="button"
                 aria-pressed={kind === k}
                 onClick={() => setKind(k)}
-                className={`flex-1 py-2 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
+                className={`flex-1 py-2 rounded-full font-label-sm text-label-sm lg:text-caption uppercase tracking-[0.12em] transition-colors ${
                   kind === k
                     ? 'bg-secondary-container text-on-secondary-container'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -561,7 +561,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                 </span>
               )}
             </span>
-            <span className="font-label-sm text-label-sm text-on-surface uppercase tracking-[0.16em]">
+            <span className="font-label-sm text-label-sm lg:text-caption text-on-surface uppercase tracking-[0.16em]">
               Count in stats?
             </span>
           </button>
@@ -578,7 +578,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
                     aria-checked={focus === r}
                     // A second tap on the chosen rating clears it.
                     onClick={() => setFocus((cur) => (cur === r ? null : r))}
-                    className={`flex-1 py-2 rounded-full font-label-sm text-label-sm uppercase tracking-[0.12em] transition-colors ${
+                    className={`flex-1 py-2 rounded-full font-label-sm text-label-sm lg:text-caption uppercase tracking-[0.12em] transition-colors ${
                       focus === r
                         ? 'bg-secondary-container text-on-secondary-container'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -695,7 +695,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               </div>
             </div>
             {!isNew && repeatChanged && (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
+              <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">
                 {repeat === 'none'
                   ? series ? 'The series stops here: later occurrences are removed.' : ''
                   : series ? 'Applies to this and the following occurrences.' : 'Repeats of this event will be added after it.'}
@@ -712,7 +712,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
             zeroLabel="At the start"
           />
           {error && (
-            <p role="alert" className="font-body-sm text-body-sm text-error">
+            <p role="alert" className="font-body-sm text-body-sm lg:text-meta text-error">
               {error}
             </p>
           )}
@@ -721,7 +721,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               <button
                 type="button"
                 onClick={() => onDelete(event.id)}
-                className="max-lg:min-h-[44px] px-4 py-2.5 bg-error-container text-on-error-container rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
+                className="max-lg:min-h-[44px] px-4 py-2.5 bg-error-container text-on-error-container rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
               >
                 Delete
               </button>
@@ -730,7 +730,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
               <button
                 type="button"
                 onClick={() => onDuplicate(event.id)}
-                className="max-lg:min-h-[44px] px-4 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
+                className="max-lg:min-h-[44px] px-4 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md lg:text-control text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
               >
                 Duplicate
               </button>
@@ -738,13 +738,13 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
             <button
               type="button"
               onClick={onCancel}
-              className="max-lg:min-h-[44px] flex-1 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
+              className="max-lg:min-h-[44px] flex-1 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md lg:text-control text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="max-lg:min-h-[44px] flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+              className="max-lg:min-h-[44px] flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
             >
               {event ? 'Save' : 'Add'}
             </button>

@@ -38,15 +38,15 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
           onClick={onOpenQuadrant}
           className="flex-1 flex items-center gap-3 min-w-0 rounded no-press focus:outline-none focus-visible:ring-2 focus-visible:ring-primary group"
         >
-          <h2 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-[0.14em] truncate min-w-0">
+          <h2 className="font-label-md text-label-md lg:text-section text-on-surface-variant uppercase tracking-[0.14em] truncate min-w-0">
             {title}
           </h2>
-          <span className="font-label-sm text-label-sm text-on-surface-variant flex-shrink-0 tabular-nums">
+          <span className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant flex-shrink-0 tabular-nums">
             {active.length}
           </span>
           {est > 0 && (
             <span
-              className="font-label-sm text-label-sm text-on-surface-variant/70 flex-shrink-0 tabular-nums inline-flex items-center gap-1"
+              className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant/70 flex-shrink-0 tabular-nums inline-flex items-center gap-1"
               title={`Estimated time in this quadrant: ${formatDuration(est)}`}
             >
               <span className="material-symbols-outlined text-[12px] leading-none">timer</span>
@@ -74,7 +74,7 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
           className="flex-1 flex flex-col items-center justify-center gap-1 py-6 text-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="material-symbols-outlined text-[19px] text-on-surface-variant opacity-60">task_alt</span>
-          <span className="font-body-sm text-body-sm text-on-surface-variant">Nothing here</span>
+          <span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">Nothing here</span>
         </button>
       ) : (
         <div className="relative overflow-y-auto flex flex-col gap-2 min-h-0 flex-1">

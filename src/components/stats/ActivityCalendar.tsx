@@ -136,8 +136,8 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
           {months.map((month) => (
             <div key={month.key} className="min-w-0">
               <div className="flex items-baseline justify-between gap-2 mb-1.5">
-                <p className="font-label-md text-label-md text-on-surface truncate">{month.title}</p>
-                <p className="font-label-sm text-label-sm text-on-surface-variant tabular-nums flex-shrink-0">
+                <p className="font-label-md text-label-md lg:text-control text-on-surface truncate">{month.title}</p>
+                <p className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant tabular-nums flex-shrink-0">
                   {month.minutes > 0 ? formatDurationLong(month.minutes) : ''}
                 </p>
               </div>
@@ -170,7 +170,7 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
         </div>
       )}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <p className="font-body-sm text-body-sm text-on-surface-variant min-h-[16px]">
+        <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant min-h-[16px]">
           {active
             ? `${active.date} — ${
                 active.minutes > 0
@@ -181,7 +181,7 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
         </p>
         {/* Same five steps as the rhythm heatmap, so both read alike. */}
         <div className="flex items-center gap-2 ml-auto">
-          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
+          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:text-caption">
             Less
           </span>
           <div className="flex gap-1">
@@ -192,15 +192,15 @@ export function ActivityCalendar({ days }: ActivityCalendarProps) {
               />
             ))}
           </div>
-          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
+          <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:text-caption">
             More
           </span>
         </div>
       </div>
       {hover && (
         <Tooltip x={hover.x} y={hover.y} below={hover.below}>
-          <p className="font-label-sm text-label-sm font-semibold whitespace-nowrap">{hover.day.date}</p>
-          <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
+          <p className="font-label-sm text-label-sm font-semibold lg:text-control whitespace-nowrap">{hover.day.date}</p>
+          <p className="font-body-sm text-body-sm lg:text-meta whitespace-nowrap opacity-90">
             {hover.day.minutes > 0
               ? `${formatDurationLong(hover.day.minutes)} · ${hover.day.sessions} session${hover.day.sessions === 1 ? '' : 's'}`
               : 'No study'}

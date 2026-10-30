@@ -58,7 +58,7 @@ export function TimeHeatmap({ rhythm, periodLabel }: TimeHeatmapProps) {
       still
       aside={
         peak ? (
-          <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
+          <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:text-caption">
             most often {WEEKDAY_LABELS[peak.weekday]} {HOUR_LABELS[peak.hour]}
           </p>
         ) : undefined
@@ -109,7 +109,7 @@ export function TimeHeatmap({ rhythm, periodLabel }: TimeHeatmapProps) {
             </Fragment>
           ))}
         </div>
-        <p className="font-body-sm text-body-sm text-on-surface-variant mt-3 min-h-[16px]">
+        <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant mt-3 min-h-[16px]">
           {active
             ? `${active.label} — ${
                 active.cell.minutes > 0 ? formatDurationLong(active.cell.minutes) : 'nothing'
@@ -120,8 +120,8 @@ export function TimeHeatmap({ rhythm, periodLabel }: TimeHeatmapProps) {
 
       {hover && (
         <Tooltip x={hover.x} y={hover.y} below={hover.below}>
-          <p className="font-label-sm text-label-sm font-semibold whitespace-nowrap">{hover.label}</p>
-          <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
+          <p className="font-label-sm text-label-sm font-semibold lg:text-control whitespace-nowrap">{hover.label}</p>
+          <p className="font-body-sm text-body-sm lg:text-meta whitespace-nowrap opacity-90">
             {hover.cell.minutes > 0 ? formatDurationLong(hover.cell.minutes) : 'No study'}
           </p>
         </Tooltip>

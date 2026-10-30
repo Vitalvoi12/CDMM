@@ -648,7 +648,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
               className="absolute left-0 right-0 border-t border-outline-variant/60"
               style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
             >
-              <span className="absolute -top-2.5 -left-12 max-lg:-top-[6px] max-lg:!text-[10px] max-lg:!leading-[12px] max-lg:font-medium font-label-sm text-label-sm text-on-surface-variant tabular-nums">
+              <span className="absolute -top-2.5 -left-12 max-lg:-top-[6px] max-lg:!text-[10px] max-lg:!leading-[12px] max-lg:font-medium font-label-sm text-label-sm lg:text-tick text-on-surface-variant tabular-nums">
                 {String(hour % 24).padStart(2, '0')}:00
               </span>
             </div>
@@ -661,7 +661,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
               className="absolute left-0 w-1/2 flex items-center justify-center pointer-events-none"
               style={{ top: `${gap.top}px`, height: `${gap.height}px` }}
             >
-              <span className="font-label-sm text-label-sm max-lg:!text-[10px] max-lg:leading-none text-on-surface-variant italic">
+              <span className="font-label-sm text-label-sm lg:text-meta max-lg:!text-[10px] max-lg:leading-none text-on-surface-variant italic">
                 {gap.duration} min gap
               </span>
             </div>
@@ -727,7 +727,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
 /** The Real | Plan column labels over the grid (one centred label when the
  *  filter shows a single kind). */
 export function TimelineColumnLabels({ mode = 'all' }: { mode?: EventFilter }) {
-  const label = 'font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em]';
+  const label = 'font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em] lg:overline';
   return (
     <div className={`flex items-center mb-2 pl-4 max-lg:bg-background max-lg:mb-0 max-lg:h-[22px] ${mode !== 'all' ? 'justify-center' : 'justify-between'}`}>
       {mode !== 'all' ? (

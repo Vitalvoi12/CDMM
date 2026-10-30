@@ -35,12 +35,12 @@ export function FocusRoom({
     <div className="flex-1 min-h-0">
       <div className="mx-auto w-full max-w-6xl px-6 py-8 max-lg:px-4 max-lg:py-4 flex flex-col gap-6 max-lg:gap-3 min-h-0 h-full">
         <div className="flex items-center justify-between gap-4 flex-shrink-0 animate-fade-up">
-          <h1 className="font-headline-lg text-headline-lg text-on-surface uppercase tracking-tight">
+          <h1 className="font-headline-lg text-headline-lg lg:text-title text-on-surface uppercase tracking-tight">
             Focus Room
           </h1>
           <span
             key={status}
-            className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.18em] animate-fade-in"
+            className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.18em] animate-fade-in"
           >
             {status}
           </span>
@@ -53,12 +53,12 @@ export function FocusRoom({
               style={{ animationDelay: `${60 + i * 70}ms` }}
               className="bg-surface-container-lowest border border-outline-variant rounded-xl px-5 py-4 max-lg:px-3 max-lg:py-2.5 animate-fade-up"
             >
-              <p className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.18em] mb-2 max-lg:mb-1">
+              <p className="font-label-sm text-label-sm lg:text-caption max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.18em] mb-2 max-lg:mb-1">
                 {s.label}
               </p>
               <p
                 key={s.value}
-                className="font-headline-md text-headline-md max-lg:!text-[16px] text-on-surface tabular-nums animate-fade-in"
+                className="font-headline-md text-headline-md lg:text-heading max-lg:!text-[16px] text-on-surface tabular-nums animate-fade-in"
               >
                 {s.value}
               </p>
@@ -74,10 +74,10 @@ export function FocusRoom({
             {isActive ? (
               <div className="w-full flex flex-col min-h-0">
                 <div className="flex items-center justify-between gap-3 mb-6 max-lg:mb-3">
-                  <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.18em]">
+                  <span className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.18em]">
                     Live session
                   </span>
-                  <span className="flex items-center gap-2 font-label-sm text-label-sm text-primary uppercase tracking-[0.18em]">
+                  <span className="flex items-center gap-2 font-label-sm text-label-sm lg:text-caption text-primary uppercase tracking-[0.18em]">
                     <span className="relative flex w-2 h-2">
                       <span className="absolute w-full h-full bg-now rounded-full opacity-40 animate-ping" />
                       <span className="w-2 h-2 bg-now rounded-full" />
@@ -86,11 +86,11 @@ export function FocusRoom({
                   </span>
                 </div>
                 <p
-                  className="font-display-lg text-display-lg max-lg:!text-[34px] max-lg:leading-none text-on-surface tabular-nums leading-none tracking-tight text-center animate-fade-in"
+                  className="font-display-lg text-display-lg max-lg:!text-[34px] max-lg:leading-none text-on-surface tabular-nums leading-none tracking-tight lg:font-mono text-center animate-fade-in"
                 >
                   {formatTimerDuration(elapsed)}
                 </p>
-                <p className="font-label-md text-label-md text-on-surface uppercase tracking-[0.16em] text-center mt-4 max-lg:mt-2 break-words">
+                <p className="font-label-md text-label-md lg:text-control text-on-surface uppercase tracking-[0.16em] text-center mt-4 max-lg:mt-2 break-words">
                   {subjectName}
                 </p>
                 <div className="flex items-center justify-center mt-2">
@@ -99,13 +99,13 @@ export function FocusRoom({
                       type="button"
                       onClick={onEditStart}
                       title="Change when this session started"
-                      className="flex items-center gap-1.5 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.18em] hover:text-on-surface transition-colors"
+                      className="flex items-center gap-1.5 font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.18em] hover:text-on-surface transition-colors"
                     >
                       Started {startTime ? timeFromDate(startTime) : '--:--'}
                       <span className="material-symbols-outlined text-[13px] leading-none">edit</span>
                     </button>
                   ) : (
-                    <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.18em] text-center">
+                    <p className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.18em] text-center">
                       Started {startTime ? timeFromDate(startTime) : '--:--'}
                     </p>
                   )}
@@ -114,7 +114,7 @@ export function FocusRoom({
                   <button
                     type="button"
                     onClick={onStop}
-                    className="px-8 py-3 max-lg:px-6 max-lg:py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 hover:-translate-y-px hover:shadow-elev-2 transition-all whitespace-nowrap"
+                    className="px-8 py-3 max-lg:px-6 max-lg:py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md lg:text-control max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 hover:-translate-y-px hover:shadow-elev-2 transition-all whitespace-nowrap"
                   >
                     Finish
                   </button>
@@ -122,20 +122,20 @@ export function FocusRoom({
               </div>
             ) : (
               <div className="w-full flex flex-col min-h-0">
-                <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.18em] mb-4 max-lg:mb-2">
+                <p className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.18em] mb-4 max-lg:mb-2">
                   Start studying
                 </p>
-                <p className="font-display-lg text-display-lg max-lg:!text-[34px] max-lg:leading-none text-on-surface tabular-nums leading-none tracking-tight text-center">
+                <p className="font-display-lg text-display-lg max-lg:!text-[34px] max-lg:leading-none text-on-surface tabular-nums leading-none tracking-tight lg:font-mono text-center">
                   00:00:00
                 </p>
-                <p className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface-variant text-center mt-4 max-lg:mt-2">
+                <p className="font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface-variant text-center mt-4 max-lg:mt-2">
                   Choose a subject to begin
                 </p>
                 <div className="flex items-center justify-center mt-8 max-lg:mt-4 flex-shrink-0 flex-wrap">
                   <button
                     type="button"
                     onClick={onStart}
-                    className="px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-full bg-primary text-on-primary font-label-md text-label-md max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 hover:-translate-y-0.5 hover:shadow-elev-2 transition-all whitespace-nowrap"
+                    className="px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-full bg-primary text-on-primary font-label-md text-label-md lg:text-control max-lg:!text-[10px] uppercase tracking-[0.12em] hover:opacity-90 hover:-translate-y-0.5 hover:shadow-elev-2 transition-all whitespace-nowrap"
                   >
                     Start
                   </button>

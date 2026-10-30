@@ -69,7 +69,7 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
       delay={320}
       layout="card"
       aside={
-        <span className="font-body-sm text-body-sm text-on-surface-variant">
+        <span className="text-meta text-on-surface-variant">
           {history.endsNow ? `last ${weeks} weeks` : `${weeks} weeks to ${shortDate(history.days[history.days.length - 1].date)}`}
         </span>
       }
@@ -91,7 +91,7 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
           {months.map((m) => (
             <span
               key={`${m.label}-${m.week}`}
-              className="absolute top-0 font-label-sm text-label-sm text-on-surface-variant"
+              className="absolute top-0 text-caption text-on-surface-variant"
               style={{ left: `${(m.week / weeks) * 100}%` }}
             >
               {m.label}
@@ -138,7 +138,7 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="font-body-sm text-body-sm text-on-surface-variant">
+        <p className="text-meta text-on-surface-variant">
           {outline ? 'Outlined: this period · ringed: today.' : 'Ringed: today.'} Shades follow your own busy and quiet
           days.
         </p>
@@ -147,10 +147,10 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
 
       {hover && (
         <Tooltip x={hover.x} y={hover.y} below={hover.below}>
-          <p className="font-label-sm text-label-sm font-semibold whitespace-nowrap">
+          <p className="text-control whitespace-nowrap">
             {parseISODate(hover.day.date)?.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           </p>
-          <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
+          <p className="text-meta whitespace-nowrap opacity-90">
             {hover.future
               ? 'Ahead'
               : hover.day.minutes > 0

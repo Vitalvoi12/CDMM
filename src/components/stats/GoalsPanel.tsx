@@ -27,7 +27,7 @@ export function GoalsPanel({ goals, days, layout = 'section' }: GoalsPanelProps)
       delay={120}
       layout={layout}
       aside={
-        <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums">
+        <span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant tabular-nums">
           {reached}/{goals.length} reached
           {Math.abs(weeks - 1) > 0.01 && ` · target × ${Math.round(weeks * 10) / 10} weeks`}
         </span>
@@ -39,14 +39,14 @@ export function GoalsPanel({ goals, days, layout = 'section' }: GoalsPanelProps)
             <div className="flex items-baseline justify-between gap-4 mb-2">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: g.color }} />
-                <span className="font-body-md text-body-md text-on-surface font-medium truncate">{g.name}</span>
+                <span className="font-body-md text-body-md text-on-surface font-medium lg:text-body lg:lg:font-medium truncate">{g.name}</span>
               </div>
               <div className="flex items-baseline gap-4 flex-shrink-0">
-                <span className="font-label-md text-label-md text-on-surface tabular-nums">
+                <span className="font-label-md text-label-md lg:text-control text-on-surface tabular-nums">
                   {formatDurationLong(g.minutes)} / {formatGoal(g.goalMinutes)}
                 </span>
                 <span
-                  className={`font-label-sm text-label-sm tabular-nums w-12 text-right ${
+                  className={`font-label-sm text-label-sm lg:text-caption tabular-nums w-12 text-right ${
                     g.percent >= 100 ? 'text-primary font-semibold' : 'text-on-surface-variant'
                   }`}
                 >

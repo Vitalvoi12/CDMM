@@ -30,7 +30,7 @@ interface Pending {
 }
 
 const TEXT_BUTTON =
-  'font-label-sm text-[11px] leading-[13px] font-bold uppercase tracking-[0.1em] text-on-surface-variant hover:text-on-surface px-1.5 py-1 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+  'text-control text-on-surface-variant hover:text-on-surface px-1.5 py-1 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
 function Combos({ combos, pair, fixed }: { combos: Combo[]; pair?: boolean; fixed?: boolean }) {
   return (
@@ -92,8 +92,8 @@ export function ShortcutsPanel() {
     <div className="mb-20 flex flex-col gap-6 max-w-2xl">
       <div className="flex items-end justify-between gap-4 lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">
         <div className="flex flex-col gap-1">
-          <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface">Shortcuts</h1>
-          <p className="font-body-sm text-[13px] leading-[19px] text-on-surface-variant">
+          <h1 className="text-title text-on-surface">Shortcuts</h1>
+          <p className="text-lead text-on-surface-variant">
             Keys follow their position on the keyboard, so they work in any layout. Saved on this device.
           </p>
         </div>
@@ -115,13 +115,13 @@ export function ShortcutsPanel() {
       <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-8 flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Toggle label="Single-key shortcuts" checked={settings.singleKey} onChange={setSingleKeyShortcuts} />
-          <p className="font-body-sm text-[12px] leading-[17px] text-on-surface-variant px-1">
+          <p className="text-meta text-on-surface-variant px-1">
             Letters, digits and arrows. They never fire while you type in a field or a window is open.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
           <Toggle label="Show key hints" checked={settings.hints} onChange={setKeyHints} />
-          <p className="font-body-sm text-[12px] leading-[17px] text-on-surface-variant px-1">
+          <p className="text-meta text-on-surface-variant px-1">
             Small key labels next to the menu items, so the keys are easy to learn.
           </p>
         </div>
@@ -137,8 +137,8 @@ export function ShortcutsPanel() {
             className={`bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 px-8 pt-6 pb-2 transition-opacity ${dim ? 'opacity-45' : ''}`}
           >
             <div className="flex items-baseline justify-between gap-4 mb-1">
-              <h2 className="font-label-sm text-[12px] leading-[16px] font-bold text-on-surface-variant uppercase tracking-[0.16em]">{group.title}</h2>
-              <span className="font-body-sm text-[12px] leading-[16px] text-on-surface-variant">{group.scope}</span>
+              <h2 className="text-section text-on-surface">{group.title}</h2>
+              <span className="text-meta text-on-surface-variant">{group.scope}</span>
             </div>
             {rows.map((row, i) => (
               <ShortcutRow
@@ -195,7 +195,7 @@ function ShortcutRow({ def, first, keys, changed, recording, pending, onRecord, 
     <div className={first ? '' : 'border-t border-outline-variant'}>
       <div className="flex items-center gap-4 min-h-[2.8rem] py-1.5">
         <div className="flex-1 min-w-0 flex items-center gap-2">
-          <span className="font-body-md text-[14px] leading-[20px] text-on-surface">{def.label}</span>
+          <span className="text-body text-on-surface">{def.label}</span>
           {changed && <span title="Changed from the default" className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
         </div>
 
@@ -213,8 +213,8 @@ function ShortcutRow({ def, first, keys, changed, recording, pending, onRecord, 
         ) : recording ? (
           <>
             <RecordingEscape onCancel={onStopRecording} />
-            <span className="font-body-sm text-[12px] leading-[16px] text-on-surface-variant">Esc cancels · Backspace clears</span>
-            <span className="kbd-recording h-[1.9rem] px-3 inline-flex items-center border border-primary rounded-[0.6rem] font-label-sm text-[12px] font-semibold text-primary" role="status">
+            <span className="text-meta text-on-surface-variant">Esc cancels · Backspace clears</span>
+            <span className="kbd-recording h-[1.9rem] px-3 inline-flex items-center border border-primary rounded-[0.6rem] text-control text-primary" role="status">
               Press a key…
             </span>
             <button type="button" onClick={onStopRecording} className={TEXT_BUTTON}>
@@ -243,7 +243,7 @@ function ShortcutRow({ def, first, keys, changed, recording, pending, onRecord, 
             aria-label={`${def.label}: no key. Change`}
             className="flex items-center p-1 rounded-[0.6rem] border border-transparent hover:border-outline hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="h-6 px-2.5 inline-flex items-center border border-dashed border-outline rounded-[0.4rem] font-body-sm text-[12px] text-on-surface-variant">
+            <span className="h-6 px-2.5 inline-flex items-center border border-dashed border-outline rounded-[0.4rem] text-meta text-on-surface-variant">
               Not set
             </span>
           </button>
@@ -253,7 +253,7 @@ function ShortcutRow({ def, first, keys, changed, recording, pending, onRecord, 
       {pending && other && (
         <div role="alert" className="flex items-center gap-3 mb-2.5 px-3 py-2.5 rounded-[0.6rem] bg-error-container">
           <span className="material-symbols-outlined text-[16px] leading-none text-error" aria-hidden="true">error</span>
-          <span className="flex-1 min-w-0 font-body-sm text-[13px] leading-[19px] text-on-error-container">
+          <span className="flex-1 min-w-0 text-meta text-on-error-container">
             {keyLabel(pending.code)} already {other.does} {group?.where}.{' '}
             {otherLeft.length === 0
               ? `Use ${keyLabel(pending.code)} here and leave ${other.short} without a key?`
@@ -267,7 +267,7 @@ function ShortcutRow({ def, first, keys, changed, recording, pending, onRecord, 
           </button>
         </div>
       )}
-      {def.hint && <p className="font-body-sm text-[12px] leading-[17px] text-on-surface-variant -mt-1 mb-2.5">{def.hint}</p>}
+      {def.hint && <p className="text-meta text-on-surface-variant -mt-1 mb-2.5">{def.hint}</p>}
     </div>
   );
 }

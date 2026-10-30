@@ -51,7 +51,7 @@ export function LogoLockup({ className = '' }: { className?: string }) {
   return (
     <span className={`flex items-center gap-3 ${className}`}>
       <Logo size={30} />
-      <span className="font-display text-[22px] leading-[28px] font-bold tracking-[-0.03em] text-on-surface">CDMM</span>
+      <span className="font-display text-[22px] leading-[28px] font-bold tracking-[-0.025em] text-on-surface">CDMM</span>
     </span>
   );
 }

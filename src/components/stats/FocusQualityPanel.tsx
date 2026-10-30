@@ -38,7 +38,7 @@ function GroupBars({
           : boxClass(layout, 'min-w-0')
       }
     >
-      <h3 className={`font-label-sm text-label-sm uppercase tracking-widest ${layout === 'card' ? 'text-on-surface-variant mb-3' : 'text-on-surface mb-4'}`}>{title}</h3>
+      <h3 className={`font-label-sm text-label-sm uppercase tracking-widest lg:text-caption ${layout === 'card' ? 'text-on-surface-variant mb-3' : 'text-on-surface mb-4'}`}>{title}</h3>
       <div className={`flex items-end ${layout === 'card' ? 'gap-1 h-24' : 'gap-2 h-28'}`}>
         {groups.map((g) => {
           // 1 → a third of the height, 3 → full: the floor of the scale is a
@@ -51,14 +51,14 @@ function GroupBars({
               className="flex-1 min-w-0 h-full flex flex-col items-center justify-end gap-1"
               title={g.count > 0 ? `${g.label}: ${fmtAvg(g.average)} avg over ${g.count} rated session${g.count === 1 ? '' : 's'}` : `${g.label}: no rated sessions`}
             >
-              <span className="font-label-sm text-label-sm text-on-surface-variant tabular-nums">{fmtAvg(g.average)}</span>
+              <span className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant tabular-nums">{fmtAvg(g.average)}</span>
               <div className="w-full flex-1 flex items-end">
                 <div
                   className={`w-full rounded-t-md origin-bottom animate-bar-grow-y ${isBest ? 'bg-primary' : g.count < MIN_FOCUS_SAMPLE ? 'bg-primary/30' : 'bg-primary/60'}`}
                   style={{ height: `${h}%` }}
                 />
               </div>
-              <span className={`font-label-sm text-[10px] text-on-surface-variant truncate max-w-full ${layout === 'card' ? 'tracking-normal' : ''}`}>{g.label}</span>
+              <span className={`font-label-sm text-[10px] lg:text-caption text-on-surface-variant truncate max-w-full ${layout === 'card' ? 'tracking-normal' : ''}`}>{g.label}</span>
             </div>
           );
         })}
@@ -128,7 +128,7 @@ export function FocusQualityPanel({ stats, periodLabel, layout = 'section' }: Fo
         title="Focus quality"
         delay={280}
         layout="card"
-        aside={<span className="font-body-sm text-body-sm text-on-surface-variant">1 scattered · 2 okay · 3 deep</span>}
+        aside={<span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">1 scattered · 2 okay · 3 deep</span>}
       >
         {/* A half-width card stacks the splits under the summary, each at
             full width so its labels fit; a wide one sets them side by side
@@ -136,7 +136,7 @@ export function FocusQualityPanel({ stats, periodLabel, layout = 'section' }: Fo
         <div className="@container">
           <div className="flex flex-col gap-6 @min-[960px]:flex-row @min-[960px]:items-start @min-[960px]:gap-8">
             <div className="@min-[960px]:w-[230px] flex-none min-w-0 flex flex-col gap-5">
-              <p className="font-body-lg text-body-lg text-on-surface">{summary}</p>
+              <p className="font-body-lg text-body-lg lg:text-lead text-on-surface">{summary}</p>
               {tileRow}
             </div>
             <div className="flex-1 min-w-0 grid gap-5 @min-[960px]:gap-6 @min-[960px]:grid-cols-[1.4fr_1fr_0.9fr]">
@@ -151,10 +151,10 @@ export function FocusQualityPanel({ stats, periodLabel, layout = 'section' }: Fo
 
   return (
     <Section title="Focus quality" delay={280}>
-      <p className="font-body-lg text-body-lg text-on-surface mb-6">{summary}</p>
+      <p className="font-body-lg text-body-lg lg:text-lead text-on-surface mb-6">{summary}</p>
       {tileRow}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">{groupBars}</div>
-      <p className="font-body-sm text-body-sm text-on-surface-variant mt-3">
+      <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant mt-3">
         Mean rating per group (1 scattered · 2 okay · 3 deep). Faint bars have fewer than {MIN_FOCUS_SAMPLE} ratings.
       </p>
     </Section>

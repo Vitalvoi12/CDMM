@@ -78,16 +78,16 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
   };
 
   const chip = (selected: boolean) =>
-    `flex items-center gap-1.5 rounded-full border font-body-sm text-body-sm transition-colors ${
+    `flex items-center gap-1.5 rounded-full border font-body-sm text-body-sm lg:text-meta transition-colors ${
       isMobile ? 'px-3 py-1.5 !text-[14px]' : 'px-2.5 py-1'
     } ${
       selected
         ? 'bg-secondary-container border-secondary-container text-on-secondary-container'
         : 'border-outline-variant text-on-surface-variant hover:text-on-surface'
     }`;
-  const label = 'font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]';
+  const label = 'font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em]';
   // 16px on the phone: iOS zooms into smaller fields on focus.
-  const field = `bg-surface-container-low border focus:border-primary rounded-xl font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 ${
+  const field = `bg-surface-container-low border focus:border-primary rounded-xl font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 ${
     isMobile ? 'py-3 px-4 !text-[16px]' : 'py-2 px-3'
   }`;
 
@@ -198,7 +198,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
         }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="font-headline-md text-headline-md !text-[16px] text-on-surface">
+          <h2 className="font-headline-md text-headline-md lg:text-heading !text-[16px] text-on-surface">
             Edit task <span className="text-on-surface-variant font-normal">· {dayLabel}</span>
           </h2>
           <button
@@ -266,11 +266,11 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
               className={`flex-1 min-w-0 tabular-nums ${field} ${estInvalid ? 'border-error' : 'border-outline-variant'}`}
             />
             {est ? (
-              <span className="font-body-sm text-body-sm text-on-surface-variant tabular-nums flex-shrink-0">= {formatDuration(est)}</span>
+              <span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant tabular-nums flex-shrink-0">= {formatDuration(est)}</span>
             ) : null}
           </div>
           {estInvalid && (
-            <p className="font-body-sm text-body-sm text-error">Write it like 45, 45m, 1.5h, 1h 20m or 1:20 (up to 24h)</p>
+            <p className="font-body-sm text-body-sm lg:text-meta text-error">Write it like 45, 45m, 1.5h, 1h 20m or 1:20 (up to 24h)</p>
           )}
         </div>
 
@@ -294,7 +294,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
           </div>
         )}
 
-        <p className="max-lg:hidden font-body-sm text-[11px] text-on-surface-variant/70">
+        <p className="max-lg:hidden font-body-sm text-[11px] lg:text-caption text-on-surface-variant/70">
           ↑ / ↓ — subject · Shift+← / → — estimate · Enter — save · Esc — close
         </p>
 
@@ -302,14 +302,14 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
           <button
             type="button"
             onClick={onDelete}
-            className="font-body-md text-body-md text-error hover:opacity-80 transition-opacity px-1"
+            className="font-body-md text-body-md lg:text-body text-error hover:opacity-80 transition-opacity px-1"
           >
             Delete
           </button>
           <button
             type="submit"
             disabled={!canSave}
-            className="ml-auto px-6 py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md uppercase tracking-[0.1em] disabled:opacity-40 hover:opacity-90 transition-opacity"
+            className="ml-auto px-6 py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] disabled:opacity-40 hover:opacity-90 transition-opacity"
           >
             {day === today ? 'Save' : 'Save & move'}
           </button>

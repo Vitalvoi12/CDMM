@@ -527,10 +527,10 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                 title="Open day view"
                 className={`flex-1 min-w-[112px] max-lg:min-w-0 max-w-full px-2 py-1.5 flex items-baseline justify-center gap-1.5 border-b border-outline-variant transition-colors hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${today ? 'bg-surface-container-low' : ''}`}
               >
-                <span className={`font-label-sm text-label-sm uppercase tracking-[0.14em] ${today ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
+                <span className={`font-label-sm text-label-sm uppercase tracking-[0.14em] lg:text-caption ${today ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
                   {formatWeekdayShort(day)}
                 </span>
-                <span className={`font-label-md ${today ? 'text-primary' : 'text-on-surface'}`}>
+                <span className={`font-label-md lg:text-section ${today ? 'text-primary' : 'text-on-surface'}`}>
                   {formatDayOfMonth(day)}
                 </span>
               </button>
@@ -549,7 +549,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
           {hourTicks.filter((hour) => hour !== START_HOUR).map((hour) => (
             <span
               key={hour}
-              className="absolute right-1 -translate-y-1/2 max-lg:!text-[10px] max-lg:leading-none font-label-sm text-label-sm text-on-surface-variant tabular-nums"
+              className="absolute right-1 -translate-y-1/2 max-lg:!text-[10px] max-lg:leading-none font-label-sm text-label-sm lg:text-tick text-on-surface-variant tabular-nums"
               style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
             >
               {String(hour).padStart(2, '0')}
@@ -684,7 +684,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       </span>
                       {layout.showTime && (
                         <span
-                          className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:!leading-[12px] text-on-surface-variant block truncate"
+                          className="font-body-sm text-body-sm lg:text-caption max-lg:!text-[9px] max-lg:!leading-[12px] text-on-surface-variant block truncate"
                           style={planFg}
                         >
                           {timeFromDate(liveStart)} - {timeFromDate(liveEnd)}

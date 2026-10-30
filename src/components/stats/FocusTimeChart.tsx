@@ -78,7 +78,7 @@ export function FocusTimeChart({
       delay={160}
       layout="card"
       aside={
-        <span className="font-body-sm text-body-sm text-on-surface-variant">
+        <span className="text-meta text-on-surface-variant">
           {SIZE_LABEL[size]} · dashed line is the average
         </span>
       }
@@ -89,7 +89,7 @@ export function FocusTimeChart({
           {ticks.map((t) => (
             <span
               key={t}
-              className="absolute right-0 translate-y-1/2 font-label-sm text-label-sm text-on-surface-variant tabular-nums"
+              className="absolute right-0 translate-y-1/2 text-caption text-on-surface-variant tabular-nums"
               style={{ bottom: `${(t / top) * 100}%` }}
             >
               {t === 0 ? '0' : formatDuration(t)}
@@ -128,7 +128,7 @@ export function FocusTimeChart({
                 >
                   {showValues && b.minutes > 0 && (
                     <span
-                      className={`self-center px-1 rounded bg-surface-container-lowest font-label-sm text-label-sm tabular-nums whitespace-nowrap ${
+                      className={`self-center px-1 rounded bg-surface-container-lowest text-caption tabular-nums whitespace-nowrap ${
                         current ? 'text-on-surface' : 'text-on-surface-variant'
                       }`}
                     >
@@ -151,7 +151,7 @@ export function FocusTimeChart({
         <div className="relative h-[11rem]">
           {avgPos > 0 && (
             <span
-              className="absolute left-0 translate-y-1/2 flex flex-col font-label-sm text-label-sm leading-tight text-on-surface-variant tabular-nums whitespace-nowrap"
+              className="absolute left-0 translate-y-1/2 flex flex-col text-caption leading-tight text-on-surface-variant tabular-nums whitespace-nowrap"
               style={{ bottom: `${avgPos}%` }}
             >
               <span>avg</span>
@@ -165,7 +165,7 @@ export function FocusTimeChart({
           {buckets.map((b, i) => (
             <span
               key={b.key}
-              className={`flex-1 min-w-0 text-center font-label-sm text-label-sm tabular-nums whitespace-nowrap overflow-visible ${
+              className={`flex-1 min-w-0 text-center text-caption tabular-nums whitespace-nowrap overflow-visible ${
                 b.key === currentKey ? 'text-on-surface' : 'text-on-surface-variant'
               }`}
             >
@@ -178,8 +178,8 @@ export function FocusTimeChart({
 
       {hover && (
         <Tooltip x={hover.x} y={hover.y} below={hover.below}>
-          <p className="font-label-sm text-label-sm font-semibold whitespace-nowrap">{hover.bucket.label}</p>
-          <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
+          <p className="text-control whitespace-nowrap">{hover.bucket.label}</p>
+          <p className="text-meta whitespace-nowrap opacity-90">
             {hover.bucket.minutes > 0 ? formatDurationLong(hover.bucket.minutes) : 'No study'} ·{' '}
             {hover.bucket.sessions} session{hover.bucket.sessions === 1 ? '' : 's'}
           </p>

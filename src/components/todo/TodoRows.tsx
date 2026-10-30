@@ -101,7 +101,7 @@ export function totalEstMinutes(tasks: TodoTask[]): number {
 function EstLabel({ task }: { task: TodoTask }) {
   if (!task.estMinutes || task.estMinutes <= 0) return null;
   return (
-    <span className="font-label-sm text-label-sm flex-shrink-0 uppercase tracking-[0.1em] text-on-surface-variant inline-flex items-center gap-1">
+    <span className="font-label-sm text-label-sm lg:text-caption flex-shrink-0 uppercase tracking-[0.1em] text-on-surface-variant inline-flex items-center gap-1">
       <span className="material-symbols-outlined text-[12px] leading-none">timer</span>
       {formatDuration(task.estMinutes)}
     </span>
@@ -133,7 +133,7 @@ function DueLabel({ task }: { task: TodoTask }) {
   const overdue = isOverdue(task);
   return (
     <span
-      className={`font-label-sm text-label-sm flex-shrink-0 uppercase tracking-[0.1em] ${
+      className={`font-label-sm text-label-sm lg:text-caption flex-shrink-0 uppercase tracking-[0.1em] ${
         overdue ? 'text-error' : 'text-on-surface-variant'
       }`}
     >
@@ -169,7 +169,7 @@ export function CompactTodoRow({
       <TodoCheckbox task={task} onToggle={onToggle} />
       <span className="flex items-center gap-3 min-w-0 flex-1 text-left">
         <span
-          className={`font-body-md text-body-md truncate min-w-0 flex-1 ${
+          className={`font-body-md text-body-md lg:text-body truncate min-w-0 flex-1 ${
             task.completed ? 'line-through text-on-surface-variant' : 'text-on-surface'
           }`}
         >
@@ -211,27 +211,27 @@ export function FullTodoRow({
       </div>
       <span className="flex-1 min-w-0 text-left">
         <span
-          className={`font-body-md text-body-md break-words block ${
+          className={`font-body-md text-body-md lg:text-body break-words block ${
             task.completed ? 'line-through text-on-surface-variant' : 'text-on-surface font-medium'
           }`}
         >
           {task.title}
         </span>
         {task.description && (
-          <span className="font-body-sm text-body-sm text-on-surface-variant mt-1 break-words block">
+          <span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant mt-1 break-words block">
             {task.description}
           </span>
         )}
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
           {task.estMinutes != null && task.estMinutes > 0 && (
-            <span className="font-label-sm text-label-sm inline-flex items-center gap-1 uppercase tracking-[0.1em] text-on-surface-variant">
+            <span className="font-label-sm text-label-sm lg:text-caption inline-flex items-center gap-1 uppercase tracking-[0.1em] text-on-surface-variant">
               <span className="material-symbols-outlined text-[12px] leading-none">timer</span>
               Est. {formatDuration(task.estMinutes)}
             </span>
           )}
           <RemindIcon task={task} />
           {task.dueDate && (
-            <span className={`font-label-sm text-label-sm uppercase tracking-[0.1em] ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
+            <span className={`font-label-sm text-label-sm lg:text-caption uppercase tracking-[0.1em] ${overdue ? 'text-error' : 'text-on-surface-variant'}`}>
               {formatDueLabel(task.dueDate, task.completed, task.dueHasTime)}
             </span>
           )}

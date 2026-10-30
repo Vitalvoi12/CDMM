@@ -18,7 +18,7 @@ function Shell() {
   if (!ready) {
     return (
       <div className="min-h-dvh bg-background flex items-center justify-center">
-        <p className="font-body-lg text-body-lg text-on-surface-variant">Syncing…</p>
+        <p className="font-body-lg text-body-lg lg:text-lead text-on-surface-variant">Syncing…</p>
       </div>
     );
   }

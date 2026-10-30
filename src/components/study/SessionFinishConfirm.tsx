@@ -32,8 +32,8 @@ export function SessionFinishConfirm({ subjectName, elapsed, onConfirm, onCancel
         className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md max-h-full overflow-y-auto animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-headline-md text-headline-md text-on-surface mb-2">End session?</h2>
-        <p className="font-body-md text-body-md text-on-surface-variant mb-6">
+        <h2 className="font-headline-md text-headline-md lg:text-heading text-on-surface mb-2">End session?</h2>
+        <p className="font-body-md text-body-md lg:text-body text-on-surface-variant mb-6">
           Are you sure you want to end the {subjectName} session? {formatTimerDuration(elapsed)} will be saved to the calendar.
         </p>
 
@@ -42,14 +42,14 @@ export function SessionFinishConfirm({ subjectName, elapsed, onConfirm, onCancel
             ref={confirmRef}
             type="button"
             onClick={onConfirm}
-            className="w-full py-2 rounded-full bg-error-container text-on-error-container font-label-md text-label-md uppercase tracking-widest hover:opacity-90 transition-opacity"
+            className="w-full py-2 rounded-full bg-error-container text-on-error-container font-label-md text-label-md lg:text-control uppercase tracking-widest hover:opacity-90 transition-opacity"
           >
             End session
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="w-full py-2 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest"
+            className="w-full py-2 font-label-md text-label-md lg:text-control text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest"
           >
             Cancel
           </button>

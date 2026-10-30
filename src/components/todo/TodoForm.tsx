@@ -334,12 +334,12 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <h2 className="font-headline-md text-headline-md max-lg:m-h2 text-on-surface mb-6 max-lg:mb-4">
+        <h2 className="font-headline-md text-headline-md lg:text-heading max-lg:m-h2 text-on-surface mb-6 max-lg:mb-4">
           {task ? 'Edit Task' : 'New Task'}
         </h2>
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
-            <label htmlFor="todo-title" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
+            <label htmlFor="todo-title" className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
               Title
             </label>
             <AutoGrowTextarea
@@ -348,11 +348,11 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
-              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label htmlFor="todo-desc" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
+            <label htmlFor="todo-desc" className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
               Description
             </label>
             <AutoGrowTextarea
@@ -362,7 +362,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional notes"
               rows={3}
-              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+              className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -379,7 +379,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
           <div className="flex flex-col gap-2">
             <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
               <div className="flex flex-col gap-2 min-w-0">
-                <label htmlFor="todo-due" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
+                <label htmlFor="todo-due" className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
                   Due Date{urgent && <span className="text-error"> *</span>}
                 </label>
                 <input
@@ -391,19 +391,19 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                     if (e.target.value) setError(null);
                   }}
                   aria-invalid={error ? true : undefined}
-                  className={`w-full min-w-0 bg-surface-container-low border rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
+                  className={`w-full min-w-0 bg-surface-container-low border rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] max-lg:px-3 font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors ${error ? 'border-error focus:border-error' : 'border-outline-variant focus:border-primary'}`}
                 />
               </div>
               <div className="flex flex-col gap-2 min-w-0">
                 <div className="flex items-baseline justify-between gap-2">
-                  <label htmlFor="todo-time" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
+                  <label htmlFor="todo-time" className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
                     Time
                   </label>
                   {dueTime && (
                     <button
                       type="button"
                       onClick={() => setDueTime('')}
-                      className="font-label-sm text-label-sm text-primary uppercase tracking-[0.1em]"
+                      className="font-label-sm text-label-sm lg:text-caption text-primary uppercase tracking-[0.1em]"
                     >
                       Clear
                     </button>
@@ -417,18 +417,18 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                   // iOS "Reset" empties the field, which simply means no time.
                   onChange={(e) => setDueTime(e.target.value)}
                   title={dueDate ? undefined : 'Pick a due date first'}
-                  className="w-full min-w-0 bg-surface-container-low border rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] max-lg:px-3 font-body-md text-body-md text-on-surface outline-none transition-colors border-outline-variant focus:border-primary disabled:opacity-40"
+                  className="w-full min-w-0 bg-surface-container-low border rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] max-lg:px-3 font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors border-outline-variant focus:border-primary disabled:opacity-40"
                 />
               </div>
             </div>
             {error && (
-              <p role="alert" className="font-body-sm text-body-sm text-error">
+              <p role="alert" className="font-body-sm text-body-sm lg:text-meta text-error">
                 {error}
               </p>
             )}
           </div>
           <div className="flex flex-col gap-2 min-w-0">
-            <label htmlFor="todo-est" className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
+            <label htmlFor="todo-est" className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
               Est. Time
             </label>
             <input
@@ -441,10 +441,10 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               value={estInput}
               onChange={(e) => setEstInput(e.target.value)}
               placeholder="e.g. 45"
-              className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
+              className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
             />
             {estHint(estInput) && (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">{estHint(estInput)}</p>
+              <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">{estHint(estInput)}</p>
             )}
           </div>
           <div className="flex flex-col gap-2">
@@ -456,10 +456,10 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               noAnchorHint="No due date — pick a custom time, or set a due date for the other options."
             />
             {dueDate && !dueTime && notifyItems.some((item) => !item.customAt) && (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">No time set — counts from 9:00 on the due day.</p>
+              <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">No time set — counts from 9:00 on the due day.</p>
             )}
             {moments.some((m) => m !== null && m.getTime() <= Date.now()) && (
-              <p className="font-body-sm text-body-sm text-on-surface-variant">
+              <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">
                 {moments.length > 1 ? 'Some of these times have passed — those will not show.' : 'This time has passed — the reminder will not show.'}
               </p>
             )}
@@ -469,7 +469,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               <button
                 type="button"
                 onClick={() => onDelete(task.id)}
-                className="max-lg:min-h-[44px] px-4 py-2.5 bg-error-container text-on-error-container rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
+                className="max-lg:min-h-[44px] px-4 py-2.5 bg-error-container text-on-error-container rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] hover:opacity-80 transition-opacity"
               >
                 Delete
               </button>
@@ -477,13 +477,13 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             <button
               type="button"
               onClick={onCancel}
-              className="max-lg:min-h-[44px] flex-1 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
+              className="max-lg:min-h-[44px] flex-1 py-2.5 border border-outline-variant rounded-full font-label-md text-label-md lg:text-control text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors uppercase tracking-[0.1em]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="max-lg:min-h-[44px] flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+              className="max-lg:min-h-[44px] flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
             >
               {task ? 'Save' : 'Add'}
             </button>

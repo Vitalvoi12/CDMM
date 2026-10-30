@@ -105,7 +105,7 @@ export function SubjectBreakdown({
                 />
               ))}
             </div>
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-2">
+            <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant mt-2">
               {formatDuration(totalMinutes)} across {totalSessions} session
               {totalSessions === 1 ? '' : 's'}
             </p>
@@ -127,15 +127,15 @@ export function SubjectBreakdown({
                     className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{ backgroundColor: row.color }}
                   />
-                  <span className="font-body-md text-body-md text-on-surface font-medium truncate">
+                  <span className="font-body-md text-body-md text-on-surface font-medium lg:text-body lg:lg:font-medium truncate">
                     {row.name}
                   </span>
                 </div>
                 <div className="flex items-baseline gap-4 flex-shrink-0">
-                  <span className="font-label-md text-label-md text-on-surface tabular-nums">
+                  <span className="font-label-md text-label-md lg:text-control text-on-surface tabular-nums">
                     {value(row)}
                   </span>
-                  <span className="font-label-sm text-label-sm text-on-surface-variant tabular-nums w-16 text-right">
+                  <span className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant tabular-nums w-16 text-right">
                     {secondary(row)}
                   </span>
                 </div>
@@ -155,13 +155,13 @@ export function SubjectBreakdown({
 
       {hover && (
         <Tooltip x={hover.x} y={hover.y} below={hover.below}>
-          <p className="font-label-sm text-label-sm font-semibold whitespace-nowrap">{hover.row.name}</p>
-          <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
+          <p className="font-label-sm text-label-sm font-semibold lg:text-control whitespace-nowrap">{hover.row.name}</p>
+          <p className="font-body-sm text-body-sm lg:text-meta whitespace-nowrap opacity-90">
             {formatDuration(hover.row.minutes)} · {hover.row.sessions} session
             {hover.row.sessions === 1 ? '' : 's'}
           </p>
           {hover.row.planMinutes > 0 && (
-            <p className="font-body-sm text-body-sm whitespace-nowrap opacity-90">
+            <p className="font-body-sm text-body-sm lg:text-meta whitespace-nowrap opacity-90">
               {formatDuration(hover.row.planMinutes)} planned
             </p>
           )}

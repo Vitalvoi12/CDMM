@@ -123,7 +123,7 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
       key={isActive ? 'live' : 'idle'}
       className="rounded-2xl bg-surface-container-lowest text-on-surface border border-outline-variant px-5 py-4 flex flex-col gap-2 animate-fade-in"
     >
-      <span className="font-label-sm text-label-sm tracking-[0.18em] opacity-60">
+      <span className={isActive ? 'overline text-on-surface-variant' : 'text-caption text-on-surface-variant'}>
         {isActive ? 'Live session' : 'Idle'}
       </span>
 
@@ -140,12 +140,12 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
                 style={{ backgroundColor: subject?.color || 'currentColor' }}
               />
             </span>
-            <span className="font-headline-md text-headline-md truncate">
+            <span className="font-display text-[17px] leading-[22px] font-semibold truncate">
               {subject?.name || 'Studying'}
             </span>
           </span>
 
-          <span className="font-headline-lg text-headline-lg tabular-nums leading-none">
+          <span className="text-timer">
             {formatTimerDuration(elapsed)}
           </span>
 
@@ -154,7 +154,7 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
             type="button"
             onClick={() => setShowStartEditor(true)}
             title="Change when this session started"
-            className="self-start flex items-center gap-1.5 font-label-sm text-label-sm tracking-[0.12em] opacity-70 hover:opacity-100 transition-opacity"
+            className="self-start flex items-center gap-1.5 text-caption opacity-70 hover:opacity-100 transition-opacity"
           >
             Started {startTime ? timeFromDate(startTime) : '--:--'}
             <span className="material-symbols-outlined text-[13px] leading-none">edit</span>
@@ -165,18 +165,18 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
           <button
             type="button"
             onClick={finish}
-            className="mt-1 w-full py-2 rounded-full bg-error-container text-on-error-container font-label-md text-label-md tracking-[0.12em] uppercase hover:opacity-90 transition-opacity"
+            className="mt-1 w-full py-2 rounded-full bg-error-container text-on-error-container text-control hover:opacity-90 transition-opacity"
           >
             Finish
           </button>
         </>
       ) : (
         <>
-          <span className="font-body-md text-body-md opacity-70">No active session</span>
+          <span className="text-meta opacity-70">No active session</span>
           <button
             type="button"
             onClick={() => setShowPicker(true)}
-            className="mt-1 w-full py-2 rounded-full bg-primary text-on-primary font-label-md text-label-md tracking-[0.12em] uppercase hover:opacity-90 transition-opacity"
+            className="mt-1 w-full py-2 rounded-full bg-primary text-on-primary text-control hover:opacity-90 transition-opacity"
           >
             Start
           </button>
@@ -263,7 +263,7 @@ function StatsToggle({ checked, onChange }: { checked: boolean; onChange: (count
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       title={checked ? 'This session counts toward statistics' : 'This session is excluded from statistics'}
-      className="self-start flex items-center gap-1.5 font-label-sm text-label-sm tracking-[0.12em] opacity-70 hover:opacity-100 transition-opacity"
+      className="self-start flex items-center gap-1.5 text-caption opacity-70 hover:opacity-100 transition-opacity"
     >
       <span className="material-symbols-outlined text-[14px] leading-none">
         {checked ? 'check_box' : 'check_box_outline_blank'}

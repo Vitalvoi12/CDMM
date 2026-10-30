@@ -20,16 +20,16 @@ export function LiveSession({ isActive, subjectName, startTime, elapsed, subject
           <div className="w-16 h-16 max-lg:w-12 max-lg:h-12 rounded-full border border-outline-variant flex items-center justify-center mb-6 max-lg:mb-4">
             <span className="material-symbols-outlined text-[22px] max-lg:text-[18px] text-on-surface-variant block">timer</span>
           </div>
-          <h2 className="font-headline-lg text-headline-lg max-lg:!text-[14px] text-on-surface mb-2">No Active Session</h2>
-          <p className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface-variant mb-6 max-lg:mb-4">
+          <h2 className="font-headline-lg text-headline-lg lg:text-title max-lg:!text-[14px] text-on-surface mb-2">No Active Session</h2>
+          <p className="font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface-variant mb-6 max-lg:mb-4">
             Start studying to begin tracking your time
           </p>
-          <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.2em] mb-6 max-lg:mb-4 tabular-nums">
+          <p className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.2em] mb-6 max-lg:mb-4 tabular-nums">
             Ready · 00:00:00
           </p>
           <button
             onClick={onStart}
-            className="bg-primary text-on-primary px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-full font-label-md text-label-md uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
+            className="bg-primary text-on-primary px-10 py-3.5 max-lg:px-8 max-lg:py-3 rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.12em] hover:opacity-90 transition-opacity"
           >
             Start
           </button>
@@ -41,7 +41,7 @@ export function LiveSession({ isActive, subjectName, startTime, elapsed, subject
                   type="button"
                   onClick={() => onQuickStart?.(s.id)}
                   title={`Start ${s.name}`}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-outline transition-colors font-body-md text-body-md max-lg:!text-[10px]"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-outline transition-colors font-body-md text-body-md lg:text-body max-lg:!text-[10px]"
                 >
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                   {s.name}
@@ -62,22 +62,22 @@ export function LiveSession({ isActive, subjectName, startTime, elapsed, subject
             <span className="absolute w-full h-full bg-now rounded-full opacity-40 animate-ping" />
             <span className="w-2.5 h-2.5 bg-now rounded-full" />
           </span>
-          <span className="font-label-md text-label-md text-error uppercase tracking-[0.2em]">
+          <span className="font-label-md text-label-md lg:text-control text-error uppercase tracking-[0.2em]">
             Live Session
           </span>
         </div>
         <h2 className="font-display-lg text-display-lg max-lg:!text-[22px] max-lg:leading-none text-on-surface tracking-tight leading-none break-words mb-2">
           {subjectName}
         </h2>
-        <p className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.2em] mb-8 max-lg:mb-5">
+        <p className="font-label-sm text-label-sm lg:text-caption max-lg:!text-[8px] text-on-surface-variant uppercase tracking-[0.2em] mb-8 max-lg:mb-5">
           Started at {startTime ? timeFromDate(startTime) : '--:--'}
         </p>
-        <div className="study-timer font-display-lg text-on-surface leading-none tracking-tighter whitespace-nowrap tabular-nums mb-10 max-lg:mb-6">
+        <div className="study-timer font-display-lg text-on-surface leading-none tracking-tighter whitespace-nowrap tabular-nums lg:font-mono lg:lg:tracking-[-0.04em] mb-10 max-lg:mb-6">
           {formatTimerDuration(elapsed)}
         </div>
         <button
           onClick={onStop}
-          className="bg-error-container text-on-error-container px-10 py-3.5 max-lg:px-6 max-lg:py-2.5 rounded-full font-label-md text-label-md uppercase tracking-[0.12em] hover:opacity-90 transition-opacity flex items-center gap-2"
+          className="bg-error-container text-on-error-container px-10 py-3.5 max-lg:px-6 max-lg:py-2.5 rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.12em] hover:opacity-90 transition-opacity flex items-center gap-2"
         >
           <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
             stop

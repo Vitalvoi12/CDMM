@@ -33,31 +33,31 @@ export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick
         className="bg-surface-container-lowest rounded-2xl p-6 shadow-elev-3 w-full max-w-md max-h-full overflow-y-auto focus:outline-none animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-headline-md text-headline-md text-on-surface mb-2">
+        <h2 className="font-headline-md text-headline-md lg:text-heading text-on-surface mb-2">
           {mode === 'edit' ? 'Edit recurring event' : 'Delete recurring event'}
         </h2>
-        <p className="font-body-md text-body-md text-on-surface-variant mb-6">
+        <p className="font-body-md text-body-md lg:text-body text-on-surface-variant mb-6">
           This event repeats ({totalCount} in series). Apply to just this event or to this and all following events?
         </p>
         <div className="flex flex-col gap-2">
           <button
             type="button"
             onClick={() => onPick('single')}
-            className="w-full py-2 border border-outline-variant rounded-full font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors uppercase tracking-widest"
+            className="w-full py-2 border border-outline-variant rounded-full font-label-md text-label-md text-on-surface hover:bg-surface-container transition-colors uppercase tracking-widest lg:text-control"
           >
             Only this event
           </button>
           <button
             type="button"
             onClick={() => onPick('following')}
-            className="w-full py-2 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-widest hover:opacity-90 transition-opacity"
+            className="w-full py-2 bg-primary text-on-primary rounded-full font-label-md text-label-md uppercase tracking-widest lg:text-control hover:opacity-90 transition-opacity"
           >
             This and following{followingCount > 0 ? ` (${followingCount + 1})` : ''}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="w-full py-2 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest"
+            className="w-full py-2 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors uppercase tracking-widest lg:text-control"
           >
             Cancel
           </button>

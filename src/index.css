@@ -3,7 +3,7 @@
  * beat our size utilities. In a layer declared before Tailwind's, the
  * utilities layer wins and per-usage text-[Npx] applies. */
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap') layer(symbols);
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -81,8 +81,10 @@
   --font-headline-lg: "Inter", "Space Grotesk", sans-serif;
   --font-headline-lg-mobile: "Inter", "Space Grotesk", sans-serif;
   --font-display-lg: "Inter", "Space Grotesk", sans-serif;
-  /* Desktop type, next: titles, big numbers and the wordmark. */
-  --font-display: "Space Grotesk", "Inter", sans-serif;
+  /* Desktop type, next: titles, big numbers and the wordmark (Inter, set
+   * bold and tight). */
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --radius-sm: 0.1rem;
   --radius-lg: 0.2rem;
@@ -230,6 +232,76 @@
   letter-spacing: -0.02em;
 }
 
+/* Desktop type, next (Claude Design "Type-Next"). Each role sets every font
+ * property, text-transform included, so on shared markup `lg:text-caption`
+ * fully replaces the phone's caps label above it. Inter is the voice (bold
+ * and tight in titles, plain in text); JetBrains Mono only for time that
+ * ticks. Caps only on .overline. */
+@utility text-title {
+  font-family: var(--font-display); font-size: 30px; line-height: 36px; font-weight: 700;
+  letter-spacing: -0.025em; text-transform: none;
+}
+@utility text-date {
+  font-family: var(--font-display); font-size: 24px; line-height: 30px; font-weight: 600;
+  letter-spacing: -0.02em; text-transform: none;
+}
+/* Dialog titles, the subject name in its panel. */
+@utility text-heading {
+  font-family: var(--font-display); font-size: 20px; line-height: 26px; font-weight: 600;
+  letter-spacing: -0.018em; text-transform: none;
+}
+@utility text-stat {
+  font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 600;
+  letter-spacing: -0.02em; text-transform: none; font-variant-numeric: tabular-nums;
+}
+/* A headline number (this week in the subject panel). */
+@utility text-big {
+  font-family: var(--font-display); font-size: 30px; line-height: 34px; font-weight: 700;
+  letter-spacing: -0.03em; text-transform: none; font-variant-numeric: tabular-nums;
+}
+@utility text-section {
+  font-family: var(--font-display); font-size: 15px; line-height: 20px; font-weight: 600;
+  letter-spacing: -0.01em; text-transform: none;
+}
+@utility text-body {
+  font-family: var(--font-body-md); font-size: 14px; line-height: 21px; font-weight: 400;
+  letter-spacing: 0; text-transform: none;
+}
+/* Page subtitle, the Focus quality sentence. */
+@utility text-lead {
+  font-family: var(--font-body-md); font-size: 15px; line-height: 23px; font-weight: 400;
+  letter-spacing: 0; text-transform: none;
+}
+@utility text-meta {
+  font-family: var(--font-body-md); font-size: 12.5px; line-height: 18px; font-weight: 400;
+  letter-spacing: 0; text-transform: none;
+}
+@utility text-caption {
+  font-family: var(--font-body-md); font-size: 12px; line-height: 16px; font-weight: 500;
+  letter-spacing: 0; text-transform: none;
+}
+/* Buttons and the chosen segment; text-tab is an unchosen segment. */
+@utility text-control {
+  font-family: var(--font-body-md); font-size: 13px; line-height: 18px; font-weight: 600;
+  letter-spacing: 0; text-transform: none;
+}
+@utility text-tab {
+  font-family: var(--font-body-md); font-size: 13px; line-height: 18px; font-weight: 500;
+  letter-spacing: 0; text-transform: none;
+}
+@utility overline {
+  font-family: var(--font-body-md); font-size: 11px; line-height: 14px; font-weight: 600;
+  letter-spacing: 0.09em; text-transform: uppercase;
+}
+@utility text-timer {
+  font-family: var(--font-mono); font-size: 30px; line-height: 34px; font-weight: 500;
+  letter-spacing: -0.04em; text-transform: none; font-variant-numeric: tabular-nums;
+}
+@utility text-tick {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+  letter-spacing: -0.02em; text-transform: none;
+}
+
 @utility rounded-xs {
   border-radius: 0.1rem;
 }
@@ -252,6 +324,13 @@
     line-height: 19px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  @media (min-width: 1024px) {
+    body {
+      font-size: 14px;
+      line-height: 21px;
+      font-feature-settings: "ss01", "cv05";
+    }
   }
   main > :first-child {
     margin-top: 0 !important;
@@ -312,7 +391,9 @@ html[data-theme='dark'] {
 
   --color-success: #8FD3B5;
 
-  --color-outline: #3A3833;
+  /* Design-system contrast fix (tokens.json, 2026-10-10): ≥3:1 on every dark
+   * ground for switch tracks and checkbox rings. */
+  --color-outline: #67645B;
   --color-outline-variant: #292824;
 
   --color-surface-tint: #A9A59C;
@@ -668,6 +749,10 @@ html[data-theme='dark'] .heat-num-hi {
 .kbd-recording { animation: kbd-recording 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .kbd-recording { animation: none; } }
 .kbd-sm { min-width: 1.25rem; height: 1.25rem; padding: 0 0.3rem; font-size: 11px; color: var(--color-on-surface-variant); }
+@media (min-width: 1024px) {
+  .kbd { font: 500 11.5px/1 var(--font-mono); font-feature-settings: normal; }
+  .kbd-sm { font-size: 11px; }
+}
 
 /* Desktop day: the folded note shows its first lines and fades out. */
 .note-folded {
@@ -732,12 +817,6 @@ body {
 @media (max-width: 1023px) {
   :root {
     --app-zoom: 0.88;
-  }
-
-  /* Design-system contrast fix (tokens.json, 2026-10-10), phone only. The
-   * light theme's fixes went into its palette (2026-10-27). */
-  html[data-theme='dark'] {
-    --color-outline: #67645b;
   }
 }
 

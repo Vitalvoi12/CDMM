@@ -27,11 +27,11 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
         title="Plan stability"
         delay={480}
         layout="card"
-        aside={<span className="font-label-md text-label-md text-on-surface tabular-nums">100% kept</span>}
+        aside={<span className="font-label-md text-label-md lg:text-control text-on-surface tabular-nums">100% kept</span>}
       >
         <div className="h-2 w-full rounded-full bg-primary origin-left animate-bar-grow-x" />
-        <p className="font-body-md text-body-md text-on-surface">No planned time was cut away in this period.</p>
-        <p className="font-body-sm text-body-sm text-on-surface-variant">
+        <p className="font-body-md text-body-md lg:text-body text-on-surface">No planned time was cut away in this period.</p>
+        <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">
           Only shortening or deleting a block costs plan time. Moving it to another hour, retitling or excluding it
           from statistics doesn’t count.
         </p>
@@ -47,7 +47,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
             text="No planned time was cut away"
             hint={`Nothing was shortened in ${periodLabel} — the plan kept its length.`}
           />
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
+          <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">
             Only the planned minutes a correction took away count here. Moving a
             block to another hour costs nothing, and swapping tasks, retitling or
             excluding a block from statistics does not count at all.
@@ -66,7 +66,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
       <div className={boxClass(layout, 'flex flex-col gap-6')}>
         <div>
           <div className="flex items-baseline justify-between gap-4 mb-2">
-            <span className="font-label-sm text-label-sm text-on-surface uppercase tracking-widest">
+            <span className="font-label-sm text-label-sm text-on-surface uppercase tracking-widest lg:text-caption">
               {stats.stability >= 95
                 ? 'Stable'
                 : stats.stability >= 75
@@ -75,7 +75,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
                     ? 'Often trimmed'
                     : 'Reworked a lot'}
             </span>
-            <span className="font-label-md text-label-md text-on-surface tabular-nums">
+            <span className="font-label-md text-label-md lg:text-control text-on-surface tabular-nums">
               {stats.stability}% kept
             </span>
           </div>
@@ -86,7 +86,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
               style={{ width: `${stats.stability}%` }}
             />
           </div>
-          <p className="font-body-sm text-body-sm text-on-surface-variant mt-2">
+          <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant mt-2">
             {formatDuration(stats.lostMinutes)} of {formatDuration(stats.plannedMinutes)} planned was
             cut away ({lostPercent}%).
           </p>
@@ -109,7 +109,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
 
         {stats.bySubject.length > 0 && (
           <div>
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
+            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:overline mb-3">
               Lost time by subject
             </p>
             <div className="flex flex-col gap-2">
@@ -127,11 +127,11 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
                           className="w-2 h-2 rounded-full flex-shrink-0"
                           style={{ backgroundColor: color }}
                         />
-                        <span className="font-body-sm text-body-sm text-on-surface truncate">
+                        <span className="font-body-sm text-body-sm lg:text-meta text-on-surface truncate">
                           {subject?.name || 'No subject'}
                         </span>
                       </div>
-                      <span className="font-label-sm text-label-sm text-on-surface tabular-nums flex-shrink-0">
+                      <span className="font-label-sm text-label-sm lg:text-caption text-on-surface tabular-nums flex-shrink-0">
                         −{formatDuration(row.lostMinutes)}
                       </span>
                     </div>
@@ -150,7 +150,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
 
         {stats.top.length > 0 && (
           <div>
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
+            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:overline mb-3">
               Largest losses
             </p>
             <div className="flex flex-col">
@@ -166,15 +166,15 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
                       className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="font-body-sm text-body-sm text-on-surface truncate flex-1 min-w-0">
+                    <span className="font-body-sm text-body-sm lg:text-meta text-on-surface truncate flex-1 min-w-0">
                       {row.title || 'Untitled block'}
                     </span>
                     {row.deleted && (
-                      <span className="font-label-sm text-label-sm text-on-surface-variant flex-shrink-0">
+                      <span className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant flex-shrink-0">
                         deleted
                       </span>
                     )}
-                    <span className="font-label-md text-label-md text-on-surface tabular-nums flex-shrink-0 w-20 text-right whitespace-nowrap ml-auto">
+                    <span className="font-label-md text-label-md lg:text-control text-on-surface tabular-nums flex-shrink-0 w-20 text-right whitespace-nowrap ml-auto">
                       −{formatDuration(row.lostMinutes)}
                     </span>
                   </div>
@@ -184,7 +184,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
           </div>
         )}
 
-        <p className="font-body-sm text-body-sm text-on-surface-variant">
+        <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">
           A block's length is fixed {Math.round(PLAN_FIX_WINDOW_MS / 60000)}{' '}
           minutes after it is created, and from then on two things cost plan
           time: shortening it and deleting it. Moving it to another hour costs

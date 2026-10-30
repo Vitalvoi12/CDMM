@@ -24,7 +24,7 @@ export function PeriodSelect({
   align = 'start',
 }: PeriodSelectProps) {
   const inputClass =
-    'px-3 py-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface font-body-sm text-body-sm normal-case tracking-normal [color-scheme:light] dark:[color-scheme:dark]';
+    'px-3 py-1.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface text-meta [color-scheme:light] dark:[color-scheme:dark]';
 
   return (
     <div className={align === 'end' ? 'flex flex-col items-end gap-3' : 'flex items-end gap-3 flex-wrap'}>
@@ -36,7 +36,7 @@ export function PeriodSelect({
       />
       {preset === 'custom' && (
         <div className="flex gap-2 items-center animate-fade-in">
-          <label className="flex items-center gap-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.12em]">
+          <label className="flex items-center gap-2 text-caption text-on-surface-variant">
             From
             <input
               type="date"
@@ -48,7 +48,7 @@ export function PeriodSelect({
               className={inputClass}
             />
           </label>
-          <label className="flex items-center gap-2 font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.12em]">
+          <label className="flex items-center gap-2 text-caption text-on-surface-variant">
             To
             <input
               type="date"

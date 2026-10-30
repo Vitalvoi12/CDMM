@@ -31,7 +31,7 @@ export function Section({ title, aside, children, delay = 0, still = false, layo
         style={still ? undefined : { animationDelay: `${delay}ms` }}
       >
         <div className="flex justify-between items-center flex-wrap gap-3 min-h-8">
-          <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest">{title}</h2>
+          <h2 className="text-section text-on-surface">{title}</h2>
           {aside}
         </div>
         {children}
@@ -44,7 +44,7 @@ export function Section({ title, aside, children, delay = 0, still = false, layo
       style={still ? undefined : { animationDelay: `${delay}ms` }}
     >
       <div className="flex justify-between items-end mb-6 max-lg:mb-3 flex-wrap gap-3">
-        <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest max-lg:m-lbl max-lg:m-mut">
+        <h2 className="font-label-md text-label-md text-on-surface uppercase tracking-widest lg:text-section max-lg:m-lbl max-lg:m-mut">
           {title}
         </h2>
         {aside}
@@ -69,11 +69,11 @@ export function StatTile({ value, label, hint, delay = 0, className = '' }: Stat
       className={`border-l-2 border-outline-variant pl-4 animate-fade-up ${className}`}
       style={{ animationDelay: `${delay}ms` }}
     >
-      <p className="font-headline-md text-headline-md text-on-surface tabular-nums">{value}</p>
-      <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest mt-1">
+      <p className="font-headline-md text-headline-md lg:text-stat text-on-surface tabular-nums">{value}</p>
+      <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:text-caption mt-1">
         {label}
       </p>
-      {hint && <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{hint}</p>}
+      {hint && <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant mt-0.5">{hint}</p>}
     </div>
   );
 }
@@ -81,7 +81,7 @@ export function StatTile({ value, label, hint, delay = 0, className = '' }: Stat
 /** Small print under a block; the card's gap already spaces it. */
 export function Foot({ layout, children }: { layout: StatLayout; children: ReactNode }) {
   return (
-    <p className={`font-body-sm text-body-sm text-on-surface-variant ${layout === 'card' ? '' : 'mt-3'}`}>{children}</p>
+    <p className={`font-body-sm text-body-sm lg:text-meta text-on-surface-variant ${layout === 'card' ? '' : 'mt-3'}`}>{children}</p>
   );
 }
 
@@ -94,9 +94,9 @@ interface EmptyProps {
 export function EmptyState({ text, hint }: EmptyProps) {
   return (
     <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-container-low/40 px-6 py-7 flex flex-col items-center gap-1 text-center">
-      <p className="font-body-md text-body-md text-on-surface-variant">{text}</p>
+      <p className="font-body-md text-body-md lg:text-body text-on-surface-variant">{text}</p>
       {hint && (
-        <p className="font-body-sm text-body-sm text-on-surface-variant/80 max-w-md">{hint}</p>
+        <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant/80 max-w-md">{hint}</p>
       )}
     </div>
   );
@@ -139,14 +139,14 @@ export function anchorOf(target: HTMLElement): { x: number; y: number; below: bo
 export function HeatLegend() {
   return (
     <div className="flex items-center gap-1.5 ml-auto">
-      <span className="font-body-sm text-body-sm text-on-surface-variant">Less</span>
+      <span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">Less</span>
       {([0, 1, 2, 3, 4] as const).map((level) => (
         <span
           key={level}
           className={`w-[0.65rem] h-[0.65rem] rounded-[3px] ${heatmapCellClass(level)} ${level === 0 ? 'border border-outline/60' : ''}`}
         />
       ))}
-      <span className="font-body-sm text-body-sm text-on-surface-variant">More</span>
+      <span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">More</span>
     </div>
   );
 }

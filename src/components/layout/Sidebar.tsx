@@ -12,15 +12,15 @@ import { keyLabel, shortcutHint, shortcutKeys, useShortcutSettings, type Shortcu
 // No FOCUS ROOM: on a PC the live session is driven from the panel at the
 // bottom of this sidebar, so a tab for it would be a second place to look.
 const navItems: { path: string; label: string; icon: string; shortcut: ShortcutId }[] = [
-  { path: '/', label: 'CALENDAR', icon: 'calendar_today', shortcut: 'go-calendar' },
-  { path: '/todo', label: 'TODO', icon: 'checklist', shortcut: 'go-todo' },
-  { path: '/statistics', label: 'STATISTICS', icon: 'bar_chart', shortcut: 'go-stats' },
-  { path: '/subjects', label: 'SUBJECTS', icon: 'layers', shortcut: 'go-subjects' },
+  { path: '/', label: 'Calendar', icon: 'calendar_today', shortcut: 'go-calendar' },
+  { path: '/todo', label: 'Todo', icon: 'checklist', shortcut: 'go-todo' },
+  { path: '/statistics', label: 'Statistics', icon: 'bar_chart', shortcut: 'go-stats' },
+  { path: '/subjects', label: 'Subjects', icon: 'layers', shortcut: 'go-subjects' },
 ];
 
 function navClass({ isActive }: { isActive: boolean }): string {
-  return `relative flex items-center gap-5 px-5 py-3 rounded-full transition-colors font-label-md text-[12px] leading-[16px] uppercase ${
-    isActive ? 'bg-secondary-container text-on-secondary-container font-semibold' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
+  return `relative flex items-center gap-5 px-5 py-3 rounded-full transition-colors text-[14px] leading-[20px] ${
+    isActive ? 'bg-secondary-container text-on-secondary-container font-semibold' : 'font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
   }`;
 }
 
@@ -73,7 +73,7 @@ export function Sidebar() {
             {({ isActive }) => (
               <>
                 <span className={`material-symbols-outlined text-[18px] ${isActive ? 'text-on-secondary-container' : ''}`}>settings</span>
-                SETTINGS
+                Settings
               </>
             )}
           </NavLink>

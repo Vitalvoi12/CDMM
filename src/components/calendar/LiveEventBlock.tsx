@@ -85,7 +85,7 @@ export function LiveEventBlock({ start, startHour, endHour, hourHeight, subject,
           {subject?.name || 'Studying'}
         </span>
         {layout.showTime && (
-          <span className="font-body-sm text-body-sm max-lg:!text-[11px] max-lg:!leading-[14px] text-on-surface-variant tabular-nums truncate max-w-full mt-0.5">
+          <span className="font-body-sm text-body-sm lg:text-caption max-lg:!text-[11px] max-lg:!leading-[14px] text-on-surface-variant tabular-nums truncate max-w-full mt-0.5">
             {formatClock(startMs)} – now
           </span>
         )}
