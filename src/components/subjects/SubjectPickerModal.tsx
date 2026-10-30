@@ -135,6 +135,7 @@ function MobileSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModal
 
 function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   // Custom mode swaps the list for a title field and color swatches.
   const [custom, setCustom] = useState(false);
   const [title, setTitle] = useState('');
@@ -149,6 +150,19 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
     dialogRef.current?.focus({ preventScroll: true });
   }, []);
 
+  // ↓ / ↑ move the choice through the list and wrap around at either end;
+  // Enter or Space starts the focused one (they are plain buttons).
+  const handleListKeyDown = (e: React.KeyboardEvent) => {
+    if (custom || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    const items = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('button') ?? []);
+    if (!items.length) return;
+    e.preventDefault();
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    const n = items.length;
+    const next = i < 0 ? (e.key === 'ArrowDown' ? 0 : n - 1) : (i + (e.key === 'ArrowDown' ? 1 : -1) + n) % n;
+    items[next].focus();
+  };
+
   return (
     <div className="overlay-root z-[100] flex items-center justify-center bg-scrim animate-fade-in" onClick={onClose}>
       <div
@@ -159,6 +173,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
         aria-label="Select subject"
         className="bg-surface-container-lowest rounded-2xl p-6 max-lg:p-5 shadow-elev-3 w-full max-w-sm mx-4 max-h-full overflow-y-auto animate-pop-in focus:outline-none"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleListKeyDown}
       >
         <h2 className="font-headline-md text-headline-md max-lg:!text-[12px] max-lg:mb-3 text-on-surface mb-5">
           {custom ? 'Custom Session' : 'Select Subject'}
@@ -204,12 +219,12 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
             </button>
           </form>
         ) : (
-        <div className="flex flex-col gap-1.5">
+        <div ref={listRef} className="flex flex-col gap-1.5">
           {subjects.map((subject) => (
             <button
               key={subject.id}
               onClick={() => onSelect(subject.id, undefined, counted)}
-              className="flex items-center gap-4 max-lg:gap-3 px-4 py-3 max-lg:p-2.5 rounded-xl border border-transparent hover:border-outline-variant hover:bg-surface-container transition-colors text-left"
+              className="flex items-center gap-4 max-lg:gap-3 px-4 py-3 max-lg:p-2.5 rounded-xl border border-transparent hover:border-outline-variant hover:bg-surface-container focus-visible:border-outline focus-visible:bg-surface-container focus:outline-none transition-colors text-left"
             >
               <div className="w-3 h-3 max-lg:w-2.5 max-lg:h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: subject.color }} />
               <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface">{subject.name}</span>
@@ -217,7 +232,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
           ))}
           <button
             onClick={() => setCustom(true)}
-            className="flex items-center gap-4 max-lg:gap-3 px-4 py-3 max-lg:p-2.5 rounded-xl border border-dashed border-outline-variant hover:border-outline hover:bg-surface-container transition-colors text-left"
+            className="flex items-center gap-4 max-lg:gap-3 px-4 py-3 max-lg:p-2.5 rounded-xl border border-dashed border-outline-variant hover:border-outline hover:bg-surface-container focus-visible:border-outline focus-visible:bg-surface-container focus:outline-none transition-colors text-left"
           >
             <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none w-3 max-lg:w-2.5 flex justify-center text-on-surface-variant">add</span>
             <span className="font-body-md text-body-md max-lg:!text-[10px] text-on-surface">Custom event</span>
