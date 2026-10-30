@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { addDays, dateKey, formatDuration, isSameDay } from '../../utils/time';
-import { EST_PRESETS } from '../../utils/estimate';
+import { EST_PRESETS, parseEstimate } from '../../utils/estimate';
 import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { ChecklistTaskDialog } from '../calendar/ChecklistTaskDialog';
 import { SwipeRow } from './SwipeRow';
@@ -66,6 +66,9 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
   const [text, setText] = useState('');
   const [picked, setPicked] = useState(loadLastSubject);
   const [est, setEst] = useState<number | undefined>(undefined);
+  // Typed custom estimate ("50", "1h 20m"); a preset tap clears it.
+  const [estText, setEstText] = useState('');
+  const estInvalid = parseEstimate(estText) === null;
   const [estOpen, setEstOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   // The add bar sits under the session dock, in the shell's slot for it.
@@ -112,6 +115,7 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
     saveLastSubject(subjectId);
     setText('');
     setEst(undefined);
+    setEstText('');
     setEstOpen(false);
     inputRef.current?.focus();
   };
@@ -211,6 +215,7 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setEst(est === m ? undefined : m);
+                setEstText('');
                 inputRef.current?.focus();
               }}
               className={`m-chip m-num ${est === m ? 'on' : ''}`}
@@ -218,6 +223,20 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
               ~{formatDuration(m)}
             </button>
           ))}
+          <input
+            type="text"
+            className="m-in m-num"
+            value={estText}
+            onChange={(e) => {
+              setEstText(e.target.value);
+              setEst(parseEstimate(e.target.value) ?? undefined);
+            }}
+            placeholder="Custom"
+            aria-label="Custom estimate, e.g. 50m or 1h 20m"
+            aria-invalid={estInvalid}
+            enterKeyHint="done"
+            style={{ width: 104, flex: 'none', ...(estInvalid ? { borderColor: 'var(--color-error)' } : {}) }}
+          />
         </div>
       )}
       <div className="flex items-center" style={{ gap: 8 }}>

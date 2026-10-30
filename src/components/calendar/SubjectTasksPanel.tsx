@@ -6,7 +6,7 @@ import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { beginTaskDrag, endTaskDrag, DEFAULT_TASK_MINUTES } from '../../services/taskDrag';
-import { EST_PRESETS, stepEstimate } from '../../utils/estimate';
+import { EST_PRESETS, parseEstimate, stepEstimate } from '../../utils/estimate';
 import { ChecklistTaskDialog } from './ChecklistTaskDialog';
 import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
@@ -167,6 +167,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   const [pickedSubjectId, setSubjectId] = useState(loadLastSubject);
   // Estimate for the next task; cleared after each add, since it rarely repeats.
   const [est, setEst] = useState<number | undefined>(undefined);
+  // Typed custom estimate ("50", "1h 20m"); a preset or Shift+arrow clears it.
+  const [estText, setEstText] = useState('');
+  const estInvalid = parseEstimate(estText) === null;
   // Task open in the edit window.
   const [editingId, setEditingId] = useState<string | null>(null);
   const editingTask = editingId ? tasks.find((t) => t.id === editingId) : undefined;
@@ -223,6 +226,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     if (e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       e.preventDefault();
       setEst((cur) => stepEstimate(cur, e.key === 'ArrowRight' ? 1 : -1));
+      setEstText('');
       return;
     }
     const step =
@@ -244,6 +248,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     // Stay open for the next one.
     setText('');
     setEst(undefined);
+    setEstText('');
     inputRef.current?.focus();
   };
 
@@ -542,6 +547,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                   // A second tap on the chosen estimate clears it.
                   onClick={() => {
                     setEst(selected ? undefined : m);
+                    setEstText('');
                     inputRef.current?.focus();
                   }}
                   className={`rounded-full border font-body-sm text-body-sm tabular-nums transition-colors ${
@@ -556,6 +562,22 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                 </button>
               );
             })}
+            <input
+              type="text"
+              value={estText}
+              onChange={(e) => {
+                setEstText(e.target.value);
+                setEst(parseEstimate(e.target.value) ?? undefined);
+              }}
+              placeholder="Custom"
+              aria-label="Custom estimate, e.g. 50m or 1h 20m"
+              aria-invalid={estInvalid}
+              title="Any length: 50, 50m, 1.5h, 1h 20m or 1:20"
+              enterKeyHint="done"
+              className={`w-24 rounded-full border bg-transparent font-body-sm text-body-sm tabular-nums text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 focus:border-primary ${
+                isMobile ? 'px-3 py-1.5 !text-[16px]' : 'px-2.5 py-1'
+              } ${estInvalid ? '!border-error' : est && !EST_PRESETS.includes(est) ? 'border-secondary-container bg-secondary-container' : 'border-outline-variant'}`}
+            />
           </div>
           <p className="max-lg:hidden font-body-sm text-[11px] text-on-surface-variant/70">
             ↑ / ↓ or Tab — subject · Shift+← / → — estimate · Enter — add · Esc — close
@@ -574,9 +596,6 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
           Checklist
         </h2>
-        <span className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant/70 tracking-[0.14em] flex-shrink-0">
-          {dayLabel}
-        </span>
         <span className="font-body-sm text-body-sm max-lg:!text-[9px] max-lg:leading-none text-on-surface-variant tabular-nums flex-shrink-0 ml-auto">
           {openEstimate > 0 && <span className="text-on-surface-variant/70" title="Estimated time of the open tasks">~{formatDuration(openEstimate)} · </span>}
           {total > 0 ? `${done}/${total}` : '0'}
