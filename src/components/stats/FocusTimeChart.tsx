@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { formatDuration, formatDurationLong } from '../../utils/time';
+import { dateKey, formatDuration, formatDurationLong } from '../../utils/time';
 import type { BucketSize, FocusBucket } from '../../utils/analytics';
-import { useIsMobile } from '../../hooks/useIsMobile';
 import { EmptyState, Section, anchorOf, Tooltip } from './StatParts';
 
 interface FocusTimeChartProps {
@@ -10,8 +9,9 @@ interface FocusTimeChartProps {
   /** Average minutes per bucket, drawn as the reference line. */
   averageMinutes: number;
   totalMinutes: number;
-  totalSessions: number;
   periodLabel: string;
+  /** The period reaches today: its bucket is drawn solid. */
+  includesToday: boolean;
 }
 
 const SIZE_LABEL: Record<BucketSize, string> = {
@@ -20,27 +20,35 @@ const SIZE_LABEL: Record<BucketSize, string> = {
   month: 'per month',
 };
 
+/** Axis steps in minutes, smallest first: the first that fits in 4 ticks wins. */
+const STEPS = [15, 30, 60, 120, 180, 240, 360, 600, 720, 1200, 1800, 2400, 3600, 6000, 12000];
+
+function axisFor(max: number): { top: number; step: number } {
+  const step = STEPS.find((s) => Math.ceil(max / s) <= 4) ?? Math.ceil(max / 4 / 600) * 600;
+  return { top: Math.max(step, Math.ceil(max / step) * step), step };
+}
+
 /**
- * Focus time over the selected period, aggregated to whatever granularity fits
- * it: days for a week or a month, weeks for a quarter, months for a year.
- * The series is real Focus Room time only — planned blocks never appear here.
+ * Desktop: focus time over the selected period, aggregated to whatever
+ * granularity fits it — days for a week or a month, weeks for a quarter,
+ * months for a year. Real Focus Room time only; planned blocks never appear.
+ * Values sit on the bars while there are few of them; past 14 they would
+ * crowd into a smear, so the tooltip carries them instead.
  */
 export function FocusTimeChart({
   buckets,
   size,
   averageMinutes,
   totalMinutes,
-  totalSessions,
   periodLabel,
+  includesToday,
 }: FocusTimeChartProps) {
-  const isMobile = useIsMobile();
   const [hover, setHover] = useState<{
     bucket: FocusBucket;
     x: number;
     y: number;
     below: boolean;
   } | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
 
   if (totalMinutes === 0) {
     return (
@@ -53,22 +61,15 @@ export function FocusTimeChart({
     );
   }
 
-  const max = Math.max(...buckets.map((b) => b.minutes), 1);
-  const peak = buckets.find((b) => b.minutes === max);
-  const avgPercent = Math.min(100, (averageMinutes / max) * 100);
-  const active = hover?.bucket || buckets.find((b) => b.key === picked) || null;
-  // A 7-bar week should not stretch into seven slabs, but a 30-day
-  // series should still use the full width — hence a cap, not a fix.
-  const barWidthRem = buckets.length <= 14 ? 4 : 2.75;
-  const chartWidth = `${buckets.length * barWidthRem}rem`;
-  const chartHeight = buckets.length <= 14 ? 'h-32' : 'h-48';
-  // Ticks thin out with the number of buckets, and much harder on a phone:
-  // at 30 columns there is room for a handful of dates, not for thirty.
-  const labelEvery = isMobile
-    ? Math.max(1, Math.ceil(buckets.length / 5))
-    : buckets.length > 20
-      ? 2
-      : 1;
+  const { top, step } = axisFor(Math.max(...buckets.map((b) => b.minutes), 1));
+  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
+  const avgPos = (averageMinutes / top) * 100;
+  // The bucket holding today: the last one that starts on or before it.
+  const todayKey = dateKey(new Date());
+  const currentKey = includesToday ? [...buckets].reverse().find((b) => b.key <= todayKey)?.key : undefined;
+  const showValues = buckets.length <= 14;
+  const gap = buckets.length <= 7 ? '1.2rem' : buckets.length <= 14 ? '0.6rem' : '3px';
+  const labelEvery = buckets.length > 20 ? Math.ceil(buckets.length / 10) : 1;
 
   return (
     <Section
@@ -77,80 +78,91 @@ export function FocusTimeChart({
       layout="card"
       wide
       aside={
-        <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest">
-          {formatDurationLong(totalMinutes)} · {totalSessions} session{totalSessions === 1 ? '' : 's'}
-        </p>
+        <span className="font-body-sm text-body-sm text-on-surface-variant">
+          {SIZE_LABEL[size]} · dashed line is the average
+        </span>
       }
     >
-      <div>
-        {/* Readout: the hovered bucket on pointer devices, the tapped one on
-            touch — the same three numbers either way. */}
-        <div className="flex items-baseline justify-between gap-4 mb-4 min-h-[26px]">
-          <p className="font-body-md text-body-md text-on-surface font-medium truncate">
-            {active ? active.label : size === 'month' ? 'Monthly' : size === 'week' ? 'Weekly' : 'Daily'}
-          </p>
-          {active ? (
-            <p className="font-body-sm text-body-sm text-on-surface-variant tabular-nums flex-shrink-0">
-              {formatDurationLong(active.minutes)} · {active.sessions} session
-              {active.sessions === 1 ? '' : 's'}
-            </p>
-          ) : (
-            <p className="font-body-sm text-body-sm text-on-surface-variant tabular-nums flex-shrink-0">
-              avg {formatDuration(Math.round(averageMinutes))} {SIZE_LABEL[size]}
-            </p>
-          )}
+      <div className="grid gap-x-2" style={{ gridTemplateColumns: '2.4rem minmax(0, 1fr)' }}>
+        <div className="relative h-[11rem]">
+          {ticks.map((t) => (
+            <span
+              key={t}
+              className="absolute right-0 translate-y-1/2 font-label-sm text-label-sm text-on-surface-variant tabular-nums"
+              style={{ bottom: `${(t / top) * 100}%` }}
+            >
+              {t === 0 ? '0' : formatDuration(t)}
+            </span>
+          ))}
         </div>
 
-        {/* A 7-bar week should not stretch into seven slabs, but a 30-day
-            series should still use the full width — hence a cap, not a fix. */}
-        <div className="relative w-full" style={{ maxWidth: chartWidth }}>
-          <div className={`flex items-end gap-[2px] ${chartHeight}`}>
+        <div
+          role="img"
+          aria-label={`Focus time ${SIZE_LABEL[size]}: ${buckets.map((b) => `${b.label} ${formatDuration(b.minutes)}`).join(', ')}`}
+          className="relative h-[11rem]"
+        >
+          {ticks.map((t) => (
+            <div
+              key={t}
+              className="absolute inset-x-0 border-t border-outline-variant"
+              style={{ bottom: `${(t / top) * 100}%` }}
+            />
+          ))}
+          <div className="absolute inset-0 flex items-end px-3" style={{ gap }}>
             {buckets.map((b, i) => {
-              const percent = (b.minutes / max) * 100;
-              const isPeak = peak?.key === b.key && b.minutes > 0;
+              const current = b.key === currentKey;
               return (
-                <button
+                <div
                   key={b.key}
-                  type="button"
-                  aria-label={`${b.label}: ${formatDuration(b.minutes)}, ${b.sessions} sessions`}
-                  className="group relative flex-1 h-full flex items-end rounded-t-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="flex-1 min-w-0 h-full flex flex-col justify-end items-stretch gap-1.5"
                   onMouseEnter={(e) => setHover({ bucket: b, ...anchorOf(e.currentTarget) })}
                   onMouseLeave={() => setHover(null)}
-                  onFocus={(e) => setHover({ bucket: b, ...anchorOf(e.currentTarget) })}
-                  onBlur={() => setHover(null)}
-                  onClick={() => setPicked((p) => (p === b.key ? null : b.key))}
                 >
-                  {/* Full-height track keeps a sparse period readable instead
-                      of leaving a chart that is mostly empty space. */}
-                  <span className="absolute inset-0 rounded-t-sm bg-on-surface/[0.05]" />
-                  {/* The accent colour at partial opacity: a solid surface token
-                      would be the same shade as the card it sits on. */}
-                  <span
-                    className={`relative w-full rounded-t-sm animate-bar-grow-y ${
-                      isPeak ? 'bg-primary' : 'bg-primary/40 group-hover:bg-primary/70'
-                    }`}
+                  {showValues && b.minutes > 0 && (
+                    <span
+                      className={`text-center font-label-sm text-label-sm tabular-nums whitespace-nowrap ${
+                        current ? 'text-on-surface' : 'text-on-surface-variant'
+                      }`}
+                    >
+                      {formatDuration(b.minutes)}
+                    </span>
+                  )}
+                  <div
+                    className={`rounded-t origin-bottom animate-bar-grow-y ${current ? 'bg-primary' : 'bg-primary/55'}`}
                     style={{
-                      height: `${Math.max(percent, b.minutes > 0 ? 2 : 0)}%`,
+                      height: `${(b.minutes / top) * 100}%`,
+                      minHeight: b.minutes > 0 ? 2 : 0,
                       animationDelay: `${Math.min(i * 25, 360)}ms`,
                     }}
                   />
-                </button>
+                </div>
               );
             })}
           </div>
-          {avgPercent > 0 && avgPercent < 100 && (
-            <div
-              className="absolute left-0 right-0 border-t border-dashed border-outline pointer-events-none"
-              style={{ bottom: `${avgPercent}%` }}
-            />
+          {avgPos > 0 && (
+            <>
+              <div
+                className="absolute inset-x-0 border-t border-dashed border-on-surface-variant/80 pointer-events-none"
+                style={{ bottom: `${avgPos}%` }}
+              />
+              <span
+                className="absolute right-0 -translate-y-[120%] px-1.5 rounded bg-surface-container-lowest font-label-sm text-label-sm text-on-surface-variant tabular-nums pointer-events-none"
+                style={{ bottom: `${avgPos}%` }}
+              >
+                avg {formatDuration(Math.round(averageMinutes))}
+              </span>
+            </>
           )}
         </div>
 
-        <div className="flex gap-[2px] w-full mt-2" style={{ maxWidth: chartWidth }}>
+        <span />
+        <div className="flex px-3 pt-2" style={{ gap }}>
           {buckets.map((b, i) => (
             <span
               key={b.key}
-              className="flex-1 text-center font-label-sm text-[8px] leading-none text-on-surface-variant whitespace-nowrap overflow-hidden"
+              className={`flex-1 min-w-0 text-center font-label-sm text-label-sm tabular-nums whitespace-nowrap overflow-visible ${
+                b.key === currentKey ? 'text-on-surface' : 'text-on-surface-variant'
+              }`}
             >
               {i % labelEvery === 0 ? b.short : ''}
             </span>

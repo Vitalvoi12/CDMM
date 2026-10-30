@@ -168,6 +168,11 @@ export function useStatisticsPeriod() {
     () => buildFocusBuckets(days, period.from, period.to, bucketSize),
     [days, period, bucketSize]
   );
+  // The period reaches today, so the chart can mark the running bucket.
+  const includesToday = useMemo(() => {
+    const now = new Date().getTime();
+    return period.from.getTime() <= now && endOfDay(period.to).getTime() >= now;
+  }, [period]);
   // Mean per bucket, empty buckets included: the chart's reference line.
   const averageMinutes = buckets.length > 0 ? totalMinutes / buckets.length : 0;
   const rhythm = useMemo(() => buildRhythm(inPeriod), [inPeriod]);
@@ -221,6 +226,7 @@ export function useStatisticsPeriod() {
     bucketSize,
     buckets,
     averageMinutes,
+    includesToday,
     rhythm,
     consistency,
     tasks,

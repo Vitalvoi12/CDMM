@@ -42,6 +42,7 @@ export function StatisticsPage() {
     bucketSize,
     buckets,
     averageMinutes,
+    includesToday,
     rhythm,
     consistency,
     tasks,
@@ -170,8 +171,8 @@ export function StatisticsPage() {
           size={bucketSize}
           averageMinutes={averageMinutes}
           totalMinutes={totalMinutes}
-          totalSessions={totalSessions}
           periodLabel={period.label}
+          includesToday={includesToday}
         />
         <SubjectBreakdown
           rows={subjectRows}
