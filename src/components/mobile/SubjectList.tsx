@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import type { CalendarEvent, Subject } from '../../types';
-import { countsTowardStats, liveEventForDate } from '../../utils/stats';
-import { addDays, formatDuration, startOfWeek } from '../../utils/time';
+import type { Subject } from '../../types';
+import { liveEventForDate } from '../../utils/stats';
+import { formatDuration } from '../../utils/time';
+import { weekMinutes } from '../../utils/subjectStats';
 import { formatGoal } from '../../utils/goals';
 import { useActiveSession } from '../../hooks/useActiveSession';
 import { requestSessionFinish } from '../../services/liveSession';
@@ -12,20 +13,6 @@ interface SubjectListProps {
   subjects: Subject[];
   onEdit: (subject: Subject) => void;
   onAdd: () => void;
-}
-
-/** Real focus minutes per subject in this Monday–Sunday week (running session included). */
-function weekMinutes(events: CalendarEvent[], now: number): Map<string, number> {
-  const from = startOfWeek(new Date(now)).getTime();
-  const to = addDays(new Date(from), 7).getTime();
-  const out = new Map<string, number>();
-  for (const e of events) {
-    if (!countsTowardStats(e)) continue;
-    const s = Math.max(from, Date.parse(e.start));
-    const en = Math.min(to, Date.parse(e.end));
-    if (en > s) out.set(e.subjectId, (out.get(e.subjectId) || 0) + Math.round((en - s) / 60000));
-  }
-  return out;
 }
 
 /**
