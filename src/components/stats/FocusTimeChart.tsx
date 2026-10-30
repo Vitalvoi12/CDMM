@@ -32,7 +32,7 @@ function axisFor(max: number): { top: number; step: number } {
  * Desktop: focus time over the selected period, aggregated to whatever
  * granularity fits it — days for a week or a month, weeks for a quarter,
  * months for a year. Real Focus Room time only; planned blocks never appear.
- * Values sit on the bars while there are few of them; past 14 they would
+ * Values sit on the bars while there are few of them; past 12 (the card is half-width) they would
  * crowd into a smear, so the tooltip carries them instead.
  */
 export function FocusTimeChart({
@@ -52,7 +52,7 @@ export function FocusTimeChart({
 
   if (totalMinutes === 0) {
     return (
-      <Section title="Focus time" delay={160} layout="card" wide>
+      <Section title="Focus time" delay={160} layout="card">
         <EmptyState
           text="No focus time recorded in this period"
           hint={`${periodLabel} holds no finished Focus Room sessions.`}
@@ -67,23 +67,24 @@ export function FocusTimeChart({
   // The bucket holding today: the last one that starts on or before it.
   const todayKey = dateKey(new Date());
   const currentKey = includesToday ? [...buckets].reverse().find((b) => b.key <= todayKey)?.key : undefined;
-  const showValues = buckets.length <= 14;
+  const showValues = buckets.length <= 12;
   const gap = buckets.length <= 7 ? '1.2rem' : buckets.length <= 14 ? '0.6rem' : '3px';
-  const labelEvery = buckets.length > 20 ? Math.ceil(buckets.length / 10) : 1;
+  // A half-width card has room for about seven dates under the bars.
+  const labelEvery = buckets.length > 12 ? Math.ceil(buckets.length / 7) : 1;
 
   return (
     <Section
       title="Focus time"
       delay={160}
       layout="card"
-      wide
       aside={
         <span className="font-body-sm text-body-sm text-on-surface-variant">
           {SIZE_LABEL[size]} · dashed line is the average
         </span>
       }
     >
-      <div className="grid gap-x-2" style={{ gridTemplateColumns: '2.4rem minmax(0, 1fr)' }}>
+      {/* Right gutter holds the average's label, so it never covers a bar. */}
+      <div className="grid gap-x-2" style={{ gridTemplateColumns: '2.4rem minmax(0, 1fr) 2.8rem' }}>
         <div className="relative h-[11rem]">
           {ticks.map((t) => (
             <span
@@ -108,6 +109,13 @@ export function FocusTimeChart({
               style={{ bottom: `${(t / top) * 100}%` }}
             />
           ))}
+          {/* Under the bars, so a value label is never struck through. */}
+          {avgPos > 0 && (
+            <div
+              className="absolute inset-x-0 border-t border-dashed border-on-surface-variant/80 pointer-events-none"
+              style={{ bottom: `${avgPos}%` }}
+            />
+          )}
           <div className="absolute inset-0 flex items-end px-3" style={{ gap }}>
             {buckets.map((b, i) => {
               const current = b.key === currentKey;
@@ -120,7 +128,7 @@ export function FocusTimeChart({
                 >
                   {showValues && b.minutes > 0 && (
                     <span
-                      className={`text-center font-label-sm text-label-sm tabular-nums whitespace-nowrap ${
+                      className={`self-center px-1 rounded bg-surface-container-lowest font-label-sm text-label-sm tabular-nums whitespace-nowrap ${
                         current ? 'text-on-surface' : 'text-on-surface-variant'
                       }`}
                     >
@@ -139,19 +147,16 @@ export function FocusTimeChart({
               );
             })}
           </div>
+        </div>
+        <div className="relative h-[11rem]">
           {avgPos > 0 && (
-            <>
-              <div
-                className="absolute inset-x-0 border-t border-dashed border-on-surface-variant/80 pointer-events-none"
-                style={{ bottom: `${avgPos}%` }}
-              />
-              <span
-                className="absolute right-0 -translate-y-[120%] px-1.5 rounded bg-surface-container-lowest font-label-sm text-label-sm text-on-surface-variant tabular-nums pointer-events-none"
-                style={{ bottom: `${avgPos}%` }}
-              >
-                avg {formatDuration(Math.round(averageMinutes))}
-              </span>
-            </>
+            <span
+              className="absolute left-0 translate-y-1/2 flex flex-col font-label-sm text-label-sm leading-tight text-on-surface-variant tabular-nums whitespace-nowrap"
+              style={{ bottom: `${avgPos}%` }}
+            >
+              <span>avg</span>
+              <span>{formatDuration(Math.round(averageMinutes))}</span>
+            </span>
           )}
         </div>
 
@@ -168,6 +173,7 @@ export function FocusTimeChart({
             </span>
           ))}
         </div>
+        <span />
       </div>
 
       {hover && (

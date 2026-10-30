@@ -169,14 +169,6 @@ export function StatisticsPage() {
       </div>
 
       <div className="grid gap-6 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))' }}>
-        <FocusTimeChart
-          buckets={buckets}
-          size={bucketSize}
-          averageMinutes={averageMinutes}
-          totalMinutes={totalMinutes}
-          periodLabel={period.label}
-          includesToday={includesToday}
-        />
         <SubjectBreakdown
           rows={subjectRows}
           metric={metric}
@@ -187,10 +179,18 @@ export function StatisticsPage() {
           layout="card"
         />
         <GoalsPanel goals={goals} days={period.days} layout="card" />
+        <FocusTimeChart
+          buckets={buckets}
+          size={bucketSize}
+          averageMinutes={averageMinutes}
+          totalMinutes={totalMinutes}
+          periodLabel={period.label}
+          includesToday={includesToday}
+        />
         <WhenYouStudy rhythm={rhythm} periodLabel={period.label} />
         <ConsistencyCard history={history} stats={consistency} period={period} />
-        <FocusQualityPanel stats={focus} periodLabel={period.label} layout="card" />
         <TaskStatsPanel stats={tasks} periodLabel={period.label} layout="card" />
+        <FocusQualityPanel stats={focus} periodLabel={period.label} layout="card" />
         <PlanStabilityPanel stats={stability} subjectMap={subjectMap} periodLabel={period.label} layout="card" />
       </div>
     </div>

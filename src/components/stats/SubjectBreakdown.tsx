@@ -57,6 +57,7 @@ export function SubjectBreakdown({
         title="Subjects"
         delay={80}
         layout={layout}
+        wide
         aside={
           <Segmented options={METRICS} value={metric} onChange={onMetricChange} ariaLabel="Subject metric" />
         }
@@ -87,6 +88,7 @@ export function SubjectBreakdown({
       title="Subjects"
       delay={80}
       layout={layout}
+      wide
       aside={
         <Segmented options={METRICS} value={metric} onChange={onMetricChange} ariaLabel="Subject metric" />
       }
