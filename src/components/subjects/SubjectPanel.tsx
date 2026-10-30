@@ -41,7 +41,7 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
   return (
     <aside
       aria-label={subject.name}
-      className="flex-[1_1_340px] max-w-[26rem] min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-5 flex flex-col gap-5"
+      className="flex-[2_1_400px] max-w-[40rem] min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-5 flex flex-col gap-5"
     >
       <div className="flex items-center gap-2.5">
         <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: subject.color }} />

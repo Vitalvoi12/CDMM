@@ -93,7 +93,7 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
         <div className="flex flex-wrap items-start gap-6">
           <section
             aria-label="Subjects"
-            className="flex-[999_1_520px] min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 overflow-hidden"
+            className="flex-[3_1_520px] min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 overflow-hidden"
           >
             <div className={`grid ${COLUMNS} gap-x-4 items-center px-5 pt-3.5 pb-2.5`}>
               {['Subject', 'This week', 'Last studied', 'Next in plan'].map((h) => (
