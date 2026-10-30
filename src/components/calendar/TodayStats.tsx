@@ -23,10 +23,10 @@ export function TodayStats({ events, subjects, totalMinutes }: TodayStatsProps) 
   return (
     <section
       aria-label="Today's focus"
-      className="flex-none bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 px-5 pt-4 pb-5 flex flex-col gap-3"
+      className="flex-none bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 flex flex-col gap-4"
     >
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em]">Today</h2>
+        <h2 className="font-label-sm text-label-sm text-on-surface-variant tracking-[0.16em]">Today</h2>
         <p className="flex items-baseline gap-1.5 min-w-0">
           <span className="font-headline-md text-headline-md text-on-surface tabular-nums">{formatDuration(totalMinutes)}</span>
           {dayPercent !== null && (
@@ -38,7 +38,7 @@ export function TodayStats({ events, subjects, totalMinutes }: TodayStatsProps) 
       </div>
 
       {stats.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3.5">
           {stats.map((stat) => {
             const subject = subjectMap.get(stat.subjectId);
             const color = subject?.color || '#8A857C';
@@ -66,7 +66,7 @@ export function TodayStats({ events, subjects, totalMinutes }: TodayStatsProps) 
                     ) : null}
                   </span>
                 </div>
-                <div className="h-[2px] mt-1 bg-surface-container-high rounded-full overflow-hidden">
+                <div className="h-[2px] mt-1.5 bg-surface-container-high rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${Math.min(100, stat.percentage)}%`, backgroundColor: color }}
