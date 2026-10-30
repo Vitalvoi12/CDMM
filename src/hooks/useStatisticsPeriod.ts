@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { eventEditRepo, eventRepo, subjectRepo, todoRepo } from '../services/repositories';
 import {
   bucketSizeFor,
+  buildActivityHistory,
   buildDaySeries,
   buildFocusBuckets,
   buildRhythm,
@@ -177,6 +178,8 @@ export function useStatisticsPeriod() {
   const averageMinutes = buckets.length > 0 ? totalMinutes / buckets.length : 0;
   const rhythm = useMemo(() => buildRhythm(inPeriod), [inPeriod]);
   const consistency = useMemo(() => calculateConsistency(days), [days]);
+  // Desktop Consistency grid: weeks of history around the period.
+  const history = useMemo(() => buildActivityHistory(slices, period), [slices, period]);
   const tasks = useMemo(
     () => calculateTaskStats(todoRepo.getAll(), period.from, period.to),
     [period]
@@ -229,6 +232,7 @@ export function useStatisticsPeriod() {
     includesToday,
     rhythm,
     consistency,
+    history,
     tasks,
     stability,
     goals,

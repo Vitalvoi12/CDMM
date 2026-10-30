@@ -7,6 +7,7 @@ import { SubjectBreakdown } from '../components/stats/SubjectBreakdown';
 import { TimeHeatmap } from '../components/stats/TimeHeatmap';
 import { WhenYouStudy } from '../components/stats/WhenYouStudy';
 import { ConsistencyPanel } from '../components/stats/ConsistencyPanel';
+import { ConsistencyCard } from '../components/stats/ConsistencyCard';
 import { TaskStatsPanel } from '../components/stats/TaskStatsPanel';
 import { PlanStabilityPanel } from '../components/stats/PlanStabilityPanel';
 import { GoalsPanel } from '../components/stats/GoalsPanel';
@@ -46,6 +47,7 @@ export function StatisticsPage() {
     includesToday,
     rhythm,
     consistency,
+    history,
     tasks,
     stability,
     goals,
@@ -159,9 +161,9 @@ export function StatisticsPage() {
           delay={120}
         />
         <StatTile
-          value={`${consistency.currentStreak} day${consistency.currentStreak === 1 ? '' : 's'}`}
+          value={`${history.currentStreak} day${history.currentStreak === 1 ? '' : 's'}`}
           label="Streak"
-          hint={`longest ${consistency.longestStreak}`}
+          hint={`longest ${history.longest?.length ?? 0}`}
           delay={180}
         />
       </div>
@@ -186,7 +188,7 @@ export function StatisticsPage() {
         />
         <GoalsPanel goals={goals} days={period.days} layout="card" />
         <WhenYouStudy rhythm={rhythm} periodLabel={period.label} />
-        <ConsistencyPanel stats={consistency} days={days} periodLabel={period.label} layout="card" />
+        <ConsistencyCard history={history} stats={consistency} period={period} />
         <FocusQualityPanel stats={focus} periodLabel={period.label} layout="card" />
         <TaskStatsPanel stats={tasks} periodLabel={period.label} layout="card" />
         <PlanStabilityPanel stats={stability} subjectMap={subjectMap} periodLabel={period.label} layout="card" />

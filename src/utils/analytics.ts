@@ -384,6 +384,76 @@ export function calculateConsistency(days: StudyDay[]): ConsistencyStats {
   };
 }
 
+/** Weeks the desktop activity grid shows when the period is shorter. */
+export const HISTORY_WEEKS = 26;
+/** The grid never grows past a year of columns. */
+export const HISTORY_MAX_WEEKS = 53;
+
+export interface ActivityHistory {
+  /** Monday-first, whole weeks: `weeks × 7` days, future days included. */
+  days: StudyDay[];
+  weeks: number;
+  /** Minutes of every active past day in `days`, ascending — the shade scale. */
+  activeMinutes: number[];
+  /** Days in a row up to today (or yesterday), over the whole history. */
+  currentStreak: number;
+  /** Longest run inside the visible weeks, with its first and last day. */
+  longest: { length: number; from: string; to: string } | null;
+}
+
+/**
+ * The desktop Consistency grid: whole weeks ending with the current one (or
+ * with the period's last week, if that is later), at least HISTORY_WEEKS and
+ * as many as the period needs, capped at HISTORY_MAX_WEEKS. Unlike
+ * calculateConsistency, the current streak is not clipped to the period — a
+ * 7-day window would otherwise never show more than 7.
+ */
+export function buildActivityHistory(slices: FocusSlice[], period: Period, today = new Date()): ActivityHistory {
+  const now = startOfDay(today);
+  const lastWeek = startOfWeek(period.to.getTime() > now.getTime() ? period.to : now);
+  const periodWeeks = Math.round((lastWeek.getTime() - startOfWeek(period.from).getTime()) / (7 * 86400000)) + 1;
+  const weeks = Math.min(HISTORY_MAX_WEEKS, Math.max(HISTORY_WEEKS, periodWeeks));
+  const from = addDays(lastWeek, -(weeks - 1) * 7);
+  const days = buildDaySeries(slices, from, addDays(lastWeek, 6));
+
+  const todayKey = dateKey(now);
+  const past = days.filter((d) => d.date <= todayKey);
+  const activeMinutes = past.filter((d) => d.minutes > 0).map((d) => d.minutes).sort((a, b) => a - b);
+
+  let longest: ActivityHistory['longest'] = null;
+  let runStart = 0;
+  past.forEach((d, i) => {
+    if (d.minutes <= 0) {
+      runStart = i + 1;
+      return;
+    }
+    const length = i - runStart + 1;
+    if (!longest || length > longest.length) longest = { length, from: past[runStart].date, to: d.date };
+  });
+
+  const active = new Set(slices.filter((s) => s.minutes > 0).map((s) => s.date));
+  let cursor = active.has(todayKey) ? now : addDays(now, -1);
+  let currentStreak = 0;
+  while (active.has(dateKey(cursor))) {
+    currentStreak++;
+    cursor = addDays(cursor, -1);
+  }
+
+  return { days, weeks, activeMinutes, currentStreak, longest };
+}
+
+/**
+ * Shade of one day against the person's own spread: the quartile of its rank
+ * among the active days (ties rank up), so a 3-hour habit does not paint the
+ * whole grid in the top colour the way fixed 30/60/120 thresholds would.
+ */
+export function historyLevel(minutes: number, activeMinutes: number[]): HeatLevel {
+  if (minutes <= 0 || activeMinutes.length === 0) return 0;
+  let atOrBelow = 0;
+  while (atOrBelow < activeMinutes.length && activeMinutes[atOrBelow] <= minutes) atOrBelow++;
+  return Math.max(1, Math.ceil((atOrBelow / activeMinutes.length) * 4)) as HeatLevel;
+}
+
 // ---- tasks ----
 
 export interface TaskStats {
