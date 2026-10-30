@@ -1,21 +1,24 @@
 import { useState, useCallback } from 'react';
 import { subjectRepo, tombstoneRepo } from '../services/repositories';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import type { Subject } from '../types';
-import { SubjectGrid } from '../components/subjects/SubjectGrid';
+import { SubjectsDesktop } from '../components/subjects/SubjectsDesktop';
 import { SubjectForm } from '../components/subjects/SubjectForm';
 import { SubjectList } from '../components/mobile/SubjectList';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 export function SubjectsPage() {
   const isMobile = useIsMobile();
-  const springRef = useOverscrollSpring<HTMLDivElement>();
   const [subjects, setSubjects] = useState<Subject[]>(subjectRepo.getAll());
   const [showForm, setShowForm] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
 
-  const refresh = useCallback(() => setSubjects(subjectRepo.getAll()), []);
+  // Bumped on every change, so the desktop page re-reads events and tasks too.
+  const [version, setVersion] = useState(0);
+  const refresh = useCallback(() => {
+    setSubjects(subjectRepo.getAll());
+    setVersion((v) => v + 1);
+  }, []);
 
   useSyncRefresh(refresh);
 
@@ -70,26 +73,8 @@ export function SubjectsPage() {
   }
 
   return (
-    <div className="flex flex-col w-full h-full relative max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-hidden">
-      <div className="flex items-end justify-between mb-8 max-lg:mb-3 flex-shrink-0">
-        <div>
-          <p className="font-label-md text-label-md max-lg:!text-[8px] max-lg:mb-1 text-on-surface-variant tracking-[0.16em] uppercase mb-2">
-            Curriculum
-          </p>
-          <h2 className="font-headline-lg text-headline-lg max-lg:!text-[19px] max-lg:leading-none text-on-surface">Active Subjects</h2>
-        </div>
-        <button
-          onClick={handleAdd}
-          className="bg-primary hover:opacity-90 transition-opacity text-on-primary px-6 py-2.5 max-lg:px-3 max-lg:py-1.5 rounded-full font-label-md text-label-md max-lg:!text-[8px] uppercase tracking-[0.1em]"
-        >
-          Add Subject
-        </button>
-      </div>
-
-      <div ref={springRef} className="flex flex-col flex-1 min-h-0 max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-8">
-        <SubjectGrid subjects={subjects} onEdit={handleEdit} />
-      </div>
-
+    <div className="flex flex-col w-full">
+      <SubjectsDesktop subjects={subjects} version={version} onAdd={handleAdd} onEdit={handleEdit} onDelete={handleDelete} />
       {form}
     </div>
   );
