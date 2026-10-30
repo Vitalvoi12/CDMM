@@ -8,7 +8,6 @@ const sections: { id: string; label: string; desktopOnly?: boolean }[] = [
   // Keyboard shortcuts are for the desktop layout only.
   { id: 'shortcuts', label: 'Shortcuts', desktopOnly: true },
   { id: 'account', label: 'Account' },
-  { id: 'study-preferences', label: 'Study Preferences' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'devices', label: 'Phone' },
 ];

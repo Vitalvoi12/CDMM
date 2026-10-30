@@ -411,16 +411,6 @@ export function SettingsPage({ onLogout }: SettingsPageProps) {
               <DevicesPanel mobile={false} />
             </div>
           )}
-          {activeSection === 'study-preferences' && (
-            <div className="mb-20 flex flex-col gap-4">
-              <h1 className="font-headline-lg text-[30px] leading-[36px] text-on-surface capitalize lg:sticky lg:top-0 lg:z-10 lg:bg-background lg:pt-12 lg:pb-2">
-                {activeSection.replace('-', ' ')}
-              </h1>
-              <p className="font-body-lg text-[16px] leading-[23px] text-on-surface-variant max-w-2xl">
-                Coming soon.
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
