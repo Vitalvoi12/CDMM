@@ -11,6 +11,7 @@ interface SubjectFormProps {
   /** `weeklyGoalMinutes` is null when the goal was left empty (clears it). */
   onSave: (data: { name: string; color: string; weeklyGoalMinutes: number | null }) => void;
   onCancel: () => void;
+  /** Phone only: the desktop deletes from the Subjects panel, with a confirmation. */
   onDelete?: (id: string) => void;
 }
 
@@ -189,20 +190,6 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
           >
             {subject ? 'Save subject' : 'Add subject'}
           </button>
-          {subject && onDelete && (
-            <div className="border-t border-outline-variant pt-4">
-              <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-[0.16em] mb-2">
-                Danger zone
-              </p>
-              <button
-                type="button"
-                onClick={() => onDelete(subject.id)}
-                className="font-body-md text-body-md max-lg:!text-[10px] text-error hover:opacity-80 transition-opacity"
-              >
-                Delete subject
-              </button>
-            </div>
-          )}
         </form>
       </div>
     </div>
