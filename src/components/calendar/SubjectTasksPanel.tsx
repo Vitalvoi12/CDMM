@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { formatDuration, isSameDay } from '../../utils/time';
@@ -88,6 +88,31 @@ function saveLastSubject(id: string): void {
     // storage unavailable — the choice just isn't remembered
   }
 }
+
+/**
+ * Groups folded in the list (subject ids, '__other__', '__todo__'). Kept on
+ * this device so they stay folded across days and reloads.
+ */
+const FOLDED_KEY = 'cdmm.checklist-folded';
+
+function loadFolded(): Set<string> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]');
+    return new Set(Array.isArray(raw) ? raw.filter((k): k is string => typeof k === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveFolded(keys: Set<string>): void {
+  try {
+    localStorage.setItem(FOLDED_KEY, JSON.stringify([...keys]));
+  } catch {
+    // storage unavailable — the folds just aren't remembered
+  }
+}
+
+const TODO_GROUP = '__todo__';
 
 /**
  * The day's checklist: tasks added here with "+", grouped under their subject
@@ -237,8 +262,75 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   const otherTodos = useMemo(() => otherOpenTodos(todos, date), [todos, date]);
   const [showOther, setShowOther] = useState(false);
 
+  // Long lists: only open tasks stay in their groups; finished ones (day
+  // tasks and the day's todos) collect in one folded Done row at the end.
+  const openGroups = useMemo(
+    () => groups.map((g) => ({ ...g, items: g.items.filter((t) => !t.done) })).filter((g) => g.items.length > 0),
+    [groups]
+  );
+  const openDayTodos = dayTodos.filter((t) => !t.completed);
+  const doneTasks = groups.flatMap((g) => g.items.filter((t) => t.done).map((t) => ({ task: t, group: g })));
+  const doneTodos = dayTodos.filter((t) => t.completed);
+  const doneCount = doneTasks.length + doneTodos.length;
+  const [showDone, setShowDone] = useState(false);
+  const [folded, setFolded] = useState(loadFolded);
+  const toggleFold = (key: string) =>
+    setFolded((cur) => {
+      const next = new Set(cur);
+      if (!next.delete(key)) next.add(key);
+      saveFolded(next);
+      return next;
+    });
+
+  // The list's bottom edge fades only while there is more below it.
+  const listRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
+  const updateFade = useCallback(() => {
+    const el = listRef.current;
+    if (el) setMoreBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+  }, []);
+  useEffect(() => {
+    const el = listRef.current;
+    const content = contentRef.current;
+    if (!el || !content) return;
+    updateFade();
+    const ro = new ResizeObserver(updateFade);
+    ro.observe(el);
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [updateFade]);
+  const fade = moreBelow ? 'linear-gradient(to bottom, #000 calc(100% - 2rem), transparent)' : undefined;
+
+  // Header of a group of open tasks: folds it, and sticks to the top of the
+  // list while its tasks scroll by.
+  const groupHeader = (key: string, name: string, left: number, mark: React.ReactNode) => {
+    const isFolded = folded.has(key);
+    return (
+      <button
+        type="button"
+        onClick={() => toggleFold(key)}
+        aria-expanded={!isFolded}
+        title={isFolded ? `Unfold ${name}` : `Fold ${name}`}
+        className="sticky top-0 z-[1] w-full flex items-center gap-2 pt-1.5 pb-1 bg-surface-container-lowest text-left focus:outline-none focus-visible:underline"
+      >
+        {mark}
+        <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface font-semibold truncate min-w-0">{name}</span>
+        <span className="ml-auto font-body-sm text-body-sm text-on-surface-variant tabular-nums flex-shrink-0">{left} left</span>
+        <span className="material-symbols-outlined text-[14px] leading-none text-on-surface-variant flex-shrink-0" aria-hidden="true">
+          {isFolded ? 'expand_more' : 'expand_less'}
+        </span>
+      </button>
+    );
+  };
+
+  // Subject dot after a finished task in the Done row.
+  const doneDot = (color: string, title: string) => (
+    <span title={title} className="w-2 h-2 mt-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+  );
+
   // One todo row — the day's todos and the other open ones share it.
-  const todoRow = (task: TodoTask) => {
+  const todoRow = (task: TodoTask, dot?: React.ReactNode) => {
     const due = task.dueDate ? new Date(task.dueDate) : null;
     const overdue = isOverdue(task);
     // Other day: show the date; same day: the picked time, if any.
@@ -296,6 +388,80 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             {when}
           </span>
         )}
+        {dot}
+      </li>
+    );
+  };
+
+  // One day-task row; `dot` marks the subject when it is listed under Done.
+  const taskRow = (item: DayTask, groupKey: string, dot?: React.ReactNode) => {
+    const { className: dragClass, ...drag } = dragProps(item.id, item.text, groupKey === '__other__' ? '' : groupKey, item.estMinutes || DEFAULT_TASK_MINUTES, item.done);
+    return (
+      <li key={item.id} className={`group flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={item.done}
+          aria-label={item.done ? `Mark "${item.text}" as not done` : `Mark "${item.text}" as done`}
+          onClick={() => onToggleTask(item.id, !item.done)}
+          className={`w-5 h-5 max-lg:w-4 max-lg:h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-px transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            item.done
+              ? 'bg-primary border-primary text-on-primary'
+              : 'border-outline hover:border-primary bg-transparent'
+          }`}
+        >
+          {item.done && (
+            <span className="material-symbols-outlined text-[11px] max-lg:text-[9px] leading-none">check</span>
+          )}
+        </button>
+        {/* Click / tap the text to rename it or change its estimate. */}
+        <button
+          type="button"
+          disabled={!onEditTask}
+          onClick={() => openEdit(item.id)}
+          {...editTouch}
+          title={onEditTask ? 'Edit task' : undefined}
+          className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words text-left focus:outline-none focus-visible:underline ${
+            item.done ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
+          } ${onEditTask ? 'cursor-pointer hover:underline decoration-outline-variant underline-offset-2' : ''}`}
+        >
+          {item.text}
+        </button>
+        {scheduled?.[item.id] && <ScheduledChip start={scheduled[item.id]} date={date} />}
+        {/* Estimate: opens the edit window. Unset, the button only
+            appears on hover (desktop). */}
+        {(item.estMinutes || (onEditTask && !isMobile)) && (
+          <button
+            type="button"
+            disabled={!onEditTask}
+            onClick={() => openEdit(item.id)}
+            {...editTouch}
+            aria-label={item.estMinutes ? `Estimate ${formatDuration(item.estMinutes)}, change` : `Add an estimate to "${item.text}"`}
+            title={item.estMinutes ? 'Estimated time — click to edit' : 'Add an estimate'}
+            className={`flex items-center gap-0.5 flex-shrink-0 mt-px font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums rounded-full transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              item.estMinutes
+                ? item.done ? 'text-on-surface-variant/50' : 'text-on-surface-variant hover:text-on-surface'
+                : 'text-on-surface-variant/50 hover:text-on-surface lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100'
+            }`}
+          >
+            {item.estMinutes ? (
+              `~${formatDuration(item.estMinutes)}`
+            ) : (
+              <span className="material-symbols-outlined text-[15px] leading-none">timer</span>
+            )}
+          </button>
+        )}
+        {dot}
+        {/* Always visible on touch screens; on desktop it shows on hover. */}
+        <button
+          type="button"
+          onClick={() => onDeleteTask(item.id)}
+          aria-label={`Delete "${item.text}"`}
+          title="Delete task"
+          className="flex-shrink-0 -my-0.5 w-6 h-6 max-lg:w-5 max-lg:h-5 flex items-center justify-center rounded-full text-on-surface-variant/50 hover:text-error lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus:outline-none"
+        >
+          <span className="material-symbols-outlined text-[16px] max-lg:text-[13px] leading-none">close</span>
+        </button>
       </li>
     );
   };
@@ -402,9 +568,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
       aria-label={`Checklist for ${dayLabel}`}
       // Desktop: shares the side column with the Today card and the note; keeps
       // a few rows when the note is open, and scrolls inside.
-      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 max-lg:p-4 flex flex-col min-h-0 lg:min-h-[9rem] flex-[1_1_0] overflow-y-auto animate-fade-in"
+      className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 px-6 pt-6 max-lg:px-4 max-lg:pt-4 flex flex-col min-h-0 lg:min-h-[9rem] flex-[1_1_0] overflow-hidden animate-fade-in"
     >
-      <div className="flex items-center justify-between gap-3 mb-4 max-lg:mb-2">
+      <div className="flex-none flex items-center justify-between gap-3 mb-3 max-lg:mb-2">
         <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em]">
           Checklist
         </h2>
@@ -431,7 +597,6 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         </button>
       </div>
 
-      {adding && !isMobile && addForm}
       {adding && isMobile && createPortal(
         <div
           className="overlay-root z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in"
@@ -495,139 +660,98 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         />
       )}
 
-      {groups.length === 0 && dayTodos.length === 0 && otherTodos.length === 0 ? (
-        !adding && (
-          <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
-            Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
-          </p>
-        )
-      ) : (
-        <ul className="flex flex-col gap-4 max-lg:gap-3 overflow-y-auto min-h-0 flex-1">
-          {groups.length === 0 && dayTodos.length === 0 && !adding && (
-            <li className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
-              Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
-            </li>
-          )}
-          {groups.map((group) => (
-            <li key={group.key} className="min-w-0">
-              <p className="flex items-center gap-2 mb-1.5">
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: group.color }}
-                />
-                <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface font-semibold truncate">
-                  {group.name}
-                </span>
+      <div
+        ref={listRef}
+        onScroll={updateFade}
+        className="flex-1 min-h-0 overflow-y-auto pb-6 max-lg:pb-4"
+        style={{ maskImage: fade, WebkitMaskImage: fade }}
+      >
+        <div ref={contentRef}>
+          {adding && !isMobile && addForm}
+          {groups.length === 0 && dayTodos.length === 0 && otherTodos.length === 0 ? (
+            !adding && (
+              <p className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
+                Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
               </p>
-              <ul className="flex flex-col gap-1">
-                {group.items.map((item) => {
-                  const { className: dragClass, ...drag } = dragProps(item.id, item.text, group.key === '__other__' ? '' : group.key, item.estMinutes || DEFAULT_TASK_MINUTES, item.done);
-                  return (
-                  <li key={item.id} className={`group flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={item.done}
-                      aria-label={item.done ? `Mark "${item.text}" as not done` : `Mark "${item.text}" as done`}
-                      onClick={() => onToggleTask(item.id, !item.done)}
-                      className={`w-5 h-5 max-lg:w-4 max-lg:h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-px transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                        item.done
-                          ? 'bg-primary border-primary text-on-primary'
-                          : 'border-outline hover:border-primary bg-transparent'
-                      }`}
-                    >
-                      {item.done && (
-                        <span className="material-symbols-outlined text-[11px] max-lg:text-[9px] leading-none">check</span>
-                      )}
-                    </button>
-                    {/* Click / tap the text to rename it or change its estimate. */}
-                    <button
-                      type="button"
-                      disabled={!onEditTask}
-                      onClick={() => openEdit(item.id)}
-                      {...editTouch}
-                      title={onEditTask ? 'Edit task' : undefined}
-                      className={`font-body-md text-body-md max-lg:!text-[10px] min-w-0 flex-1 break-words text-left focus:outline-none focus-visible:underline ${
-                        item.done ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
-                      } ${onEditTask ? 'cursor-pointer hover:underline decoration-outline-variant underline-offset-2' : ''}`}
-                    >
-                      {item.text}
-                    </button>
-                    {scheduled?.[item.id] && <ScheduledChip start={scheduled[item.id]} date={date} />}
-                    {/* Estimate: opens the edit window. Unset, the button only
-                        appears on hover (desktop). */}
-                    {(item.estMinutes || (onEditTask && !isMobile)) && (
-                      <button
-                        type="button"
-                        disabled={!onEditTask}
-                        onClick={() => openEdit(item.id)}
-                        {...editTouch}
-                        aria-label={item.estMinutes ? `Estimate ${formatDuration(item.estMinutes)}, change` : `Add an estimate to "${item.text}"`}
-                        title={item.estMinutes ? 'Estimated time — click to edit' : 'Add an estimate'}
-                        className={`flex items-center gap-0.5 flex-shrink-0 mt-px font-body-sm text-body-sm max-lg:!text-[9px] tabular-nums rounded-full transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                          item.estMinutes
-                            ? item.done ? 'text-on-surface-variant/50' : 'text-on-surface-variant hover:text-on-surface'
-                            : 'text-on-surface-variant/50 hover:text-on-surface lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100'
-                        }`}
-                      >
-                        {item.estMinutes ? (
-                          `~${formatDuration(item.estMinutes)}`
-                        ) : (
-                          <span className="material-symbols-outlined text-[15px] leading-none">timer</span>
-                        )}
-                      </button>
-                    )}
-                    {/* Always visible on touch screens; on desktop it shows on hover. */}
-                    <button
-                      type="button"
-                      onClick={() => onDeleteTask(item.id)}
-                      aria-label={`Delete "${item.text}"`}
-                      title="Delete task"
-                      className="flex-shrink-0 -my-0.5 w-6 h-6 max-lg:w-5 max-lg:h-5 flex items-center justify-center rounded-full text-on-surface-variant/50 hover:text-error lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus:outline-none"
-                    >
-                      <span className="material-symbols-outlined text-[16px] max-lg:text-[13px] leading-none">close</span>
-                    </button>
-                  </li>
-                  );
-                })}
-              </ul>
-            </li>
-          ))}
-          {dayTodos.length > 0 && (
-            <li className="min-w-0">
-              <p className="flex items-center gap-2 mb-1.5">
-                <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
-                  checklist
-                </span>
-                <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface font-semibold truncate">
-                  Todo
-                </span>
-              </p>
-              <ul className="flex flex-col gap-1">
-                {dayTodos.map(todoRow)}
-              </ul>
-            </li>
+            )
+          ) : (
+            <ul className="flex flex-col gap-3 max-lg:gap-3">
+              {groups.length === 0 && dayTodos.length === 0 && !adding && (
+                <li className="font-body-sm text-body-sm max-lg:!text-[9px] text-on-surface-variant">
+                  Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
+                </li>
+              )}
+              {openGroups.map((group) => (
+                <li key={group.key} className="min-w-0">
+                  {groupHeader(
+                    group.key,
+                    group.name,
+                    group.items.length,
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
+                  )}
+                  {!folded.has(group.key) && (
+                    <ul className="flex flex-col gap-1">{group.items.map((item) => taskRow(item, group.key))}</ul>
+                  )}
+                </li>
+              ))}
+              {openDayTodos.length > 0 && (
+                <li className="min-w-0">
+                  {groupHeader(
+                    TODO_GROUP,
+                    'Todo',
+                    openDayTodos.length,
+                    <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
+                      checklist
+                    </span>
+                  )}
+                  {!folded.has(TODO_GROUP) && <ul className="flex flex-col gap-1">{openDayTodos.map((t) => todoRow(t))}</ul>}
+                </li>
+              )}
+              {doneCount > 0 && (
+                <li className="min-w-0 pt-2 border-t border-outline-variant">
+                  <button
+                    type="button"
+                    onClick={() => setShowDone((v) => !v)}
+                    aria-expanded={showDone}
+                    className="flex items-center gap-2 mb-1.5 bg-transparent border-0 p-0 cursor-pointer text-left"
+                  >
+                    <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
+                      {showDone ? 'expand_more' : 'chevron_right'}
+                    </span>
+                    <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
+                      Done · {doneCount}
+                    </span>
+                  </button>
+                  {showDone && (
+                    <ul className="flex flex-col gap-1">
+                      {doneTasks.map(({ task, group }) => taskRow(task, group.key, doneDot(group.color, group.name)))}
+                      {doneTodos.map((t) => todoRow(t, doneDot('var(--color-on-surface-variant)', 'Todo')))}
+                    </ul>
+                  )}
+                </li>
+              )}
+              {otherTodos.length > 0 && (
+                <li className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowOther((v) => !v)}
+                    aria-expanded={showOther}
+                    className="flex items-center gap-2 mb-1.5 bg-transparent border-0 p-0 cursor-pointer text-left"
+                  >
+                    <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
+                      {showOther ? 'expand_more' : 'chevron_right'}
+                    </span>
+                    <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
+                      Other todos · {otherTodos.length}
+                    </span>
+                  </button>
+                  {showOther && <ul className="flex flex-col gap-1">{otherTodos.map((t) => todoRow(t))}</ul>}
+                </li>
+              )}
+            </ul>
           )}
-          {otherTodos.length > 0 && (
-            <li className="min-w-0">
-              <button
-                type="button"
-                onClick={() => setShowOther((v) => !v)}
-                aria-expanded={showOther}
-                className="flex items-center gap-2 mb-1.5 bg-transparent border-0 p-0 cursor-pointer text-left"
-              >
-                <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
-                  {showOther ? 'expand_more' : 'chevron_right'}
-                </span>
-                <span className="font-body-md text-body-md max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
-                  Other todos · {otherTodos.length}
-                </span>
-              </button>
-              {showOther && <ul className="flex flex-col gap-1">{otherTodos.map(todoRow)}</ul>}
-            </li>
-          )}
-        </ul>
-      )}
+        </div>
+      </div>
     </section>
   );
 }
