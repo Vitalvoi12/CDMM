@@ -57,10 +57,18 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
   // mark nothing, so the outline only appears when it picks out a part.
   const outline = fromKey > history.days[7].date;
 
-  // A month's name sits over the week holding its 1st.
-  const months: { label: string; week: number }[] = [];
+  // A month's name sits over the week holding its 1st, except near the end,
+  // where it is right-aligned to the grid's edge. A name takes about 6% of
+  // the grid's width; one that would crowd the previous name is dropped.
+  const labelWeeks = Math.max(2, Math.ceil(weeks * 0.065));
+  const months: { label: string; week: number; end: boolean }[] = [];
   history.days.forEach((d, i) => {
-    if (d.date.endsWith('-01')) months.push({ label: shortDate(d.date).slice(0, 3), week: Math.floor(i / 7) });
+    if (!d.date.endsWith('-01')) return;
+    const week = Math.floor(i / 7);
+    const end = week > weeks - labelWeeks;
+    const prev = months[months.length - 1];
+    if (prev && (end ? weeks - labelWeeks : week) - prev.week < labelWeeks) return;
+    months.push({ label: shortDate(d.date).slice(0, 3), week, end });
   });
 
   return (
@@ -85,14 +93,14 @@ export function ConsistencyCard({ history, stats, period }: ConsistencyCardProps
         />
       </div>
 
-      <div className="grid gap-x-2" style={{ gridTemplateColumns: '1.6rem minmax(0, 1fr)' }}>
+      <div className="grid gap-x-2 gap-y-1.5" style={{ gridTemplateColumns: '1.6rem minmax(0, 1fr)' }}>
         <span />
         <div className="relative h-4">
           {months.map((m) => (
             <span
               key={`${m.label}-${m.week}`}
-              className="absolute top-0 text-caption text-on-surface-variant"
-              style={{ left: `${(m.week / weeks) * 100}%` }}
+              className="absolute top-0 text-caption text-on-surface-variant whitespace-nowrap"
+              style={m.end ? { right: 0 } : { left: `${(m.week / weeks) * 100}%` }}
             >
               {m.label}
             </span>

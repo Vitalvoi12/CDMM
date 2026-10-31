@@ -634,13 +634,18 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
     >
       {/* Without the header, the top padding keeps the 00:00 label (which
           rises above the grid line) inside the page. */}
-      <div className={`flex-1 relative border-l border-outline-variant ml-12 pr-4 lg:pr-6 ${hideHeader ? 'pt-2' : ''}`} style={{ paddingBottom: isMobile ? `${MOBILE_BOTTOM_PAD}px` : `${BOTTOM_PAD}px` }}>
+      <div className={`flex-1 relative border-l border-transparent ml-12 pr-4 lg:pr-6 ${hideHeader ? 'pt-2' : ''}`} style={{ paddingBottom: isMobile ? `${MOBILE_BOTTOM_PAD}px` : `${BOTTOM_PAD}px` }}>
         {!hideHeader && <TimelineColumnLabels mode={mode} />}
         {/* Events/grid container - shared coordinate system.
             The fill anchor sits HERE (not on the wrapper above): avail is
             measured from the grid top, so the Real/Plan header row above
             must not be part of the measured space. */}
         <div ref={gridAnchorRef} className="relative w-full" style={{ height: `${TOTAL_HOURS * HOUR_HEIGHT}px` }}>
+          {/* The column's left edge starts at 00:00, not above the Real | Plan labels. */}
+          <div
+            className="absolute -left-px top-0 border-l border-outline-variant pointer-events-none"
+            style={{ bottom: -(isMobile ? MOBILE_BOTTOM_PAD : BOTTOM_PAD) }}
+          />
           {/* Hour ticks at fixed positions */}
           {hourTicks.map((hour) => (
             <div
@@ -727,7 +732,7 @@ export function Timeline({ events, subjects, date, activeSession, onEventClick, 
 /** The Real | Plan column labels over the grid (one centred label when the
  *  filter shows a single kind). */
 export function TimelineColumnLabels({ mode = 'all' }: { mode?: EventFilter }) {
-  const label = 'font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em] lg:overline';
+  const label = 'font-label-sm text-label-sm max-lg:m-lbl text-on-surface-variant uppercase tracking-[0.16em] lg:eyebrow';
   return (
     <div className={`flex items-center mb-2 pl-4 max-lg:bg-background max-lg:mb-0 max-lg:h-[22px] ${mode !== 'all' ? 'justify-center' : 'justify-between'}`}>
       {mode !== 'all' ? (

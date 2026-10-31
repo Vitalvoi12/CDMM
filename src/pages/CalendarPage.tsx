@@ -1110,7 +1110,7 @@ export function CalendarPage() {
           {dayPanel === 'timeline' ? (
             <div className="relative flex-1 min-h-0 flex flex-col">
             {/* The labels stay put above the scroller while the days turn under them. */}
-            <div className="ml-12 pr-4 border-l border-outline-variant">
+            <div className="ml-12 pr-4 border-l border-transparent">
               <TimelineColumnLabels mode={eventFilter} />
             </div>
             {/* One vertical scroller around all three days, so they scroll

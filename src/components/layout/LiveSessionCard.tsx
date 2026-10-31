@@ -123,7 +123,7 @@ export function LiveSessionCard({ shortcuts = true, variant = 'card', hidden = f
       key={isActive ? 'live' : 'idle'}
       className="rounded-2xl bg-surface-container-lowest text-on-surface border border-outline-variant px-5 py-4 flex flex-col gap-2 animate-fade-in"
     >
-      <span className={isActive ? 'overline text-on-surface-variant' : 'text-caption text-on-surface-variant'}>
+      <span className={isActive ? 'eyebrow text-on-surface-variant' : 'text-caption text-on-surface-variant'}>
         {isActive ? 'Live session' : 'Idle'}
       </span>
 

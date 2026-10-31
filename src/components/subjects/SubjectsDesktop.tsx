@@ -97,7 +97,7 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
           >
             <div className={`grid ${COLUMNS} gap-x-4 items-center px-5 pt-3.5 pb-2.5`}>
               {['Subject', 'This week', 'Last studied', 'Next in plan'].map((h) => (
-                <span key={h} className="overline text-on-surface-variant truncate">
+                <span key={h} className="eyebrow text-on-surface-variant truncate">
                   {h}
                 </span>
               ))}
@@ -129,7 +129,7 @@ export function SubjectsDesktop({ subjects, version, onAdd, onEdit, onDelete }: 
                   >
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                     <span className="text-body font-medium text-on-surface truncate">{s.name}</span>
-                    {live && <span className="overline text-now flex-shrink-0">Live</span>}
+                    {live && <span className="eyebrow text-now flex-shrink-0">Live</span>}
                   </button>
                   <div className="flex flex-col gap-1.5 min-w-0">
                     {goal > 0 && (

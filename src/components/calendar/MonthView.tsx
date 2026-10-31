@@ -129,7 +129,7 @@ export function MonthView({
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto animate-view-enter">
       <div className="grid grid-cols-7 gap-px mb-4 flex-shrink-0 sticky top-0 z-10 bg-background">
         {WEEKDAYS.map((day) => (
-          <div key={day} className="py-2 text-center font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:overline">
+          <div key={day} className="py-2 text-center font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:eyebrow">
             {day}
           </div>
         ))}

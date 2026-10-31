@@ -109,7 +109,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
 
         {stats.bySubject.length > 0 && (
           <div>
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:overline mb-3">
+            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:eyebrow mb-3">
               Lost time by subject
             </p>
             <div className="flex flex-col gap-2">
@@ -150,7 +150,7 @@ export function PlanStabilityPanel({ stats, subjectMap, periodLabel, layout = 's
 
         {stats.top.length > 0 && (
           <div>
-            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:overline mb-3">
+            <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-widest lg:eyebrow mb-3">
               Largest losses
             </p>
             <div className="flex flex-col">

@@ -60,7 +60,7 @@ export function SubjectPanel({ subject, events, now, session, onStartOrFinish, o
       {live ? (
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
-            <span className="overline text-now">Live session</span>
+            <span className="eyebrow text-now">Live session</span>
             {session.startTime && (
               <span className="text-meta text-on-surface-variant tabular-nums">Started {timeFromDate(session.startTime)}</span>
             )}
