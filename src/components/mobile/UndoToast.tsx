@@ -14,7 +14,7 @@ const DECIDE_PX = 8;
 const UNDOABLE = /^(Delete|Complete|Move checklist task) /;
 
 /** "Delete 3 events" → "3 events deleted"; "Complete checklist task" → "Task done"; "Move checklist task to Oct 23" → "Task moved to Oct 23". */
-function message(label: string): string {
+export function message(label: string): string {
   if (label.startsWith('Move checklist task ')) return `Task moved ${label.slice('Move checklist task '.length)}`;
   const [, verb, what] = /^(\w+) (.*)$/.exec(label)!;
   const thing = what.replace(/^task$/, 'todo').replace('checklist task', 'task');

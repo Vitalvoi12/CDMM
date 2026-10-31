@@ -13,6 +13,7 @@ import { matchShortcut } from '../../services/shortcuts';
 import { startEventNotifications } from '../../services/notifications';
 import { BELOW_DOCK_ID, useDockHidden } from '../mobile/belowDock';
 import { UndoToast } from '../mobile/UndoToast';
+import { DesktopUndoToast } from './DesktopUndoToast';
 
 const NAV_ORDER = navItems.map((i) => i.path);
 
@@ -85,7 +86,7 @@ export function AppShell() {
             <Outlet />
           </div>
         </main>
-        {isMobile && <UndoToast />}
+        {isMobile ? <UndoToast /> : <DesktopUndoToast />}
       </div>
       {/* The phone shows the session bar on the calendar's views only (not its
           Check / Notes panels); elsewhere it stays mounted, hidden, for
