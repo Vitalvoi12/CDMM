@@ -10,9 +10,11 @@ interface LogoProps {
   className?: string;
   /** Accessible name; omit when text beside the logo already says CDMM. */
   label?: string;
+  /** The now line drifts up and down (the loading screen). */
+  sweep?: boolean;
 }
 
-function MarkShapes() {
+function MarkShapes({ sweep = false }: { sweep?: boolean }) {
   return (
     <>
       <rect x="25" y="22" width="22" height="16" rx="3.5" fill="var(--logo-done-a)" />
@@ -22,13 +24,15 @@ function MarkShapes() {
       <rect x="53" y="22" width="22" height="18" rx="3.5" fill="var(--logo-a)" />
       <rect x="53" y="43" width="22" height="17" rx="3.5" fill="var(--logo-b)" />
       <rect x="53" y="63" width="22" height="15" rx="3.5" fill="var(--logo-c)" />
-      <line x1="18" y1="59" x2="82" y2="59" stroke="var(--logo-now)" strokeWidth="2.8" strokeLinecap="round" />
-      <circle cx="18" cy="59" r="3.8" fill="var(--logo-now)" />
+      <g className={sweep ? 'logo-sweep' : undefined}>
+        <line x1="18" y1="59" x2="82" y2="59" stroke="var(--logo-now)" strokeWidth="2.8" strokeLinecap="round" />
+        <circle cx="18" cy="59" r="3.8" fill="var(--logo-now)" />
+      </g>
     </>
   );
 }
 
-export function Logo({ variant = 'mark', size = 30, className = '', label }: LogoProps) {
+export function Logo({ variant = 'mark', size = 30, className = '', label, sweep = false }: LogoProps) {
   const tile = variant === 'tile';
   const a11y = label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true };
   return (
@@ -40,8 +44,8 @@ export function Logo({ variant = 'mark', size = 30, className = '', label }: Log
       className={`flex-none ${tile ? 'logo-tile' : ''} ${className}`}
       {...a11y}
     >
-      {tile && <rect width="100" height="100" rx="22" fill="#0B0B0A" />}
-      <MarkShapes />
+      {tile && <rect x="0.5" y="0.5" width="99" height="99" rx="22" fill="#0B0B0A" stroke="#292824" />}
+      <MarkShapes sweep={sweep} />
     </svg>
   );
 }

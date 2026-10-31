@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { AuthPage } from './components/auth/AuthPage';
+import { LoadingScreen } from './components/common/LoadingScreen';
 import { CalendarPage } from './pages/CalendarPage';
 import { StudyPage } from './pages/StudyPage';
 import { TodoPage } from './pages/TodoPage';
@@ -16,11 +17,7 @@ import { useServerSync } from './hooks/useServerSync';
 function Shell() {
   const { ready } = useServerSync();
   if (!ready) {
-    return (
-      <div className="min-h-dvh bg-background flex items-center justify-center">
-        <p className="font-body-lg text-body-lg lg:text-lead text-on-surface-variant">Syncing…</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
   return <AppShell />;
 }
