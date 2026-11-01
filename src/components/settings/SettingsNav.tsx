@@ -9,7 +9,7 @@ const sections: { id: string; label: string; desktopOnly?: boolean }[] = [
   { id: 'shortcuts', label: 'Shortcuts', desktopOnly: true },
   { id: 'account', label: 'Account' },
   { id: 'notifications', label: 'Notifications' },
-  { id: 'devices', label: 'Phone' },
+  { id: 'devices', label: 'Phone & watch' },
 ];
 
 export function SettingsNav({ active, onChange }: SettingsNavProps) {
