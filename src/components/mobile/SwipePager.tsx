@@ -40,6 +40,9 @@ const PROJECT_MS = 250;
 const TURN_FRACTION = 0.12;
 /** A flick at least this fast (px/ms) toward a side turns to it, however short. */
 const FLICK_SPEED = 0.15;
+/** After a touch turn, leftover native momentum is ignored this long: one
+ *  swipe turns at most one page (Android's fling outlives the finish). */
+const AFTER_TURN_MS = 700;
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -121,6 +124,8 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
     let samples: { x: number; t: number }[] = [];
     // A finish in flight; a new touch completes it at once.
     let pending: { anims: Animation[]; commit: () => void } | null = null;
+    // Until then, scrolling without a finger is leftover momentum, not a turn.
+    let quietUntil = 0;
 
     const clearTimer = () => {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
@@ -130,6 +135,10 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
     const settle = () => {
       clearTimer();
       if (touchingRef.current || pending) return;
+      if (performance.now() < quietUntil) {
+        if (Math.abs(pos() - maxPos() / 2) > 1) centre();
+        return;
+      }
       const side = atSide();
       if (side) turn(side);
     };
@@ -160,6 +169,9 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
       // Freeze the native scroll (and its momentum) where it is.
       freeze(true);
       const from = pos();
+      // Pin the position too: Chrome on Android keeps flinging through
+      // overflow: hidden, and a programmatic scroll ends the fling.
+      setPos(from);
       const target = mid + page * w;
       const left = Math.abs(target - from);
       const speed = Math.sign(v) === Math.sign(target - from) ? Math.abs(v) : 0;
@@ -177,6 +189,7 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
         freeze(false);
         setPos(target);
         for (const a of anims) a.cancel();
+        quietUntil = performance.now() + AFTER_TURN_MS;
         if (page) turn(page < 0 ? 'prev' : 'next');
       };
       pending = { anims, commit };
@@ -188,6 +201,11 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
 
     const onScroll = () => {
       if (pending) return;
+      // Momentum left over from the swipe that just turned: back to the middle.
+      if (!touchingRef.current && performance.now() < quietUntil) {
+        if (Math.abs(pos() - maxPos() / 2) > 1) centre();
+        return;
+      }
       if (touchingRef.current) {
         const t = performance.now();
         samples.push({ x: pos(), t });
@@ -201,6 +219,7 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
     };
     const onTouchStart = () => {
       pending?.commit();
+      quietUntil = 0;
       touchingRef.current = true;
       samples = [{ x: pos(), t: performance.now() }];
       clearTimer();
