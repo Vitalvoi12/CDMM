@@ -14,6 +14,8 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.currentState
@@ -34,9 +36,10 @@ import androidx.glance.text.TextStyle
 import ru.vitalvoi.cdmm.MainActivity
 import ru.vitalvoi.cdmm.core.Format
 import ru.vitalvoi.cdmm.core.Glance
+import ru.vitalvoi.cdmm.core.GlanceEvent
 import ru.vitalvoi.cdmm.core.Store
 
-/** "Now" and "Next": the current block or live session and the one after it. */
+/** "Now" and "Next": the current block or live session, then every upcoming event (scrolls). */
 class NowWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
     override val sizeMode = SizeMode.Exact
@@ -81,13 +84,40 @@ private fun NowContent(glance: Glance, signedIn: Boolean) {
             big = true,
         )
         Spacer(GlanceModifier.height(10.dp))
-        Slot(
-            label = "NEXT",
-            title = next?.title ?: "—",
-            detail = next?.let { "${Format.whenLabel(it.start, now)}–${Format.time(it.end)}" } ?: "",
-            color = next?.let { Widgets.color(it.color) },
-            big = false,
+        val upcoming = glance.upcoming(now)
+        Text(
+            if (upcoming.isEmpty()) "NEXT · nothing planned" else "NEXT",
+            style = TextStyle(color = Widgets.muted, fontSize = 10.sp, fontWeight = FontWeight.Medium),
         )
+        if (upcoming.isNotEmpty()) {
+            Spacer(GlanceModifier.height(4.dp))
+            LazyColumn(GlanceModifier.fillMaxSize()) {
+                items(upcoming, itemId = { it.id.hashCode().toLong() }) { NextRow(it, now) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NextRow(e: GlanceEvent, now: Long) {
+    Row(
+        GlanceModifier.fillMaxWidth().padding(vertical = 4.dp).clickable(actionStartActivity<MainActivity>()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(GlanceModifier.width(4.dp).height(30.dp).cornerRadius(2.dp).background(Widgets.color(e.color))) {}
+        Spacer(GlanceModifier.width(10.dp))
+        Column(GlanceModifier.defaultWeight()) {
+            Text(
+                e.title,
+                maxLines = 1,
+                style = TextStyle(color = Widgets.text, fontSize = 14.sp, fontWeight = FontWeight.Medium),
+            )
+            Text(
+                "${Format.whenLabel(e.start, now)}–${Format.time(e.end)}",
+                maxLines = 1,
+                style = TextStyle(color = Widgets.muted, fontSize = 12.sp),
+            )
+        }
     }
 }
 

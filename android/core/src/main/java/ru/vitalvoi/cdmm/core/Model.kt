@@ -68,6 +68,9 @@ data class Glance(
 
     fun next(now: Long): GlanceEvent? = events.filter { it.start > now }.minByOrNull { it.start }
 
+    /** Every event still to start, soonest first (the snapshot covers ~3 days ahead). */
+    fun upcoming(now: Long): List<GlanceEvent> = events.filter { it.start > now }.sortedBy { it.start }
+
     /** Start or end of any event after `now`: the widget must redraw then. */
     fun nextBoundary(now: Long): Long? =
         events.flatMap { listOf(it.start, it.end) }.filter { it > now }.minOrNull()
