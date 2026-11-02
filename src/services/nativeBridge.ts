@@ -47,5 +47,5 @@ export function nativeDataChanged(): void {
     } catch {
       // ignore
     }
-  }, 1500);
+  }, 300);
 }

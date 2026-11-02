@@ -7,7 +7,7 @@ import {
 } from './repositories';
 import type { CalendarEvent, Subject, TodoTask, UserSettings, EventTimeEdit, DayNote, DayTaskList } from '../types';
 import { getToken, getCursor, setCursor, apiFetch } from './auth';
-import { nativeDataChanged } from './nativeBridge';
+import { isAndroidApp, nativeDataChanged } from './nativeBridge';
 
 export interface ServerChange {
   entity: string;
@@ -54,7 +54,33 @@ export function notifySync(): void {
 // Local writes fan out to the same subscribers immediately: a todo toggled,
 // deleted or re-dated on the Todo page must move the sidebar dot at once,
 // not on the next background pull.
-subscribeRepoChanges(() => notifySync());
+subscribeRepoChanges(() => {
+  notifySync();
+  pushSoon();
+});
+
+// Inside the Android app the home-screen widgets and alarms read the server
+// copy, so a local edit must reach the server at once, not on the next 90s
+// tick. Leaving the app (home button to look at the widget) flushes too.
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function pushSoon(): void {
+  if (!isAndroidApp() || !getToken()) return;
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = setTimeout(flushPush, 800);
+}
+
+function flushPush(): void {
+  if (pushTimer) clearTimeout(pushTimer);
+  pushTimer = null;
+  void syncOnce().catch(() => undefined);
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && pushTimer) flushPush();
+  });
+}
 
 function hasLocalData(): boolean {
   return (
