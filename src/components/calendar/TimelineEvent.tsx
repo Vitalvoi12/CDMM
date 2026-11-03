@@ -128,7 +128,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
         </span>
         {layout.showTime && (
           <span
-            className="font-body-sm text-body-sm lg:text-caption max-lg:!text-[11px] max-lg:!leading-[14px] text-on-surface-variant tabular-nums truncate max-w-full mt-0.5"
+            className="font-body-sm text-body-sm lg:text-caption !font-normal max-lg:!text-[11px] max-lg:!leading-[14px] text-on-surface-variant tabular-nums truncate max-w-full mt-0.5"
             style={fgStyle}
           >
             {timeRange}

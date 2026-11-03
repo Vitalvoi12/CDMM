@@ -688,7 +688,7 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                       </span>
                       {layout.showTime && (
                         <span
-                          className="font-body-sm text-body-sm lg:text-caption max-lg:!text-[9px] max-lg:!leading-[12px] text-on-surface-variant block truncate"
+                          className="font-body-sm text-body-sm lg:text-caption !font-normal max-lg:!text-[9px] max-lg:!leading-[12px] text-on-surface-variant block truncate"
                           style={planFg}
                         >
                           {timeFromDate(liveStart)} - {timeFromDate(liveEnd)}
