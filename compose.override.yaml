@@ -1,0 +1,6 @@
+# Local override for this host: ports 80/443 are taken by nginx/xray,
+# so Caddy is not started; cdmm is published directly on 5173.
+services:
+  cdmm:
+    ports:
+      - "5173:5173"

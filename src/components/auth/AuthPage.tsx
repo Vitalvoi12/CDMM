@@ -42,7 +42,7 @@ export function AuthPage({ onDone }: AuthPageProps) {
     <div className="min-h-dvh bg-background text-on-background flex">
       {/* Brand side (desktop): what the app is, drawn in its own language. */}
       <section
-        className="max-lg:hidden flex-[1_1_560px] min-w-0 px-[3.6rem] py-12 grid grid-rows-[1fr_auto_1fr] gap-[2.4rem] bg-surface-dim border-r border-outline-variant"
+        className="max-lg:hidden flex-[1_1_560px] min-w-0 overflow-hidden px-[3.6rem] py-12 grid grid-rows-[1fr_auto_1fr] gap-[2.4rem] bg-surface-dim border-r border-outline-variant"
         style={{ '--u': BRAND_UNIT } as React.CSSProperties}
       >
         {/* Equal 1fr rows above and below keep the pitch centred on the full height. */}
@@ -50,9 +50,11 @@ export function AuthPage({ onDone }: AuthPageProps) {
           <Logo size={40} />
           <span className="font-display text-[26px] leading-[32px] font-bold tracking-[-0.025em] text-on-surface">CDMM</span>
         </span>
-        {/* Pitch on the left, picture on the right. */}
-        <div className="flex items-center" style={{ gap: u(48) }}>
-          <div className="min-w-0 flex flex-col" style={{ gap: u(28.8), maxWidth: u(480) }}>
+        {/* Pitch on the left, picture on the right; the picture drops below the
+            pitch when the column is too narrow for both, so it never spills
+            past the divider onto the form. */}
+        <div className="min-w-0 flex flex-wrap items-center" style={{ gap: u(48) }}>
+          <div className="min-w-0 flex flex-col" style={{ gap: u(28.8), flex: `1 1 ${u(300)}`, maxWidth: u(480) }}>
             <h1
               className="m-0 font-display font-bold tracking-[-0.03em] text-on-surface"
               style={{ fontSize: u(44), lineHeight: u(48) }}
@@ -178,7 +180,7 @@ function DayPreview() {
     <div
       role="img"
       aria-label="A day: logged study blocks up to now on the left, planned blocks on the right"
-      className="relative shrink-0 border border-outline-variant bg-surface-container-lowest"
+      className="relative shrink-0 max-w-full overflow-hidden border border-outline-variant bg-surface-container-lowest"
       style={{ width: u(416), height: u(208), borderRadius: u(16), padding: `${u(16)} ${u(19.2)} ${u(16)} ${u(51.2)}` }}
     >
       {TICKS.map((t, i) => (
