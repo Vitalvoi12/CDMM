@@ -643,7 +643,11 @@ export function MultiDayView({ date, days, events, subjects, onEventClick, onEve
                   <Fragment key={ev.id}>
                   <div
                     data-event-id={ev.id}
-                    className={`absolute overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:pan-y] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
+                    tabIndex={isMobile ? undefined : 0}
+                    role="button"
+                    aria-label={`${subject?.name || ev.title}, ${timeFromDate(ev.start)} - ${timeFromDate(ev.end)}`}
+
+                    className={`calendar-event-in absolute overflow-hidden cursor-pointer hover:brightness-125 transition-[filter] group focus-visible:!outline-2 focus-visible:!outline-primary focus-visible:z-20 ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20 max-lg:[touch-action:pan-y] max-lg:select-none ${lane ? 'w-auto' : 'left-0 right-[6px]'}`}
                     style={{
                       top: `${visualTop}px`,
                       height: `${visualHeight}px`,

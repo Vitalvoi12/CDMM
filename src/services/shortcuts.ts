@@ -12,6 +12,26 @@ import { useSyncExternalStore } from 'react';
 export type ShortcutGroup = 'global' | 'calendar' | 'todo' | 'builtin';
 
 export type ShortcutId =
+  | 'shortcut-help'
+  | 'search'
+  | 'go-date'
+  | 'go-settings'
+  | 'go-today'
+  | 'toggle-note'
+  | 'previous-day'
+  | 'next-day'
+  | 'previous-week'
+  | 'next-week'
+  | 'context-edit'
+  | 'context-delete'
+  | 'context-duplicate'
+  | 'context-complete'
+  | 'context-navigation'
+  | 'event-move'
+  | 'event-day'
+  | 'event-resize'
+  | 'context-plan'
+  | 'form-save'
   | 'go-calendar'
   | 'go-todo'
   | 'go-stats'
@@ -58,19 +78,29 @@ export interface ShortcutDef {
 }
 
 export const SHORTCUTS: ShortcutDef[] = [
+  { id: 'shortcut-help', group: 'global', label: 'Show keyboard shortcuts', defaults: [['Shift', 'Slash']], does: 'opens shortcut help', short: 'shortcut help' },
+  { id: 'search', group: 'global', label: 'Search CDMM', defaults: [['Slash']], does: 'opens search', short: 'search' },
+  { id: 'go-date', group: 'global', label: 'Go to a date', defaults: [['KeyG']], does: 'opens the date picker', short: 'date picker' },
+  { id: 'go-settings', group: 'global', label: 'Open Settings', defaults: [['Comma']], does: 'opens Settings', short: 'Settings' },
   { id: 'go-calendar', group: 'global', label: 'Open Calendar', defaults: [['KeyC']], does: 'opens Calendar', short: 'Calendar' },
   { id: 'go-todo', group: 'global', label: 'Open Todo', defaults: [['KeyT']], does: 'opens Todo', short: 'Todo' },
   { id: 'go-stats', group: 'global', label: 'Open Statistics', defaults: [['KeyS']], does: 'opens Statistics', short: 'Statistics' },
-  { id: 'go-subjects', group: 'global', label: 'Open Subjects', defaults: [], does: 'opens Subjects', short: 'Subjects' },
+  { id: 'go-subjects', group: 'global', label: 'Open Subjects', defaults: [['KeyU']], does: 'opens Subjects', short: 'Subjects' },
   { id: 'session', group: 'global', label: 'Start a session, or finish the running one', defaults: [['KeyF']], does: 'starts or finishes a session', short: 'starting a session' },
   { id: 'session-start', group: 'global', label: 'Change when the running session started', defaults: [['KeyB']], does: 'changes when the session started', short: 'the session start' },
 
+  { id: 'go-today', group: 'calendar', label: 'Go to today', defaults: [['Home']], does: 'goes to today', short: 'Today' },
+  { id: 'toggle-note', group: 'calendar', label: 'Expand or collapse Notes', defaults: [['Shift', 'KeyI']], does: 'toggles Notes', short: 'Notes' },
+  { id: 'previous-day', group: 'calendar', label: 'Previous day', defaults: [['Shift', 'ArrowLeft']], does: 'goes to the previous day', short: 'previous day' },
+  { id: 'next-day', group: 'calendar', label: 'Next day', defaults: [['Shift', 'ArrowRight']], does: 'goes to the next day', short: 'next day' },
+  { id: 'previous-week', group: 'calendar', label: 'Previous week', defaults: [['BracketLeft']], does: 'goes to the previous week', short: 'previous week' },
+  { id: 'next-week', group: 'calendar', label: 'Next week', defaults: [['BracketRight']], does: 'goes to the next week', short: 'next week' },
   { id: 'period', group: 'calendar', label: 'Previous / next period', defaults: [['ArrowLeft'], ['ArrowRight']], fixed: true, pair: true },
   { id: 'view-day', group: 'calendar', label: 'Day view', defaults: [['KeyD']], does: 'opens the day view', short: 'Day view' },
   { id: 'view-3day', group: 'calendar', label: '3-day view', defaults: [['Digit3']], does: 'opens the 3-day view', short: '3-day view' },
   { id: 'view-week', group: 'calendar', label: 'Week view', defaults: [['KeyW']], does: 'opens the week view', short: 'Week view' },
   { id: 'view-month', group: 'calendar', label: 'Month view', defaults: [['KeyM']], does: 'opens the month view', short: 'Month view' },
-  { id: 'view-year', group: 'calendar', label: 'Year view', defaults: [], does: 'opens the year view', short: 'Year view' },
+  { id: 'view-year', group: 'calendar', label: 'Year view', defaults: [['KeyY']], does: 'opens the year view', short: 'Year view' },
   { id: 'filter-real', group: 'calendar', label: 'Show real sessions only', defaults: [['KeyR']], does: 'shows real sessions only', short: 'the Real filter' },
   { id: 'filter-plan', group: 'calendar', label: 'Show planned events only', defaults: [['KeyP']], does: 'shows planned events only', short: 'the Plan filter' },
   { id: 'filter-all', group: 'calendar', label: 'Show real and plan together', defaults: [['KeyA']], does: 'shows real and plan together', short: 'the All filter' },
@@ -80,6 +110,16 @@ export const SHORTCUTS: ShortcutDef[] = [
 
   { id: 'todo-new', group: 'todo', label: 'New task', defaults: [['KeyN'], ['KeyA']], does: 'creates a task', short: 'New task' },
 
+  { id: 'context-navigation', group: 'builtin', label: 'Next / previous task or event', defaults: [['KeyJ'], ['KeyK']], fixed: true, pair: true, hint: 'While a checklist row or timeline event has keyboard focus. Tab enters or leaves the list.' },
+  { id: 'context-edit', group: 'builtin', label: 'Edit focused task or event', defaults: [['Enter'], ['KeyE']], fixed: true },
+  { id: 'context-delete', group: 'builtin', label: 'Delete focused task or event', defaults: [['Delete']], fixed: true },
+  { id: 'context-duplicate', group: 'builtin', label: 'Duplicate focused task or event', defaults: [['Shift', 'KeyD']], fixed: true },
+  { id: 'context-plan', group: 'builtin', label: 'Plan focused checklist task and edit its event', defaults: [['Shift', 'KeyP']], fixed: true },
+  { id: 'context-complete', group: 'builtin', label: 'Complete / reopen focused checklist task', defaults: [['Space']], fixed: true },
+  { id: 'event-move', group: 'builtin', label: 'Move focused event by 5 minutes', defaults: [['Shift', 'KeyJ'], ['Shift', 'KeyK']], fixed: true, pair: true, hint: 'J moves later; K moves earlier.' },
+  { id: 'event-day', group: 'builtin', label: 'Move focused event to previous / next day', defaults: [['Shift', 'KeyH'], ['Shift', 'KeyL']], fixed: true, pair: true },
+  { id: 'event-resize', group: 'builtin', label: 'Increase / decrease focused event duration by 5 minutes', defaults: [['Equal'], ['Minus']], fixed: true, pair: true },
+  { id: 'form-save', group: 'builtin', label: 'Save an event or task form; leave Notes', defaults: [['Ctrl', 'Enter']], fixed: true },
   { id: 'undo', group: 'builtin', label: 'Undo', defaults: [['Ctrl', 'KeyZ']], fixed: true },
   { id: 'redo', group: 'builtin', label: 'Redo', defaults: [['Ctrl', 'Shift', 'KeyZ'], ['Ctrl', 'KeyY']], fixed: true },
   { id: 'escape', group: 'builtin', label: 'Close the window or editor', defaults: [['Escape']], fixed: true },
@@ -166,7 +206,7 @@ export function setKeyHints(on: boolean): void {
 
 /** Default keys of an editable shortcut, as plain codes. */
 function defaultCodes(id: ShortcutId): string[] {
-  return shortcutDef(id).defaults.map((c) => c[c.length - 1]);
+  return shortcutDef(id).defaults.map((c) => c.join('+'));
 }
 
 /** Keys (codes) that trigger the shortcut on this device. */
@@ -227,7 +267,7 @@ export function replaceShortcutKey(id: ShortcutId, code: string, from: ShortcutI
 
 /** Keys a shortcut can be set to: letters, digits and punctuation. */
 export function isAssignableCode(code: string): boolean {
-  return /^(Key[A-Z]|Digit[0-9]|Minus|Equal|BracketLeft|BracketRight|Semicolon|Quote|Comma|Period|Slash|Backslash|Backquote)$/.test(code);
+  return /^(Key[A-Z]|Digit[0-9]|Minus|Equal|BracketLeft|BracketRight|Semicolon|Quote|Comma|Period|Slash|Backslash|Backquote|Home|ArrowLeft|ArrowRight)$/.test(code);
 }
 
 // ---- Matching --------------------------------------------------------------
@@ -244,6 +284,15 @@ function eventCode(e: KeyboardEvent): string {
   return e.code;
 }
 
+/** Stored representation of a single key or a Shift combination. */
+export function shortcutCode(e: Pick<KeyboardEvent, 'code' | 'key' | 'shiftKey'>): string {
+  return `${e.shiftKey ? 'Shift+' : ''}${eventCode(e as KeyboardEvent)}`;
+}
+
+export function isTypingTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && !!target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
+}
+
 /** Whether single-key shortcuts (letters, digits, arrows) are on. */
 export function singleKeysOn(): boolean {
   return settings.singleKey;
@@ -251,11 +300,12 @@ export function singleKeysOn(): boolean {
 
 /**
  * Whether the key press triggers the shortcut. Only single keys: a press
- * with Ctrl, Cmd or Alt never matches (Shift is ignored, as before).
+ * with Ctrl, Cmd or Alt never matches. Shift is part of the combination.
  */
 export function matchShortcut(e: KeyboardEvent, id: ShortcutId): boolean {
   if (e.ctrlKey || e.metaKey || e.altKey || !settings.singleKey) return false;
-  return shortcutKeys(id).includes(eventCode(e));
+  if (e.isComposing || e.defaultPrevented) return false;
+  return shortcutKeys(id).includes(shortcutCode(e));
 }
 
 // ---- Labels ----------------------------------------------------------------
@@ -283,6 +333,8 @@ const NAMES: Record<string, string> = {
 
 /** "KeyT" → "T", "Digit3" → "3", "Ctrl" → "⌘" on macOS. */
 export function keyLabel(code: string): string {
+  if (code.includes('+')) return code.split('+').map(keyLabel).join(' + ');
+  if (code === 'Space') return 'Space';
   if (code === 'Ctrl') return IS_MAC ? '⌘' : 'Ctrl';
   if (code === 'Shift') return IS_MAC ? '⇧' : 'Shift';
   if (/^Key[A-Z]$/.test(code)) return code.slice(3);

@@ -11,7 +11,7 @@ const SLIDE_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
  * or `.m-sheet-in`) slides off the bottom from wherever the finger left it
  * while the scrim fades; other panels fade out, easing down a little. The owner unmounts the sheet at once, so on unmount a static copy of
  * the overlay is left on body, fades out with its panel easing down a little,
- * then the copy is removed. Desktop dialogs keep closing instantly.
+ * then the copy is removed. Desktop dialogs use a shorter fade and a 1% scale change.
  */
 export function useSheetExit(rootRef: RefObject<HTMLElement | null>, panelRef: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
@@ -20,7 +20,8 @@ export function useSheetExit(rootRef: RefObject<HTMLElement | null>, panelRef: R
     const panel = panelRef.current;
     if (!root || !panel) return;
     return () => {
-      if (!root.isConnected || !window.matchMedia('(max-width: 1023px)').matches) return;
+      if (!root.isConnected) return;
+      const mobile = window.matchMedia('(max-width: 1023px)').matches;
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
       // Path from root to panel, to find the panel inside the copy.
@@ -37,6 +38,8 @@ export function useSheetExit(rootRef: RefObject<HTMLElement | null>, panelRef: R
       ghost.classList.add('sheet-ghost');
       ghost.setAttribute('aria-hidden', 'true');
       ghost.removeAttribute('id');
+      ghost.inert = true;
+      for (const node of ghost.querySelectorAll('[id]')) node.removeAttribute('id');
       document.body.appendChild(ghost);
       let ghostPanel: Element = ghost;
       for (const i of path) ghostPanel = ghostPanel.children[i];
@@ -44,6 +47,19 @@ export function useSheetExit(rootRef: RefObject<HTMLElement | null>, panelRef: R
       gp.scrollTop = scrollTop;
 
       const from = fromTransform === 'none' ? 'none' : fromTransform;
+      if (!mobile) {
+        // Preserve a dialog's current size if it closes during a results resize.
+        gp.style.height = `${panel.offsetHeight}px`;
+        gp.style.overflow = 'hidden';
+        gp.scrollTop = scrollTop;
+        const opts = { duration: 150, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' as const };
+        gp.animate([{ transform: from, opacity: getComputedStyle(panel).opacity }, { transform: 'scale(0.99) translateY(3px)', opacity: 0 }], opts);
+        const fade = ghost.animate([{ backgroundColor: getComputedStyle(root).backgroundColor }, { backgroundColor: 'transparent' }], opts);
+        const remove = () => ghost.remove();
+        fade.onfinish = remove;
+        setTimeout(remove, 350);
+        return;
+      }
       if (panel.classList.contains('m-sheet') || panel.classList.contains('m-sheet-in')) {
         const opts = { duration: SLIDE_MS, easing: SLIDE_EASE, fill: 'forwards' as const };
         gp.style.transition = 'none';

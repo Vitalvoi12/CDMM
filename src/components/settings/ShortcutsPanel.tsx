@@ -16,6 +16,7 @@ import {
   setShortcutKeys,
   setSingleKeyShortcuts,
   shortcutKeys,
+  shortcutCode,
   useShortcutSettings,
   type Combo,
   type ShortcutDef,
@@ -82,7 +83,7 @@ export function ShortcutsPanel() {
         setRecording(null);
         return;
       }
-      if (isAssignableCode(e.code)) assign(recording, e.code);
+      if (isAssignableCode(e.code) && (!e.code.startsWith('Arrow') || e.shiftKey)) assign(recording, shortcutCode(e));
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
@@ -186,7 +187,7 @@ interface ShortcutRowProps {
 
 function ShortcutRow({ def, first, keys, changed, recording, pending, onRecord, onStopRecording, onReset, onReplace, onCancelConflict }: ShortcutRowProps) {
   const keyText = keys.map(keyLabel).join(' or ');
-  const defaultText = def.defaults.map((c) => keyLabel(c[c.length - 1])).join(' or ') || 'no key';
+  const defaultText = def.defaults.map((c) => c.map(keyLabel).join(' + ')).join(' or ') || 'no key';
   const other = pending?.other;
   const otherLeft = other ? shortcutKeys(other.id).filter((c) => c !== pending.code) : [];
   const group = other && GROUPS.find((g) => g.id === other.group);

@@ -233,6 +233,7 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
   // Escape is handled centrally by the overlay stack, so this only has Enter
   // and Delete. See services/overlays.ts.
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing || e.altKey) return;
     if (e.key === 'Enter' && (!(e.target instanceof HTMLTextAreaElement) || e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       e.stopPropagation();
@@ -437,6 +438,9 @@ export function EventForm({ event, defaultSubjectId, defaultDate, defaultEnd, de
     <div ref={overlayRef} className="overlay-root z-[100] flex items-center justify-center max-lg:items-end max-lg:!p-0 max-lg:pt-6 bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <div
         ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={event ? 'Edit event' : 'New event'}
         tabIndex={-1}
         className="bg-surface-container-lowest rounded-2xl p-6 max-lg:!px-4 max-lg:!pt-4 max-lg:pb-[calc(20px+env(safe-area-inset-bottom,0px)/var(--app-zoom))] max-lg:rounded-b-none max-lg:max-w-none max-lg:max-h-[calc(100%-24px)] max-lg:border-t max-lg:border-outline-variant shadow-elev-3 w-full max-w-lg max-h-full overflow-y-auto focus:outline-none animate-pop-in m-sheet-in"
         onClick={(e) => e.stopPropagation()}

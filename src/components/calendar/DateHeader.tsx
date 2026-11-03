@@ -55,7 +55,7 @@ export function DateHeader({ currentDate, onPrev, onNext, onToday, view, center,
           <span className="material-symbols-outlined text-[16px] max-lg:text-[14px]">chevron_left</span>
         </button>
         <h1 className="font-headline-md text-headline-md max-lg:!text-[14px] max-lg:leading-tight text-on-surface tracking-tight truncate lg:text-heading">
-          {getViewTitle()}
+          <span key={`${view}:${currentDate.toDateString()}`} className="desktop-date-in block truncate">{getViewTitle()}</span>
         </h1>
         <button
           onClick={onNext}

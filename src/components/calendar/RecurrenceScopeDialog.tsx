@@ -1,3 +1,4 @@
+import { useSheetExit } from '../../hooks/useSheetExit';
 import { useEffect, useRef } from 'react';
 import { useEscapeOverlay } from '../../services/overlays';
 
@@ -15,6 +16,8 @@ interface RecurrenceScopeDialogProps {
 
 export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick, onCancel }: RecurrenceScopeDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useSheetExit(overlayRef, dialogRef);
 
   useEscapeOverlay(onCancel);
 
@@ -23,7 +26,7 @@ export function RecurrenceScopeDialog({ mode, totalCount, followingCount, onPick
   }, []);
 
   return (
-    <div className="overlay-root z-[110] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
+    <div ref={overlayRef} className="overlay-root z-[110] flex items-center justify-center bg-scrim p-4 animate-fade-in" onClick={onCancel}>
       <div
         ref={dialogRef}
         tabIndex={-1}

@@ -84,12 +84,12 @@ export function FocusTimeChart({
       }
     >
       {/* Right gutter holds the average's label, so it never covers a bar. */}
-      <div className="grid gap-x-2" style={{ gridTemplateColumns: '2.4rem minmax(0, 1fr) 2.8rem' }}>
-        <div className="relative h-[11rem]">
+      <div className="grid gap-x-2" style={{ gridTemplateColumns: '3.2rem minmax(0, 1fr) 3.2rem' }}>
+        <div className="statistics-chart-plot relative h-[11rem]">
           {ticks.map((t) => (
             <span
               key={t}
-              className="absolute right-0 translate-y-1/2 text-caption text-on-surface-variant tabular-nums"
+              className="absolute right-0 translate-y-1/2 whitespace-nowrap text-caption text-on-surface-variant tabular-nums"
               style={{ bottom: `${(t / top) * 100}%` }}
             >
               {t === 0 ? '0' : formatDuration(t)}
@@ -100,7 +100,7 @@ export function FocusTimeChart({
         <div
           role="img"
           aria-label={`Focus time ${SIZE_LABEL[size]}: ${buckets.map((b) => `${b.label} ${formatDuration(b.minutes)}`).join(', ')}`}
-          className="relative h-[11rem]"
+          className="statistics-chart-plot relative h-[11rem]"
         >
           {ticks.map((t) => (
             <div
@@ -148,7 +148,7 @@ export function FocusTimeChart({
             })}
           </div>
         </div>
-        <div className="relative h-[11rem]">
+        <div className="statistics-chart-plot relative h-[11rem]">
           {avgPos > 0 && (
             <span
               className="absolute left-0 translate-y-1/2 flex flex-col text-caption leading-tight text-on-surface-variant tabular-nums whitespace-nowrap"

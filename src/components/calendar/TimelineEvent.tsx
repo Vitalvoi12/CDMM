@@ -77,7 +77,7 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
   const shellStyle: React.CSSProperties = { ...baseStyle, ...laneStyle };
 
   const shellBase =
-    'absolute overflow-hidden cursor-pointer max-lg:[touch-action:pan-x_pan-y] max-lg:select-none group ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20';
+    'calendar-event-in absolute overflow-hidden cursor-pointer max-lg:[touch-action:pan-x_pan-y] max-lg:select-none group focus-visible:!outline-2 focus-visible:!outline-primary focus-visible:z-20 ring-1 ring-inset ring-black/30 outline outline-1 outline-white/20';
   const shellClass = lane
     ? `${shellBase} w-auto`
     : `${shellBase} right-[6px] w-[calc(100%-1.25rem)] lg:w-[calc(100%-2.25rem)] ml-auto`;
@@ -102,6 +102,10 @@ export function TimelineEvent({ event, top, height, subject, onClick, onTouchSta
       className={shellClass}
       style={shellStyle}
       data-event-id={event.id}
+      tabIndex={isMobile ? undefined : 0}
+      role="button"
+      aria-label={`${displayName}, ${timeRange}`}
+
       title={statsTitle}
       onClick={onClick}
       onTouchStart={onTouchStart}

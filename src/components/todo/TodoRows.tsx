@@ -1,3 +1,5 @@
+import { singleKeysOn } from '../../services/shortcuts';
+import { focusSibling } from '../../services/keyboardFocus';
 import type { TodoTask } from '../../types';
 import { dateKey, formatDuration } from '../../utils/time';
 import { TodoCheckbox } from './TodoCheckbox';
@@ -154,12 +156,18 @@ export function CompactTodoRow({
   return (
     <div
       role="button"
+      data-todo-task={task.id}
       tabIndex={0}
       onClick={() => onOpen(task)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen(task);
+        if (e.target !== e.currentTarget || e.nativeEvent.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+        if (e.key === 'Enter' || (singleKeysOn() && e.code === 'KeyE')) {
+          e.preventDefault(); e.stopPropagation(); onOpen(task);
+        } else if (singleKeysOn() && e.key === ' ') {
+          e.preventDefault(); e.stopPropagation();
+          if (!e.repeat) { focusSibling(e.currentTarget, '[data-todo-task]', 1, e.currentTarget.parentElement ?? document); onToggle(task.id, !task.completed); }
+        } else if (singleKeysOn() && (e.code === 'KeyJ' || e.code === 'KeyK')) {
+          e.preventDefault(); e.stopPropagation(); focusSibling(e.currentTarget, '[data-todo-task]', e.code === 'KeyJ' ? 1 : -1, e.currentTarget.parentElement ?? document);
         }
       }}
       className={`flex items-center gap-3 min-w-0 border border-outline-variant rounded-xl px-4 py-3 transition-colors hover:border-outline cursor-pointer no-press focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
@@ -196,12 +204,18 @@ export function FullTodoRow({
   return (
     <div
       role="button"
+      data-todo-task={task.id}
       tabIndex={0}
       onClick={() => onOpen(task)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen(task);
+        if (e.target !== e.currentTarget || e.nativeEvent.isComposing || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+        if (e.key === 'Enter' || (singleKeysOn() && e.code === 'KeyE')) {
+          e.preventDefault(); e.stopPropagation(); onOpen(task);
+        } else if (singleKeysOn() && e.key === ' ') {
+          e.preventDefault(); e.stopPropagation();
+          if (!e.repeat) { focusSibling(e.currentTarget, '[data-todo-task]', 1, e.currentTarget.parentElement ?? document); onToggle(task.id, !task.completed); }
+        } else if (singleKeysOn() && (e.code === 'KeyJ' || e.code === 'KeyK')) {
+          e.preventDefault(); e.stopPropagation(); focusSibling(e.currentTarget, '[data-todo-task]', e.code === 'KeyJ' ? 1 : -1, e.currentTarget.parentElement ?? document);
         }
       }}
       className={`flex items-start gap-3 py-3 border-b border-outline-variant last:border-b-0 cursor-pointer no-press rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${task.completed ? 'opacity-60' : ''}`}

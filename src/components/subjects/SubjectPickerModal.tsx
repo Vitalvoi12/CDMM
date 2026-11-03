@@ -1,3 +1,4 @@
+import { useSheetExit } from '../../hooks/useSheetExit';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Subject } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
@@ -135,6 +136,8 @@ function MobileSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModal
 
 function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useSheetExit(overlayRef, dialogRef);
   const listRef = useRef<HTMLDivElement>(null);
   // Custom mode swaps the list for a title field and color swatches.
   const [custom, setCustom] = useState(false);
@@ -164,7 +167,7 @@ function DesktopSubjectPicker({ subjects, onSelect, onClose }: SubjectPickerModa
   };
 
   return (
-    <div className="overlay-root z-[100] flex items-center justify-center bg-scrim animate-fade-in" onClick={onClose}>
+    <div ref={overlayRef} className="overlay-root z-[100] flex items-center justify-center bg-scrim animate-fade-in" onClick={onClose}>
       <div
         ref={dialogRef}
         tabIndex={-1}

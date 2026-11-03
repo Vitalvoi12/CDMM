@@ -1,9 +1,11 @@
+import { singleKeysOn, isTypingTarget } from '../../services/shortcuts';
+import { focusSibling } from '../../services/keyboardFocus';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import type { DayTask, Subject, TodoTask } from '../../types';
 import { formatDuration, isSameDay } from '../../utils/time';
 import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
-import { useEscapeOverlay } from '../../services/overlays';
+import { useEscapeOverlay, hasOpenOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { beginTaskDrag, endTaskDrag, DEFAULT_TASK_MINUTES } from '../../services/taskDrag';
 import { EST_PRESETS, parseEstimate, stepEstimate } from '../../utils/estimate';
@@ -21,6 +23,8 @@ interface SubjectTasksPanelProps {
   /** Rename / re-subject / re-estimate a task; `estMinutes: undefined` clears it. */
   onEditTask?: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
   onDeleteTask: (id: string) => void;
+  /** Create a planned block and open its editor. */
+  onPlanTask?: (task: DayTask) => void;
   /** Postpone a task to another day ("YYYY-MM-DD"). */
   onMoveTask?: (id: string, to: string) => void;
   /**
@@ -119,7 +123,7 @@ const TODO_GROUP = '__todo__';
  * (color dot + name), each with a checkbox. A day needs no event of a subject
  * to hold tasks for it.
  */
-export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, todos = [], onToggleTodo, scheduled, onEditTask, onMoveTask }: SubjectTasksPanelProps) {
+export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, todos = [], onToggleTodo, scheduled, onEditTask, onMoveTask, onPlanTask }: SubjectTasksPanelProps) {
   const groups = useMemo<Group[]>(() => {
     const subjectMap = new Map(subjects.map((s) => [s.id, s]));
     const byKey = new Map<string, Group>();
@@ -216,8 +220,8 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   // "No subject" first, then subjects in Subjects-page order.
   const subjectChoices = [{ id: '', name: 'No subject', color: '' }, ...subjects];
 
-  // Keyboard subject choice while typing: ↓ / Tab step to the next chip,
-  // ↑ / Shift+Tab to the previous one. (Alt+digit was tried first, but
+  // Keyboard subject choice while typing: ↓ / ↑ step between subjects.
+  // Tab stays available to reach the custom estimate field. (Alt+digit was tried first, but
   // browsers on Linux/Windows switch tabs on it before the page sees it.)
   // Shift+← / Shift+→ step the estimate: plain arrows must keep moving the
   // caret, and Alt/Ctrl+arrows belong to the browser and word jumps.
@@ -230,8 +234,8 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
       return;
     }
     const step =
-      e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey) ? 1
-      : e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey) ? -1
+      e.key === 'ArrowDown' ? 1
+      : e.key === 'ArrowUp' ? -1
       : 0;
     if (!step) return;
     e.preventDefault();
@@ -242,7 +246,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
 
   const submit = () => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || estInvalid) return;
     onAddTask(trimmed, subjectId, est);
     saveLastSubject(subjectId);
     // Stay open for the next one.
@@ -402,7 +406,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   const taskRow = (item: DayTask, groupKey: string, dot?: React.ReactNode) => {
     const { className: dragClass, ...drag } = dragProps(item.id, item.text, groupKey === '__other__' ? '' : groupKey, item.estMinutes || DEFAULT_TASK_MINUTES, item.done);
     return (
-      <li key={item.id} className={`group flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
+      <li key={item.id} data-checklist-task={item.id} tabIndex={isMobile ? undefined : 0} aria-label={item.text} className={`group focus-visible:outline-2 focus-visible:outline-primary rounded-lg flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
         <button
           type="button"
           role="checkbox"
@@ -474,6 +478,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   const addForm = (
         <form
           className={`flex flex-col animate-fade-in ${isMobile ? 'gap-3' : 'gap-2 mb-4'}`}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.requestSubmit(); }
+          }}
           onSubmit={(e) => {
             e.preventDefault();
             submit();
@@ -497,7 +504,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             />
             <button
               type="submit"
-              disabled={!text.trim()}
+              disabled={!text.trim() || estInvalid}
               aria-label="Add task"
               onMouseDown={(e) => e.preventDefault()}
               className={`${isMobile ? 'w-12 h-12' : 'w-9 h-9'} flex-shrink-0 flex items-center justify-center rounded-xl bg-primary text-on-primary disabled:opacity-40 transition-opacity`}
@@ -580,7 +587,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             />
           </div>
           <p className="max-lg:hidden font-body-sm text-[11px] lg:text-caption text-on-surface-variant/70">
-            ↑ / ↓ or Tab — subject · Shift+← / → — estimate · Enter — add · Esc — close
+            ↑ / ↓ — subject · Shift+← / → — estimate · Enter — add · Esc — close
           </p>
         </form>
   );
@@ -588,6 +595,20 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   return (
     <section
       aria-label={`Checklist for ${dayLabel}`}
+      onKeyDown={e => {
+        if (isMobile || !singleKeysOn() || hasOpenOverlay() || e.nativeEvent.isComposing || e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
+        const row = (e.target as HTMLElement).closest<HTMLElement>('[data-checklist-task]');
+        const task = tasks.find(t => t.id === row?.dataset.checklistTask);
+        if (!row || !task) return;
+        const key = e.code;
+        const consume = () => { e.preventDefault(); e.stopPropagation(); };
+        if (!e.shiftKey && (key === 'KeyJ' || key === 'KeyK')) { consume(); focusSibling(row, '[data-checklist-task]', key === 'KeyJ' ? 1 : -1, e.currentTarget); }
+        else if (!e.shiftKey && (key === 'KeyE' || (e.key === 'Enter' && e.target === row))) { consume(); openEdit(task.id); }
+        else if (!e.shiftKey && e.key === ' ' && e.target === row) { consume(); if (!e.repeat) { focusSibling(row, '[data-checklist-task]', 1, e.currentTarget); onToggleTask(task.id, !task.done); } }
+        else if (!e.shiftKey && e.key === 'Delete') { consume(); if (!e.repeat) { focusSibling(row, '[data-checklist-task]', 1, e.currentTarget); onDeleteTask(task.id); } }
+        else if (e.shiftKey && key === 'KeyD') { consume(); if (!e.repeat) onAddTask(task.text, task.subjectId, task.estMinutes); }
+        else if (e.shiftKey && key === 'KeyP' && onPlanTask && !task.done) { consume(); if (!e.repeat) onPlanTask(task); }
+      }}
       // Desktop: shares the side column with the Today card and the note; keeps
       // a few rows when the note is open, and scrolls inside.
       className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 px-6 pt-6 max-lg:px-4 max-lg:pt-4 flex flex-col min-h-0 lg:min-h-[9rem] flex-[1_1_0] overflow-hidden animate-fade-in"

@@ -1,3 +1,4 @@
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { todoRepo, tombstoneRepo } from '../services/repositories';
 import { useSyncRefresh } from '../hooks/useServerSync';
@@ -10,7 +11,7 @@ import { QuadrantDialog } from '../components/todo/QuadrantDialog';
 import { TodoForm } from '../components/todo/TodoForm';
 import { TodoList } from '../components/mobile/TodoList';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { matchShortcut } from '../services/shortcuts';
+import { matchShortcut, singleKeysOn, isTypingTarget } from '../services/shortcuts';
 import { hasOpenOverlay } from '../services/overlays';
 
 const QUADRANTS = [
@@ -24,6 +25,8 @@ type QuadrantKey = (typeof QUADRANTS)[number]['key'];
 
 export function TodoPage() {
   const isMobile = useIsMobile();
+  const location = useLocation();
+  const navigate = useNavigate();
   const springRef = useOverscrollSpring<HTMLDivElement>();
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const [openQuadrant, setOpenQuadrant] = useState<QuadrantKey | null>(null);
@@ -35,6 +38,15 @@ export function TodoPage() {
     { ii: null, ni: null, in: null, nn: null }
   );
 
+  useEffect(() => {
+    const id = (location.state as { taskId?: string } | null)?.taskId;
+    const task = id ? todoRepo.getById(id) : undefined;
+    if (!task) return;
+    const quadrant: QuadrantKey = task.important ? task.urgent ? 'ii' : 'in' : task.urgent ? 'ni' : 'nn';
+    setFormState({ task, quadrant });
+    navigate('.', { replace: true, state: null });
+  }, [location.state, navigate]);
+
   const refresh = useCallback(() => setTodos(todoRepo.getAll()), []);
 
   useSyncRefresh(refresh);
@@ -44,7 +56,7 @@ export function TodoPage() {
   // calendar shortcuts.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -208,7 +220,20 @@ export function TodoPage() {
   }
 
   return (
-    <div className="flex flex-col w-full flex-1 min-h-0 relative max-lg:overflow-hidden">
+    <div className="flex flex-col w-full flex-1 min-h-0 relative max-lg:overflow-hidden" onKeyDown={e => {
+      if (e.defaultPrevented || e.nativeEvent.isComposing || e.ctrlKey || e.metaKey || e.altKey || !singleKeysOn() || isTypingTarget(e.target)) return;
+      const row = (e.target as HTMLElement).closest<HTMLElement>('[data-todo-task]');
+      const task = todos.find(t => t.id === row?.dataset.todoTask);
+      if (!task) return;
+      if (!e.shiftKey && e.key === 'Delete') {
+        e.preventDefault(); e.stopPropagation(); if (!e.repeat) handleDelete(task.id);
+      } else if (e.shiftKey && e.code === 'KeyD') {
+        e.preventDefault(); e.stopPropagation(); if (e.repeat) return;
+        checkpoint('Duplicate task');
+        todoRepo.create({ title: task.title, description: task.description, important: task.important, urgent: task.urgent, dueDate: task.dueDate, dueHasTime: task.dueHasTime, estMinutes: task.estMinutes, completed: false, reminders: task.reminders });
+        refresh();
+      }
+    }}>
       <div className="mb-8 max-lg:mb-3 flex-shrink-0">
         <h1 className="text-title text-on-surface mb-1">Todo</h1>
         <p className="text-lead text-on-surface-variant">

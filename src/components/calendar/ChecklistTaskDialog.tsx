@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useSheetExit } from '../../hooks/useSheetExit';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { DayTask, Subject } from '../../types';
 import { addDays, dateKey, formatDuration } from '../../utils/time';
@@ -32,6 +33,9 @@ interface ChecklistTaskDialogProps {
  */
 export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, onMove, onDelete, onClose }: ChecklistTaskDialogProps) {
   const isMobile = useIsMobile();
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLFormElement>(null);
+  useSheetExit(overlayRef, panelRef);
   const [text, setText] = useState(task.text);
   const [subjectId, setSubjectId] = useState(subjects.some((s) => s.id === task.subjectId) ? task.subjectId : '');
   // The estimate lives as text, so a custom value can be typed freely; presets
@@ -58,6 +62,12 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
     if (!canSave) return;
     onSave({ text: text.trim(), subjectId, estMinutes: est ?? undefined });
     if (onMove && day !== today) onMove(day);
+  };
+
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.nativeEvent.isComposing) {
+      e.preventDefault(); e.stopPropagation(); save();
+    }
   };
 
   const setEst = (minutes: number | undefined) => setEstText(minutes ? formatDuration(minutes) : '');
@@ -96,6 +106,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
       <Sheet label="Edit checklist task" onClose={onClose} focusSelf={false}>
         <form
           className="contents"
+          onKeyDown={handleFormKeyDown}
           onSubmit={(e) => {
             e.preventDefault();
             save();
@@ -177,6 +188,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
 
   return createPortal(
     <div
+      ref={overlayRef}
       className="overlay-root z-[100] flex items-center justify-center bg-scrim p-4 animate-fade-in"
       onClick={onClose}
       // React bubbles portal events to the page behind: keep its day swipe and
@@ -187,11 +199,13 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
       onTouchCancel={(e) => e.stopPropagation()}
     >
       <form
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label="Edit checklist task"
         className="bg-surface-container-lowest rounded-2xl p-5 shadow-elev-3 w-full max-w-md max-h-full overflow-y-auto flex flex-col gap-4 animate-pop-in"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleFormKeyDown}
         onSubmit={(e) => {
           e.preventDefault();
           save();
@@ -255,6 +269,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
               </button>
             ))}
           </div>
+          <label htmlFor="checklist-task-est" className="text-meta text-on-surface-variant">Custom duration</label>
           <div className="flex items-center gap-3">
             <input
               id="checklist-task-est"
@@ -269,6 +284,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
               <span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant tabular-nums flex-shrink-0">= {formatDuration(est)}</span>
             ) : null}
           </div>
+          {!estInvalid && <p className="text-meta text-on-surface-variant">Minutes or hours: 50, 50m, 1.5h, 1h 20m, 1:20. Leave empty for none.</p>}
           {estInvalid && (
             <p className="font-body-sm text-body-sm lg:text-meta text-error">Write it like 45, 45m, 1.5h, 1h 20m or 1:20 (up to 24h)</p>
           )}

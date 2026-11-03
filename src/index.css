@@ -298,7 +298,7 @@
   letter-spacing: -0.04em; text-transform: none; font-variant-numeric: tabular-nums;
 }
 @utility text-tick {
-  font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
+  font-family: var(--font-body-md); font-size: 10.5px; font-weight: 500;
   letter-spacing: -0.02em; text-transform: none;
 }
 
@@ -453,7 +453,13 @@ html:not(.icons-ready) .material-symbols-outlined {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* ---- Motion system (CSS-only, no dependencies) ----
+/* ---- Restrained motion: short travel, no overshoot ----
+ * Desktop entrances settle in 220ms; small responses take 140ms.
+ * Modal exits and Notes resizing use the same curve via the Web Animations API.
+ * All motion respects prefers-reduced-motion.
+ *
+ * Existing mount utilities remain shared with the phone.
+ * ---- Motion system (no dependencies) ----
  * Mount animations run once per element mount (React re-renders don't
  * restart them unless the key changes). Stagger via inline
  * `animationDelay`; every utility uses fill-mode `backwards` so delayed
@@ -461,7 +467,7 @@ html:not(.icons-ready) .material-symbols-outlined {
  * transforms (drag) after finishing. */
 
 @keyframes cdmm-fade-up {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -471,7 +477,7 @@ html:not(.icons-ready) .material-symbols-outlined {
 }
 
 @keyframes cdmm-pop-in {
-  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  from { opacity: 0; transform: scale(0.985) translateY(4px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
@@ -494,7 +500,7 @@ html:not(.icons-ready) .material-symbols-outlined {
 }
 
 @keyframes cdmm-view-enter {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -518,13 +524,13 @@ html:not(.icons-ready) .material-symbols-outlined {
   50% { opacity: 0.55; }
 }
 
-.animate-fade-up { animation: cdmm-fade-up 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+.animate-fade-up { animation: cdmm-fade-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 .animate-fade-in { animation: cdmm-fade-in 0.25s ease-out backwards; }
-.animate-pop-in { animation: cdmm-pop-in 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
+.animate-pop-in { animation: cdmm-pop-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 .animate-slide-up { animation: cdmm-slide-up 0.28s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; }
-.animate-view-enter { animation: cdmm-view-enter 0.3s ease-out backwards; }
+.animate-view-enter { animation: cdmm-view-enter 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 .animate-event-in { animation: cdmm-event-in 0.22s ease-out backwards; transform-origin: top center; }
-/* Closing copy of a phone sheet (useSheetExit): static, never interactive. */
+/* Closing copy of a sheet/dialog: static, inert, never interactive. */
 .sheet-ghost, .sheet-ghost * { animation: none !important; transition: none !important; pointer-events: none !important; }
 .animate-bar-grow-y { animation: cdmm-bar-grow-y 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; transform-origin: bottom; }
 .animate-bar-grow-x { animation: cdmm-bar-grow-x 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) backwards; transform-origin: left; }
@@ -558,12 +564,67 @@ html:not(.icons-ready) .material-symbols-outlined {
   transform: none;
 }
 
+@keyframes cdmm-scrim-in {
+  from { background-color: transparent; }
+}
+@keyframes cdmm-desktop-from-right {
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes cdmm-desktop-from-left {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes cdmm-check-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (min-width: 1024px) {
+  .page-from-right { animation: cdmm-desktop-from-right 200ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+  .page-from-left { animation: cdmm-desktop-from-left 200ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+
+  /* Animate the scrim separately: content stays sharp while the backdrop fades. */
+  .overlay-root.bg-scrim:not(.sheet-ghost) {
+    animation: cdmm-scrim-in 180ms ease-out backwards;
+  }
+  .desktop-result-in { animation: cdmm-fade-up 180ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+  .notes-panel { overflow: hidden; }
+  .notes-toolbar-in, .desktop-date-in, .calendar-event-in { animation: cdmm-fade-in 160ms ease-out backwards; }
+
+  .desktop-nav-link {
+    transition: background-color 160ms ease-out, color 160ms ease-out;
+  }
+  [role="checkbox"][aria-checked="true"] > .material-symbols-outlined {
+    animation: cdmm-check-in 140ms ease-out backwards;
+  }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  /* Press feedback is small and quick; .no-press keeps task rows still. */
+  button:not(:disabled):not(.no-press) {
+    transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      background-color 140ms ease-out, border-color 140ms ease-out,
+      color 140ms ease-out, opacity 140ms ease-out, box-shadow 140ms ease-out;
+  }
+  button:not(:disabled):not(.no-press):active {
+    transform: scale(0.985);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active { transform: none !important; scale: 1 !important; }
 }
 
 /* NOTE: banani mockups are ~15% denser than a default desktop layout, but
@@ -1135,4 +1196,39 @@ html {
   .m-nav-pill { transition: transform 0.36s cubic-bezier(0.32, 0.72, 0, 1); }
   .m-nav a:active .m-nav-ic { transform: scale(0.88); }
   .m-nav-ic { transition: transform 0.15s ease-out, color 0.2s ease-out; }
+}
+
+/* Statistics: wide cards with a compact content scale. */
+.statistics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 20px;
+}
+.statistics-page .statistics-card {
+  min-height: 240px;
+  padding: 22px;
+  gap: 18px;
+}
+@media (min-width: 1280px) {
+  .statistics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1600px) {
+  .statistics-page { gap: 22px; }
+  .statistics-grid { gap: 22px; }
+  .statistics-page .statistics-card { min-height: 260px; padding: 24px; gap: 20px; }
+  .statistics-page .statistics-card .text-section { font-size: 16px; line-height: 22px; }
+  .statistics-page .statistics-card :is(.text-body, .lg\:text-body) { font-size: 14px; line-height: 21px; }
+  .statistics-page .statistics-card :is(.text-meta, .lg\:text-meta) { font-size: 12.5px; line-height: 18px; }
+  .statistics-page .statistics-card :is(.text-caption, .lg\:text-caption) { font-size: 12px; line-height: 16px; }
+  .statistics-page .statistics-card :is(.text-control, .lg\:text-control) { font-size: 13px; line-height: 18px; }
+  .statistics-page .statistics-card :is(.text-stat, .lg\:text-stat) { font-size: 24px; line-height: 30px; }
+  .statistics-summary .lg\:text-stat { font-size: 28px; line-height: 35px; }
+  .statistics-summary { padding-block: 4px 8px; }
+  .statistics-page .statistics-chart-plot { height: 200px; }
+  .statistics-card:is([aria-label="When you study"], [aria-label="Consistency"]) button.no-press { max-height: 26px; }
+}
+@media (min-width: 2200px) {
+  .statistics-page .statistics-card { min-height: 280px; padding: 26px; gap: 22px; }
+  .statistics-page .statistics-chart-plot { height: 220px; }
 }

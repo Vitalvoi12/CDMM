@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileNav, navItems } from './MobileNav';
@@ -9,11 +9,13 @@ import { NotificationPrompt } from './NotificationPrompt';
 import { requestSessionStart, requestSessionStartEdit } from '../../services/liveSession';
 import { settingsRepo } from '../../services/repositories';
 import { hasOpenOverlay } from '../../services/overlays';
-import { matchShortcut } from '../../services/shortcuts';
+import { matchShortcut, isTypingTarget } from '../../services/shortcuts';
 import { startEventNotifications } from '../../services/notifications';
 import { BELOW_DOCK_ID, useDockHidden } from '../mobile/belowDock';
 import { UndoToast } from '../mobile/UndoToast';
 import { DesktopUndoToast } from './DesktopUndoToast';
+
+import { DesktopTools, type DesktopTool } from './DesktopTools';
 
 const NAV_ORDER = navItems.map((i) => i.path);
 
@@ -22,6 +24,7 @@ const FULL_BLEED = new Set(['/', '/todo', '/subjects', '/statistics', '/settings
 
 export function AppShell() {
   const navigate = useNavigate();
+  const [tool, setTool] = useState<DesktopTool | null>(null);
   const { pathname } = useLocation();
   const dockHidden = useDockHidden();
   const isMobile = useIsMobile();
@@ -44,7 +47,7 @@ export function AppShell() {
   // panel to open its subject picker instead.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.defaultPrevented || e.isComposing || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -57,7 +60,12 @@ export function AppShell() {
       }
       // Single-letter shortcuts must not fire behind a dialog. Asks the overlay
       // stack rather than guessing at markup with a DOM query.
-      if (hasOpenOverlay()) return;
+      if (hasOpenOverlay() || isTypingTarget(e.target)) return;
+      if (!isMobile) {
+        const mode = matchShortcut(e, 'shortcut-help') ? 'help' : matchShortcut(e, 'search') ? 'search' : matchShortcut(e, 'go-date') ? 'date' : null;
+        if (mode) { e.preventDefault(); setTool(mode); return; }
+        if (matchShortcut(e, 'go-settings')) { e.preventDefault(); navigate('/settings'); return; }
+      }
       if (matchShortcut(e, 'go-calendar')) navigate('/');
       else if (matchShortcut(e, 'session-start')) {
         if (settingsRepo.get().activeSession) requestSessionStartEdit();
@@ -68,7 +76,7 @@ export function AppShell() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigate]);
+  }, [navigate, isMobile]);
 
   // The shell is pinned to the viewport with insets rather than sized with
   // dvh — under a body zoom (0.88 on phones, any interface size) 100dvh would
@@ -96,6 +104,7 @@ export function AppShell() {
       {isMobile && <div id={BELOW_DOCK_ID} className="flex-none" />}
       <MobileNav />
       <NotificationPrompt />
+      {!isMobile && tool && <DesktopTools key={tool} mode={tool} onClose={() => setTool(null)} />}
     </div>
   );
 }

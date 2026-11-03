@@ -1,3 +1,4 @@
+import { useSheetExit } from '../../hooks/useSheetExit';
 import { useEffect, useMemo, useRef } from 'react';
 import type { TodoTask } from '../../types';
 import { FullTodoRow } from './TodoRows';
@@ -14,6 +15,8 @@ interface QuadrantDialogProps {
 
 export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onClose }: QuadrantDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useSheetExit(overlayRef, dialogRef);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const active = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
@@ -32,6 +35,7 @@ export function QuadrantDialog({ title, tasks, onToggle, onOpenTask, onAdd, onCl
 
   return (
     <div
+      ref={overlayRef}
       className="overlay-root z-[100] flex items-center justify-center bg-scrim p-4 max-lg:p-2 max-lg:pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] animate-fade-in"
       onClick={onClose}
     >

@@ -4,7 +4,7 @@ import { useEscapeOverlay } from '../../services/overlays';
 import { useSheetExit } from '../../hooks/useSheetExit';
 import { useSheetDrag } from '../../hooks/useSheetDrag';
 import { addDays, formatDuration } from '../../utils/time';
-import { parseEstimate } from '../../utils/estimate';
+import { parseEstimate, EST_PRESETS } from '../../utils/estimate';
 import { Toggle } from '../common/Toggle';
 import { NotifyList, notifySummary, toDateTimeValue, type NotifyItem } from '../common/NotifyList';
 import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
@@ -13,7 +13,7 @@ import { Sheet } from '../mobile/Sheet';
 import { ExpandRow } from '../mobile/ExpandRow';
 
 /** Phone estimate chips (minutes). */
-const EST_CHIPS = [15, 30, 60, 120];
+const EST_CHIPS = EST_PRESETS;
 
 interface TodoFormProps {
   task: TodoTask | null;
@@ -86,8 +86,8 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   useSheetDrag(dialogRef, onCancel);
   const formRef = useRef<HTMLFormElement>(null);
   const isMobile = useIsMobile();
-  // Phone: the Custom estimate chip turns into a field while typing.
-  const [estEditing, setEstEditing] = useState(false);
+  const estimate = parseEstimate(estInput);
+  const estInvalid = estimate === null;
 
   useEscapeOverlay(onCancel);
 
@@ -109,9 +109,8 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
       setError('Set date');
       return;
     }
-    // Empty / non-numeric / zero clears the estimate rather than storing 0.
-    const parsedEst = Number.parseInt(estInput, 10);
-    const estMinutes = Number.isFinite(parsedEst) && parsedEst > 0 ? parsedEst : undefined;
+    if (estInvalid) return;
+    const estMinutes = estimate ?? undefined;
     onSave({
       title: trimmed,
       description: description.trim() || undefined,
@@ -131,6 +130,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   // Escape is handled centrally by the overlay stack, so this only has Enter
   // and Delete. See services/overlays.ts.
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing || e.altKey) return;
     if (e.key === 'Enter' && (!(e.target instanceof HTMLTextAreaElement) || e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       e.stopPropagation();
@@ -168,8 +168,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
       if (!v) setDueTime('');
       else setError(null);
     };
-    const estMinutes = Number.parseInt(estInput, 10) || 0;
-    const customEst = estMinutes > 0 && !EST_CHIPS.includes(estMinutes);
+    const estMinutes = estimate ?? 0;
     const remind = notifySummary(notifyItems, 'At due time');
     const chipText = 'flex-1 min-w-0 self-stretch py-[11px] bg-transparent border-0 outline-none text-[16px] leading-5 text-on-surface placeholder:text-on-surface-variant';
     return (
@@ -250,36 +249,10 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                   {formatDuration(m)}
                 </button>
               ))}
-              {estEditing ? (
-                <span className="m-chip on" style={{ padding: '0 10px' }}>
-                  <input
-                    autoFocus
-                    inputMode="text"
-                    defaultValue={customEst ? String(estMinutes) : ''}
-                    placeholder="1h20"
-                    aria-label="Custom estimate"
-                    className="bg-transparent border-0 outline-none text-[16px] text-on-surface"
-                    style={{ width: 64 }}
-                    onBlur={(e) => {
-                      const m = parseEstimate(e.target.value);
-                      if (m) setEstInput(String(m));
-                      setEstEditing(false);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.currentTarget.blur();
-                      }
-                    }}
-                  />
-                </span>
-              ) : (
-                <button type="button" className={`m-chip ${customEst ? 'on m-num' : 'sq'}`} aria-label="Custom estimate" onClick={() => setEstEditing(true)}>
-                  {customEst ? formatDuration(estMinutes) : <span className="material-symbols-outlined m-ic s">edit</span>}
-                </button>
-              )}
             </div>
+            <label className="m-lbl m-mut" htmlFor="todo-custom-est">Custom duration</label>
+            <input id="todo-custom-est" type="text" className="m-in m-num" value={estInput} onChange={e => setEstInput(e.target.value)} placeholder="50m or 1h 20m" aria-invalid={estInvalid} aria-describedby="todo-est-help" />
+            <span id="todo-est-help" className="m-sm m-mut" role={estInvalid ? 'alert' : undefined}>{estInvalid ? 'Enter 1 minute to 24 hours.' : 'Minutes or hours: 50, 50m, 1.5h, 1h 20m, 1:20. Leave empty for none.'}</span>
           </div>
 
           <ExpandRow icon="notifications" text={remind ? `Remind ${remind.charAt(0).toLowerCase()}${remind.slice(1)}` : 'Remind me'} empty={!remind} closedIcon="add">
@@ -308,7 +281,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
                 <span className="material-symbols-outlined m-ic s">delete</span>
               </button>
             )}
-            <button type="submit" className="m-btn pri flex-1" disabled={!title.trim()}>
+            <button type="submit" className="m-btn pri flex-1" disabled={!title.trim() || estInvalid}>
               {task ? 'Save' : 'Add'}
             </button>
           </div>
@@ -431,18 +404,20 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             <label htmlFor="todo-est" className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
               Est. Time
             </label>
+            <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Estimate presets">
+              {[undefined, ...EST_CHIPS].map(m => <button key={m ?? 'none'} type="button" role="radio" aria-checked={estimate === m} onClick={() => setEstInput(m ? String(m) : '')} className={`px-2.5 py-1 rounded-full border text-meta ${estimate === m ? 'bg-secondary-container border-secondary-container text-on-secondary-container' : 'border-outline-variant text-on-surface-variant'}`}>{m ? formatDuration(m) : 'None'}</button>)}
+            </div>
             <input
               id="todo-est"
-              type="number"
-              inputMode="numeric"
-              min={5}
-              step={5}
-              max={1440}
+              type="text"
+              aria-invalid={estInvalid}
+              aria-describedby="todo-est-help"
               value={estInput}
               onChange={(e) => setEstInput(e.target.value)}
-              placeholder="e.g. 45"
+              placeholder="e.g. 50m or 1h 20m"
               className="w-full min-w-0 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
             />
+            <p id="todo-est-help" className={`text-meta ${estInvalid ? 'text-error' : 'text-on-surface-variant'}`} role={estInvalid ? 'alert' : undefined}>{estInvalid ? 'Enter 1 minute to 24 hours.' : 'Minutes or hours: 50, 50m, 1.5h, 1h 20m, 1:20. Leave empty for none.'}</p>
             {estHint(estInput) && (
               <p className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant">{estHint(estInput)}</p>
             )}
@@ -483,7 +458,8 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             </button>
             <button
               type="submit"
-              className="max-lg:min-h-[44px] flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
+              disabled={!title.trim() || estInvalid}
+              className="disabled:opacity-40 max-lg:min-h-[44px] flex-1 py-2.5 bg-primary text-on-primary rounded-full font-label-md text-label-md lg:text-control uppercase tracking-[0.1em] hover:opacity-90 transition-opacity"
             >
               {task ? 'Save' : 'Add'}
             </button>
@@ -496,7 +472,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
 
 /** Live readout of the estimate, so "90" reads as 1h 30m instead of a bare number. */
 function estHint(raw: string): string | null {
-  const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n <= 0) return null;
+  const n = parseEstimate(raw);
+  if (!n) return null;
   return formatDuration(n);
 }

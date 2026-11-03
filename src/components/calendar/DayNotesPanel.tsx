@@ -1,3 +1,4 @@
+import { usePanelResize } from '../../hooks/usePanelResize';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent, useEditorState } from '@tiptap/react';
@@ -66,6 +67,8 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
   const savedRef = useRef(initial);
   const pendingRef = useRef<string | null>(null);
   const timerRef = useRef<number | undefined>(undefined);
+  const panelRef = useRef<HTMLElement>(null);
+  usePanelResize(panelRef, expanded, !isMobile);
 
   const flush = useCallback(() => {
     window.clearTimeout(timerRef.current);
@@ -92,6 +95,11 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
       // Escape leaves the note (saving it via onBlur), so the calendar's
       // keyboard shortcuts work again without clicking elsewhere.
       handleKeyDown: (view, e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.isComposing) {
+          flush();
+          (view.dom as HTMLElement).blur();
+          return true;
+        }
         if (e.key !== 'Escape') return false;
         (view.dom as HTMLElement).blur();
         return true;
@@ -104,6 +112,20 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
     },
     onBlur: flush,
   });
+
+  useEffect(() => {
+    if (isMobile || !expanded || !onExpandedChange) return;
+    const handleContextMenu = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || panelRef.current?.contains(target)) return;
+      if (target.closest('button, [role="button"]')) return;
+      editor?.commands.blur();
+      flush();
+      onExpandedChange(false);
+    };
+    document.addEventListener('contextmenu', handleContextMenu, true);
+    return () => document.removeEventListener('contextmenu', handleContextMenu, true);
+  }, [isMobile, expanded, onExpandedChange, editor, flush]);
 
   // Pick up edits made on another device while this note is open and idle.
   useEffect(() => {
@@ -188,8 +210,9 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
 
   return (
     <section
+      ref={panelRef}
       aria-label={`Notes for ${dayLabel}`}
-      className={`bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 px-6 py-5 max-lg:p-4 flex flex-col gap-2 min-h-0 animate-fade-in ${
+      className={`notes-panel bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 px-6 py-5 max-lg:p-4 flex flex-col gap-2 min-h-0 animate-fade-in ${
         expanded ? 'flex-[1.6_1_0]' : 'flex-none'
       }`}
     >
@@ -216,7 +239,7 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
       </div>
 
       {editor && expanded && (
-        <div className="flex gap-0.5 pb-2 border-b border-outline-variant flex-none" role="toolbar" aria-label="Formatting">
+        <div className="notes-toolbar-in flex gap-0.5 pb-2 border-b border-outline-variant flex-none" role="toolbar" aria-label="Formatting">
           {BUTTONS.map((b, i) => (
             <button
               key={b.title}

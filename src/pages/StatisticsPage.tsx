@@ -126,7 +126,7 @@ export function StatisticsPage() {
 
   // Desktop: header, summary tiles, then every block as a card in one grid.
   return (
-    <div className="flex flex-col w-full gap-6 pb-12">
+    <div className="statistics-page flex flex-col w-full gap-6 pb-12">
       <header className="flex items-start justify-between gap-4 flex-wrap animate-fade-up">
         <div className="flex flex-col gap-1">
           <h1 className="text-title text-on-surface">Statistics</h1>
@@ -142,7 +142,7 @@ export function StatisticsPage() {
         />
       </header>
 
-      <div className="grid gap-x-8 gap-y-5 py-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="statistics-summary grid gap-x-8 gap-y-5 py-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
         <StatTile
           value={formatDurationLong(totalMinutes)}
           label="Focus"
@@ -168,7 +168,7 @@ export function StatisticsPage() {
         />
       </div>
 
-      <div className="grid gap-6 items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 440px), 1fr))' }}>
+      <div className="statistics-grid">
         <SubjectBreakdown
           rows={subjectRows}
           metric={metric}

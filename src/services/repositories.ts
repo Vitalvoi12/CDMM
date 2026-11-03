@@ -904,6 +904,21 @@ class DayTaskRepository {
 
   /** Rename / re-subject / re-estimate a task. `estMinutes: undefined` clears it. */
   edit(date: string, id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }): void {
+    const task = this.getTasks(date).find((t) => t.id === id);
+    if (!task) return;
+    if (task.subjectId !== patch.subjectId) {
+      const subject = subjectRepo.getById(patch.subjectId);
+      for (const event of eventRepo.getAll()) {
+        if (event.taskId !== id) continue;
+        eventRepo.update(event.id, {
+          subjectId: patch.subjectId,
+          title: subject?.name ?? patch.text,
+          // Custom blocks keep the task in their title; subject blocks use
+          // the description for it, just as when planning a task.
+          ...(subject && !event.description ? { description: patch.text } : {}),
+        });
+      }
+    }
     this.set(
       date,
       this.getTasks(date).map((t) => {

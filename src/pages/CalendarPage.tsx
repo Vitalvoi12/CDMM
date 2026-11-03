@@ -1,3 +1,6 @@
+import { focusSibling } from '../services/keyboardFocus';
+import { isTypingTarget } from '../services/shortcuts';
+import { hasOpenOverlay } from '../services/overlays';
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -153,10 +156,12 @@ export function CalendarPage() {
 
   // Deep link from the Statistics heatmap: jump to the tapped day.
   useEffect(() => {
-    const state = location.state as { selectedDate?: number } | null;
+    const state = location.state as { selectedDate?: number; eventId?: string; openNotes?: boolean } | null;
     if (state?.selectedDate) {
       setCurrentDate(new Date(state.selectedDate));
       setView('day');
+      if (state.eventId) setEditingEvent(eventRepo.getById(state.eventId) ?? null);
+      if (state.openNotes) setNotesOpen(true);
       navigate('.', { replace: true, state: null });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,7 +253,13 @@ export function CalendarPage() {
         // editor) belong to that window, not to the calendar behind it.
         target.closest('[role="dialog"]')
       );
-      if (isEditing || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (isEditing || modalOpen || hasOpenOverlay() || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!isMobile) {
+        if (matchShortcut(e, 'go-today')) { e.preventDefault(); goToToday(); return; }
+        if (matchShortcut(e, 'toggle-note')) { e.preventDefault(); setView('day'); setNotesOpen(open => !open); return; }
+        const offset = matchShortcut(e, 'previous-day') ? -1 : matchShortcut(e, 'next-day') ? 1 : matchShortcut(e, 'previous-week') ? -7 : matchShortcut(e, 'next-week') ? 7 : 0;
+        if (offset) { e.preventDefault(); setCurrentDate(addDays(currentDate, offset)); return; }
+      }
 
       // Mobile day view (iPad keyboard): Up/Down cycle the panels Day → Stat
       // → Tasks → Notes → Day and wrap around, so holding one key keeps going.
@@ -263,12 +274,12 @@ export function CalendarPage() {
       }
 
       // Previous / next period: fixed arrows, off with the other single keys.
-      if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && singleKeysOn()) {
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowUp') && !e.shiftKey && singleKeysOn()) {
         e.preventDefault();
         goToPrevious();
         return;
       }
-      if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && singleKeysOn()) {
+      if ((e.key === 'ArrowRight' || e.key === 'ArrowDown') && !e.shiftKey && singleKeysOn()) {
         e.preventDefault();
         goToNext();
         return;
@@ -320,7 +331,7 @@ export function CalendarPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMobile, modalOpen, view, eventFilter, currentDate, setEventFilter, setView, goToPrevious, goToNext]);
+  }, [isMobile, modalOpen, view, eventFilter, currentDate, setEventFilter, setView, goToPrevious, goToNext, goToToday, setCurrentDate]);
 
   const dayEvents = useMemo(() => getEventsForDate(events, currentDate), [events, currentDate]);
   // Phone day view: the neighbouring days sit rendered beside the timeline,
@@ -426,8 +437,9 @@ export function CalendarPage() {
       checkpoint('Edit checklist task');
       dayTaskRepo.edit(dateKey(currentDate), id, patch);
       setDayTasks(dayTaskRepo.getAll());
+      refreshEvents();
     },
-    [currentDate]
+    [currentDate, refreshEvents]
   );
 
   const handleDayTaskDelete = useCallback((id: string) => {
@@ -915,6 +927,46 @@ export function CalendarPage() {
     [refreshEvents]
   );
 
+  // Focused timeline blocks own these keys; page navigation never sees them.
+  useEffect(() => {
+    if (isMobile) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!singleKeysOn() || hasOpenOverlay() || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
+      const block = (e.target as Element | null)?.closest<HTMLElement>('[data-event-id][tabindex="0"]');
+      const event = block?.dataset.eventId ? eventRepo.getById(block.dataset.eventId) : undefined;
+      if (!block || !event) return;
+      const consume = () => { e.preventDefault(); e.stopImmediatePropagation(); };
+      if (!e.shiftKey && (e.code === 'KeyJ' || e.code === 'KeyK')) {
+        consume(); focusSibling(block, '[data-event-id][tabindex="0"]', e.code === 'KeyJ' ? 1 : -1); return;
+      }
+      if (!e.shiftKey && (e.key === 'Enter' || e.code === 'KeyE')) { consume(); setEditingEvent(event); return; }
+      if (e.key === 'Delete' && !e.shiftKey) { consume(); if (!e.repeat) handleEventDelete(event.id); return; }
+      if (e.shiftKey && e.code === 'KeyD') { consume(); if (!e.repeat) handleEventDuplicate(event.id); return; }
+      const start = new Date(event.start);
+      const end = new Date(event.end);
+      let resize = false;
+      if (e.shiftKey && (e.code === 'KeyJ' || e.code === 'KeyK')) {
+        const delta = (e.code === 'KeyJ' ? 1 : -1) * 5 * 60000;
+        start.setTime(start.getTime() + delta); end.setTime(end.getTime() + delta);
+      } else if (e.shiftKey && (e.code === 'KeyH' || e.code === 'KeyL')) {
+        const delta = e.code === 'KeyH' ? -1 : 1;
+        start.setDate(start.getDate() + delta); end.setDate(end.getDate() + delta);
+      } else if (!e.shiftKey && (e.code === 'Equal' || e.code === 'Minus')) {
+        resize = true;
+        end.setTime(end.getTime() + (e.code === 'Equal' ? 1 : -1) * 5 * 60000);
+        if (end <= start) { consume(); return; }
+      } else return;
+      consume();
+      checkpoint(resize ? 'Resize event' : 'Move event');
+      eventRepo.update(event.id, { start: start.toISOString(), end: end.toISOString() });
+      if (dateKey(start) !== dateKey(new Date(event.start))) setCurrentDate(start);
+      refreshEvents();
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(event.id)}"][tabindex="0"]`)?.focus());
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [isMobile, handleEventDelete, handleEventDuplicate, refreshEvents, setCurrentDate]);
+
   const handleEditorCancel = useCallback(() => {
     // If this editor session followed a drag/resize, undo the committed change.
     if (editingEvent && dragUndo && dragUndo.id === editingEvent.id) {
@@ -1235,7 +1287,11 @@ export function CalendarPage() {
                 last card must end above it at any zoom level. */}
             <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1 pb-32">
               <TodayStats events={statsEvents} subjects={subjects} totalMinutes={stats.totalMinutes} />
-              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} />
+              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} onPlanTask={(task) => {
+                planTaskOnPhone(task);
+                const planned = eventRepo.getAll().findLast(event => event.taskId === task.id);
+                if (planned) setEditingEvent(planned);
+              }} />
               <DayNotesPanel key={dateKey(currentDate)} date={currentDate} dateKey={dateKey(currentDate)} autoFocus={noteFocusPending} onAutoFocused={() => setNoteFocusPending(false)} expanded={notesOpen} onExpandedChange={setNotesOpen} />
             </aside>
           </div>

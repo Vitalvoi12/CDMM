@@ -25,7 +25,7 @@ export function Section({ title, aside, children, delay = 0, still = false, layo
     return (
       <section
         aria-label={title}
-        className={`min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 flex flex-col gap-5 ${
+        className={`statistics-card min-w-0 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 p-6 flex flex-col gap-5 ${
           still ? '' : 'animate-fade-up'
         }`}
         style={still ? undefined : { animationDelay: `${delay}ms` }}

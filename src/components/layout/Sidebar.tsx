@@ -19,7 +19,7 @@ const navItems: { path: string; label: string; icon: string; shortcut: ShortcutI
 ];
 
 function navClass({ isActive }: { isActive: boolean }): string {
-  return `relative flex items-center gap-5 px-5 py-3 rounded-full transition-colors text-[14px] leading-[20px] ${
+  return `desktop-nav-link relative flex items-center gap-5 px-5 py-3 rounded-full transition-colors text-[14px] leading-[20px] ${
     isActive ? 'bg-secondary-container text-on-secondary-container font-semibold' : 'font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
   }`;
 }
