@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { focusCommand } from './focus.mjs';
 import {
   userHasData, getState, importSnapshot, applyChanges, getChanges, getCursor,
 } from './db.mjs';
@@ -176,7 +177,18 @@ export async function handleApi(db, req, res, pathname) {
   }
 
   if (pathname === '/api/glance' && method === 'GET') {
-    return sendJson(res, 200, getGlance(db, userId)), true;
+    const params = new URL(req.url, 'http://localhost').searchParams;
+    return sendJson(res, 200, getGlance(db, userId, Date.now(), params.get('day'), params.get('timeZone'))), true;
+  }
+
+  if (pathname === '/api/focus' && method === 'POST') {
+    let body;
+    try {
+      body = await readBody(req);
+      return sendJson(res, 200, focusCommand(db, userId, body)), true;
+    } catch (e) {
+      return sendJson(res, e.status || 500, { error: e.status ? e.message : 'Could not save session' }), true;
+    }
   }
 
   if (pathname === '/api/glance/todo' && method === 'POST') {

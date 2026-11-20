@@ -2,17 +2,15 @@ import {
   eventRepo,
   subjectRepo,
   todoRepo,
-  dayTaskRepo,
   tombstoneRepo,
   type Tombstone,
 } from './repositories';
 import { notifySync } from './serverSync';
-import type { CalendarEvent, DayTaskList, Subject, TodoTask } from '../types';
+import type { CalendarEvent, Subject, TodoTask } from '../types';
 
 interface Snapshot {
   events: CalendarEvent[];
   todos: TodoTask[];
-  dayTasks: DayTaskList[];
   tombstones: Tombstone[];
   /**
    * Only for subject actions (checkpoint's `subjects` option). Subject edits
@@ -52,7 +50,6 @@ function takeSnapshot(withSubjects = false): Snapshot {
   return {
     events: clone(eventRepo.getAll()),
     todos: clone(todoRepo.getAll()),
-    dayTasks: clone(dayTaskRepo.getAll()),
     tombstones: clone(tombstoneRepo.getAll()),
     ...(withSubjects ? { subjects: clone(subjectRepo.getAll()) } : {}),
   };
@@ -102,20 +99,6 @@ function restore(snap: Snapshot): void {
   reconcile('events', curEvents, snap.events);
   reconcile('todos', curTodos, snap.todos);
   if (snap.subjects) restoreSubjects(snap.subjects, snap.tombstones);
-
-  // Day checklists are never deleted, only emptied: restore each day the
-  // undone action touched and re-stamp it so the restored list wins LWW.
-  const curDays = dayTaskRepo.getAll();
-  const snapDays = new Map(snap.dayTasks.map((l) => [l.id, l.tasks]));
-  const changedDays: string[] = [];
-  const restoredDays = curDays.map((l) => {
-    const tasks = snapDays.get(l.id) ?? [];
-    if (sameJson(l.tasks, tasks)) return l;
-    changedDays.push(l.id);
-    return { ...l, tasks: clone(tasks) };
-  });
-  dayTaskRepo.replaceAll(restoredDays);
-  for (const id of changedDays) dayTaskRepo.bump(id);
 
   // Pages hold useState copies of the repos — tell them to re-read.
   notifySync();

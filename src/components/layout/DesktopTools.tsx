@@ -3,7 +3,7 @@ import { useSheetExit } from '../../hooks/useSheetExit';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { dayNoteRepo, dayTaskRepo, eventRepo, subjectRepo, todoRepo } from '../../services/repositories';
+import { dayNoteRepo, eventRepo, subjectRepo, todoRepo } from '../../services/repositories';
 import { useEscapeOverlay } from '../../services/overlays';
 import { GROUPS, SHORTCUTS, keyLabel, shortcutKeys, useShortcutSettings } from '../../services/shortcuts';
 import { dateKey } from '../../utils/time';
@@ -36,8 +36,7 @@ export function DesktopTools({ mode, onClose }: { mode: DesktopTool; onClose: ()
     const subjects = new Map(subjectRepo.getAll().map(s => [s.id, s.name]));
     const all: Result[] = [
       ...eventRepo.getAll().map(e => ({ id: `event:${e.id}`, title: `${subjects.get(e.subjectId) || e.title}${e.description ? ` · ${e.description}` : ''}`, detail: `Event · ${new Date(e.start).toLocaleString()}`, path: '/', state: { selectedDate: new Date(e.start).getTime(), eventId: e.id } })),
-      ...dayTaskRepo.getAll().flatMap(l => l.tasks.map(t => ({ id: `task:${t.id}`, title: t.text, detail: `Checklist · ${subjects.get(t.subjectId) || 'No subject'} · ${l.id}${t.done ? ' · Done' : ''}`, path: '/', state: { selectedDate: new Date(`${l.id}T12:00:00`).getTime() } }))),
-      ...todoRepo.getAll().map(t => ({ id: `todo:${t.id}`, title: t.title, detail: `Todo${t.completed ? ' · Done' : ''}${t.description ? ` · ${t.description}` : ''}`, path: '/todo', state: { taskId: t.id } })),
+      ...todoRepo.getAll().map(t => ({ id: `todo:${t.id}`, title: t.title, detail: `Todo${subjects.has(t.subjectId) ? ' · ' + subjects.get(t.subjectId) : ''}${t.scheduledDate ? ' · ' + t.scheduledDate : ''}${t.completed ? ' · Done' : ''}${t.description ? ` · ${t.description}` : ''}`, path: '/todo', state: { taskId: t.id } })),
       ...dayNoteRepo.getAll().map(n => ({ id: `note:${n.id}`, title: n.content, detail: `Notes · ${n.id}`, path: '/', state: { selectedDate: new Date(`${n.id}T12:00:00`).getTime(), openNotes: true } })),
       ...subjectRepo.getAll().map(s => ({ id: `subject:${s.id}`, title: s.name, detail: 'Subject', path: '/subjects' })),
     ];

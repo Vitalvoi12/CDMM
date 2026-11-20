@@ -1,10 +1,10 @@
+import { TaskProgress } from '../common/TaskProgress';
 import { singleKeysOn, isTypingTarget } from '../../services/shortcuts';
 import { focusSibling } from '../../services/keyboardFocus';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal, flushSync } from 'react-dom';
-import type { DayTask, Subject, TodoTask } from '../../types';
+import type { DayTask, Subject } from '../../types';
 import { formatDuration, isSameDay } from '../../utils/time';
-import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { useEscapeOverlay, hasOpenOverlay } from '../../services/overlays';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { beginTaskDrag, endTaskDrag, DEFAULT_TASK_MINUTES } from '../../services/taskDrag';
@@ -15,13 +15,13 @@ import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 interface SubjectTasksPanelProps {
   /** The calendar day being shown — the panel lists that day's checklist. */
   date: Date;
-  /** The day's own checklist tasks (not tied to any event). */
+  /** Tasks scheduled on the displayed day. */
   tasks: DayTask[];
   subjects: Subject[];
   onToggleTask: (id: string, done: boolean) => void;
   onAddTask: (text: string, subjectId: string, estMinutes?: number) => void;
   /** Rename / re-subject / re-estimate a task; `estMinutes: undefined` clears it. */
-  onEditTask?: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
+  onEditTask?: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined; progress?: number }) => void;
   onDeleteTask: (id: string) => void;
   /** Create a planned block and open its editor. */
   onPlanTask?: (task: DayTask) => void;
@@ -35,9 +35,8 @@ interface SubjectTasksPanelProps {
   onAddingChange: (open: boolean) => void;
   /** The form's text field, so whoever opens the form can focus it. */
   inputRef: RefObject<HTMLTextAreaElement | null>;
-  /** All todo tasks; the ones for `date` (see todosForDay) are listed after the subjects. */
-  todos?: TodoTask[];
-  onToggleTodo?: (id: string, completed: boolean) => void;
+  /** Other open matrix tasks can be scheduled from this panel. */
+  unscheduledTasks?: DayTask[];
   /**
    * Start of the planned block each task was dragged into, by task id. Open
    * tasks can be dragged onto the timeline (desktop) when this is passed.
@@ -116,14 +115,13 @@ function saveFolded(keys: Set<string>): void {
   }
 }
 
-const TODO_GROUP = '__todo__';
 
 /**
  * The day's checklist: tasks added here with "+", grouped under their subject
  * (color dot + name), each with a checkbox. A day needs no event of a subject
  * to hold tasks for it.
  */
-export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, todos = [], onToggleTodo, scheduled, onEditTask, onMoveTask, onPlanTask }: SubjectTasksPanelProps) {
+export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTask, onDeleteTask, adding, onAddingChange, inputRef, unscheduledTasks = [], scheduled, onEditTask, onMoveTask, onPlanTask }: SubjectTasksPanelProps) {
   const groups = useMemo<Group[]>(() => {
     const subjectMap = new Map(subjects.map((s) => [s.id, s]));
     const byKey = new Map<string, Group>();
@@ -135,7 +133,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
         const subject = subjectMap.get(key);
         group = {
           key,
-          name: subject?.name || 'Other',
+          name: subject?.name || 'No subject',
           color: subject?.color || 'var(--color-on-surface-variant)',
           items: [],
         };
@@ -176,7 +174,8 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
   const estInvalid = parseEstimate(estText) === null;
   // Task open in the edit window.
   const [editingId, setEditingId] = useState<string | null>(null);
-  const editingTask = editingId ? tasks.find((t) => t.id === editingId) : undefined;
+  const allTasks = [...tasks, ...unscheduledTasks];
+  const editingTask = editingId ? allTasks.find((t) => t.id === editingId) : undefined;
   // A day swipe that ends on a task's text is followed by a synthesized click
   // there; only a touch that stayed put opens the editor.
   const touchRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
@@ -256,31 +255,19 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     inputRef.current?.focus();
   };
 
-  // Todo tasks for the shown day (see todosForDay).
-  const dayTodos = useMemo(() => todosForDay(todos, date), [todos, date]);
-
-  // Rough time still ahead: estimates of the open tasks (todos included).
-  const openEstimate =
-    tasks.reduce((sum, t) => sum + (t.done ? 0 : t.estMinutes || 0), 0) +
-    dayTodos.reduce((sum, t) => sum + (t.completed ? 0 : t.estMinutes || 0), 0);
-  const total = tasks.length + dayTodos.length;
-  const done = tasks.filter((t) => t.done).length + dayTodos.filter((t) => t.completed).length;
+  const openEstimate = tasks.reduce((sum, t) => sum + (t.done ? 0 : t.estMinutes || 0), 0);
+  const total = tasks.length;
+  const done = tasks.filter(t => t.done).length;
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  // Open todos not listed under the day — collapsed by default, there so
-  // any todo can be dragged onto the timeline. Left out of the counts.
-  const otherTodos = useMemo(() => otherOpenTodos(todos, date), [todos, date]);
   const [showOther, setShowOther] = useState(false);
 
-  // Long lists: only open tasks stay in their groups; finished ones (day
-  // tasks and the day's todos) collect in one folded Done row at the end.
+  // Finished tasks collect in the folded Done row.
   const openGroups = useMemo(
     () => groups.map((g) => ({ ...g, items: g.items.filter((t) => !t.done) })).filter((g) => g.items.length > 0),
     [groups]
   );
-  const openDayTodos = dayTodos.filter((t) => !t.completed);
   const doneTasks = groups.flatMap((g) => g.items.filter((t) => t.done).map((t) => ({ task: t, group: g })));
-  const doneTodos = dayTodos.filter((t) => t.completed);
-  const doneCount = doneTasks.length + doneTodos.length;
+  const doneCount = doneTasks.length;
   const [showDone, setShowDone] = useState(false);
   const [folded, setFolded] = useState(loadFolded);
   const toggleFold = (key: string) =>
@@ -338,73 +325,9 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
     <span title={title} className="w-2 h-2 mt-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
   );
 
-  // One todo row — the day's todos and the other open ones share it.
-  const todoRow = (task: TodoTask, dot?: React.ReactNode) => {
-    const due = task.dueDate ? new Date(task.dueDate) : null;
-    const overdue = isOverdue(task);
-    // Other day: show the date; same day: the picked time, if any.
-    const when = !due
-      ? null
-      : !isSameDay(due, date)
-      ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : task.dueHasTime
-        ? `${String(due.getHours()).padStart(2, '0')}:${String(due.getMinutes()).padStart(2, '0')}`
-        : null;
-    const { className: dragClass, ...drag } = dragProps(task.id, task.title, '', task.estMinutes || DEFAULT_TASK_MINUTES, task.completed);
-    return (
-      <li key={task.id} className={`flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={task.completed}
-          aria-label={task.completed ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
-          onClick={() => onToggleTodo?.(task.id, !task.completed)}
-          className={`w-5 h-5 max-lg:w-4 max-lg:h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-px transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-            task.completed
-              ? 'bg-primary border-primary text-on-primary'
-              : 'border-outline hover:border-primary bg-transparent'
-          }`}
-        >
-          {task.completed && (
-            <span className="material-symbols-outlined text-[11px] max-lg:text-[9px] leading-none">check</span>
-          )}
-        </button>
-        <span
-          className={`font-body-md text-body-md lg:text-body max-lg:!text-[10px] min-w-0 flex-1 break-words ${
-            task.completed ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
-          }`}
-        >
-          {task.title}
-        </span>
-        {scheduled?.[task.id] && <ScheduledChip start={scheduled[task.id]} date={date} />}
-        {/* Estimate, as on the day's own tasks; it is edited in the todo itself. */}
-        {task.estMinutes ? (
-          <span
-            title="Estimated time"
-            className={`font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
-              task.completed ? 'text-on-surface-variant/50' : 'text-on-surface-variant'
-            }`}
-          >
-            ~{formatDuration(task.estMinutes)}
-          </span>
-        ) : null}
-        {when && (
-          <span
-            className={`font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] tabular-nums flex-shrink-0 mt-px ${
-              overdue ? 'text-error' : 'text-on-surface-variant'
-            }`}
-          >
-            {when}
-          </span>
-        )}
-        {dot}
-      </li>
-    );
-  };
-
   // One day-task row; `dot` marks the subject when it is listed under Done.
-  const taskRow = (item: DayTask, groupKey: string, dot?: React.ReactNode) => {
-    const { className: dragClass, ...drag } = dragProps(item.id, item.text, groupKey === '__other__' ? '' : groupKey, item.estMinutes || DEFAULT_TASK_MINUTES, item.done);
+  const taskRow = (item: DayTask, dot?: React.ReactNode) => {
+    const { className: dragClass, ...drag } = dragProps(item.id, item.text, item.subjectId, item.estMinutes || DEFAULT_TASK_MINUTES, item.done);
     return (
       <li key={item.id} data-checklist-task={item.id} tabIndex={isMobile ? undefined : 0} aria-label={item.text} className={`group focus-visible:outline-2 focus-visible:outline-primary rounded-lg flex items-start gap-2.5 max-lg:gap-2 py-1 ${dragClass}`} {...drag}>
         <button
@@ -434,7 +357,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             item.done ? 'text-on-surface-variant/70 line-through' : 'text-on-surface'
           } ${onEditTask ? 'cursor-pointer hover:underline decoration-outline-variant underline-offset-2' : ''}`}
         >
-          {item.text}
+          {item.text} <TaskProgress value={item.done ? 100 : item.progress} />
         </button>
         {scheduled?.[item.id] && <ScheduledChip start={scheduled[item.id]} date={date} />}
         {/* Estimate: opens the edit window. Unset, the button only
@@ -598,7 +521,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
       onKeyDown={e => {
         if (isMobile || !singleKeysOn() || hasOpenOverlay() || e.nativeEvent.isComposing || e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
         const row = (e.target as HTMLElement).closest<HTMLElement>('[data-checklist-task]');
-        const task = tasks.find(t => t.id === row?.dataset.checklistTask);
+        const task = allTasks.find(t => t.id === row?.dataset.checklistTask);
         if (!row || !task) return;
         const key = e.code;
         const consume = () => { e.preventDefault(); e.stopPropagation(); };
@@ -708,7 +631,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
       >
         <div ref={contentRef}>
           {adding && !isMobile && addForm}
-          {groups.length === 0 && dayTodos.length === 0 && otherTodos.length === 0 ? (
+          {groups.length === 0 && unscheduledTasks.length === 0 ? (
             !adding && (
               <p className="font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] text-on-surface-variant">
                 Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
@@ -716,7 +639,7 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
             )
           ) : (
             <ul className="flex flex-col gap-3 max-lg:gap-3">
-              {groups.length === 0 && dayTodos.length === 0 && !adding && (
+              {groups.length === 0 && !adding && (
                 <li className="font-body-sm text-body-sm lg:text-meta max-lg:!text-[9px] text-on-surface-variant">
                   Nothing to check for {dayLabel} — {isMobile ? 'double-tap to add a task' : 'press + or V to add a task'}
                 </li>
@@ -730,23 +653,10 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
                   )}
                   {!folded.has(group.key) && (
-                    <ul className="flex flex-col gap-1">{group.items.map((item) => taskRow(item, group.key))}</ul>
+                    <ul className="flex flex-col gap-1">{group.items.map((item) => taskRow(item))}</ul>
                   )}
                 </li>
               ))}
-              {openDayTodos.length > 0 && (
-                <li className="min-w-0">
-                  {groupHeader(
-                    TODO_GROUP,
-                    'Todo',
-                    openDayTodos.length,
-                    <span className="material-symbols-outlined text-[14px] max-lg:text-[12px] leading-none text-on-surface-variant flex-shrink-0">
-                      checklist
-                    </span>
-                  )}
-                  {!folded.has(TODO_GROUP) && <ul className="flex flex-col gap-1">{openDayTodos.map((t) => todoRow(t))}</ul>}
-                </li>
-              )}
               {doneCount > 0 && (
                 <li className="min-w-0 pt-2 border-t border-outline-variant">
                   <button
@@ -764,13 +674,12 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                   </button>
                   {showDone && (
                     <ul className="flex flex-col gap-1">
-                      {doneTasks.map(({ task, group }) => taskRow(task, group.key, doneDot(group.color, group.name)))}
-                      {doneTodos.map((t) => todoRow(t, doneDot('var(--color-on-surface-variant)', 'Todo')))}
+                      {doneTasks.map(({ task, group }) => taskRow(task, doneDot(group.color, group.name)))}
                     </ul>
                   )}
                 </li>
               )}
-              {otherTodos.length > 0 && (
+              {unscheduledTasks.length > 0 && (
                 <li className="min-w-0">
                   <button
                     type="button"
@@ -782,10 +691,13 @@ export function SubjectTasksPanel({ date, tasks, subjects, onToggleTask, onAddTa
                       {showOther ? 'expand_more' : 'chevron_right'}
                     </span>
                     <span className="font-body-md text-body-md lg:text-body max-lg:!text-[11px] text-on-surface-variant font-semibold truncate">
-                      Other todos · {otherTodos.length}
+                      Unscheduled tasks · {unscheduledTasks.length}
                     </span>
                   </button>
-                  {showOther && <ul className="flex flex-col gap-1">{otherTodos.map((t) => todoRow(t))}</ul>}
+                  {showOther && <ul className="flex flex-col gap-1">{unscheduledTasks.map(task => {
+                    const subject = subjects.find(subject => subject.id === task.subjectId);
+                    return taskRow(task, subject && doneDot(subject.color, subject.name));
+                  })}</ul>}
                 </li>
               )}
             </ul>

@@ -163,12 +163,18 @@ export interface WeeklyStatistics {
 export type ThemeMode = 'light' | 'dark';
 
 export interface TodoTask {
+  subjectId: string;
+  /** Local calendar date, independent of the deadline. */
+  scheduledDate?: string;
+  progress?: number;
   id: string;
   uid: string;
   title: string;
   description?: string;
   important: boolean;
   urgent: boolean;
+  /** A deliberate move out of Urgent for the current deadline. */
+  autoUrgencyDismissed?: boolean;
   dueDate?: string;
   /**
    * True when the user picked a time for `dueDate`. Otherwise the stored time
@@ -292,6 +298,7 @@ export interface DayNote {
 
 /** One item of a day's checklist. */
 export interface DayTask {
+  progress?: number;
   id: string;
   text: string;
   done: boolean;

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { CalendarEvent, Subject } from '../../types';
 import type { useActiveSession } from '../../hooks/useActiveSession';
-import { dayTaskRepo } from '../../services/repositories';
+import { todoRepo } from '../../services/repositories';
 import { formatDuration, formatTimerDuration, timeFromDate } from '../../utils/time';
 import { formatGoal } from '../../utils/goals';
 import { subjectDetail } from '../../utils/subjectStats';
@@ -29,7 +29,7 @@ const CAPTION = 'text-caption text-on-surface-variant';
  */
 export function SubjectPanel({ subject, events, now, session, onStartOrFinish, onEdit, onDelete }: SubjectPanelProps) {
   // `events` changes with every repo change, so the checklist is re-read with it.
-  const d = useMemo(() => subjectDetail(subject.id, events, dayTaskRepo.getAll(), now), [subject.id, events, now]);
+  const d = useMemo(() => subjectDetail(subject.id, events, todoRepo.getAll(), now), [subject.id, events, now]);
   const [askDelete, setAskDelete] = useState(false);
 
   const live = session.isActive && session.subjectId === subject.id;

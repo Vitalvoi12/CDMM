@@ -1,9 +1,9 @@
+import { TaskProgress } from '../common/TaskProgress';
 import { useMemo, useRef, useState, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
-import type { DayTask, Subject, TodoTask } from '../../types';
+import type { DayTask, Subject } from '../../types';
 import { addDays, dateKey, formatDuration, isSameDay } from '../../utils/time';
 import { EST_PRESETS, parseEstimate } from '../../utils/estimate';
-import { isOverdue, otherOpenTodos, todosForDay } from '../todo/TodoRows';
 import { ChecklistTaskDialog } from '../calendar/ChecklistTaskDialog';
 import { SwipeRow } from './SwipeRow';
 import { useNewKeys } from '../../hooks/useNewKeys';
@@ -37,15 +37,14 @@ interface ChecklistProps {
   date: Date;
   tasks: DayTask[];
   subjects: Subject[];
-  todos: TodoTask[];
+  unscheduledTasks: DayTask[];
   scheduled: Record<string, string>;
   onToggleTask: (id: string, done: boolean) => void;
   onAddTask: (text: string, subjectId: string, estMinutes?: number) => void;
-  onEditTask: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
+  onEditTask: (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined; progress?: number }) => void;
   onDeleteTask: (id: string) => void;
   /** Postpone a task to another day ("YYYY-MM-DD"). */
   onMoveTask: (id: string, to: string) => void;
-  onToggleTodo: (id: string, completed: boolean) => void;
   /** Swipe → Plan: put the task (checklist or todo) on the day's timeline. */
   onPlanTask: (task: { id: string; text: string; subjectId: string; estMinutes?: number }) => void;
   /** The add field, so V and a double tap can focus it. */
@@ -57,10 +56,10 @@ interface ChecklistProps {
 
 /**
  * The phone's Check tab: the day's checklist as swipeable rows (right: done,
- * left: plan / later = tomorrow / delete), the day's todos below (also plannable), and an add bar at the
+ * left: plan / later = tomorrow / delete), unscheduled tasks, and an add bar at the
  * bottom (under the session dock) that rides above the keyboard while typing.
  */
-export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTask, onAddTask, onEditTask, onDeleteTask, onMoveTask, onToggleTodo, onPlanTask, inputRef, peek = false }: ChecklistProps) {
+export function Checklist({ date, tasks, subjects, unscheduledTasks, scheduled, onToggleTask, onAddTask, onEditTask, onDeleteTask, onMoveTask, onPlanTask, inputRef, peek = false }: ChecklistProps) {
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -79,32 +78,26 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
   const dayLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   // Tasks grouped under their subject, in Subjects-page order; tasks
-  // without a (living) subject form an "Other" group last.
+  // without a (living) subject form the "No subject" group last.
   const groups = useMemo(() => {
     const byKey = new Map<string, DayTask[]>();
     for (const t of tasks) {
       const key = byId.has(t.subjectId) ? t.subjectId : '';
       byKey.set(key, [...(byKey.get(key) ?? []), t]);
     }
-    return [...subjects, { id: '', name: 'Other', color: 'var(--color-outline)' }].flatMap((s) => {
+    return [...subjects, { id: '', name: 'No subject', color: 'var(--color-outline)' }].flatMap((s) => {
       const items = byKey.get(s.id);
       return items ? [{ key: s.id || '__other__', name: s.name, color: s.color, items }] : [];
     });
   }, [tasks, subjects, byId]);
 
-  // Todos for the day (see todosForDay).
-  const dayTodos = useMemo(() => todosForDay(todos, date), [todos, date]);
-
-  // Open todos not listed under the day — collapsed by default, there so
-  // any todo can be planned onto the timeline. Left out of the counts.
-  const otherTodos = useMemo(() => otherOpenTodos(todos, date), [todos, date]);
   const [showOther, setShowOther] = useState(false);
   // Rows added while this day is on screen animate in.
-  const added = useNewKeys([...tasks, ...dayTodos, ...otherTodos].map((t) => t.id), dateKey(date));
+  const added = useNewKeys([...tasks, ...unscheduledTasks].map((t) => t.id), dateKey(date));
 
   const open = tasks.filter((t) => !t.done).length;
-  const left = tasks.reduce((s, t) => s + (t.done ? 0 : t.estMinutes || 0), 0) + dayTodos.reduce((s, t) => s + (t.completed ? 0 : t.estMinutes || 0), 0);
-  const editing = editingId ? tasks.find((t) => t.id === editingId) : undefined;
+  const left = tasks.reduce((s, t) => s + (t.done ? 0 : t.estMinutes || 0), 0);
+  const editing = editingId ? [...tasks, ...unscheduledTasks].find((t) => t.id === editingId) : undefined;
   const choices = [{ id: '', name: 'No subject', color: 'var(--color-outline)' }, ...subjects];
   const current = byId.get(subjectId);
 
@@ -120,51 +113,49 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
     inputRef.current?.focus();
   };
 
-  // One todo row — the day's todos and the other open ones share it.
-  const todoRow = (t: TodoTask) => {
-    const due = t.dueDate ? new Date(t.dueDate) : null;
-    const overdue = isOverdue(t);
+  const taskRow = (t: DayTask) => {
     const planned = scheduled[t.id];
-    const when = !due
-      ? (t.important && t.urgent ? 'Urgent & Important' : 'No date')
-      : !isSameDay(due, date)
-      ? due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      : t.dueHasTime ? `${isSameDay(date, new Date()) ? 'Today' : dayLabel} ${hhmm(t.dueDate!)}` : isSameDay(date, new Date()) ? 'Today' : dayLabel;
+    const subject = byId.get(t.subjectId);
     return (
       <SwipeRow
         key={t.id}
         enter={added.has(t.id)}
         open={openRow === t.id}
         onOpenChange={(o) => setOpenRow(o ? t.id : null)}
-        start={{ label: t.completed ? 'Undo' : 'Done', icon: t.completed ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTodo(t.id, !t.completed) }}
-        end={t.completed ? undefined : [{ label: 'Plan', icon: 'event', tone: 'sec', onClick: () => onPlanTask({ id: t.id, text: t.title, subjectId: '', estMinutes: t.estMinutes }) }]}
+        start={{ label: t.done ? 'Undo' : 'Done', icon: t.done ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTask(t.id, !t.done) }}
+        end={[
+          ...(!t.done
+            ? [
+                { label: 'Plan', icon: 'event', tone: 'sec' as const, onClick: () => onPlanTask(t) },
+                { label: 'Later', icon: 'redo', tone: 'sec' as const, onClick: () => onMoveTask(t.id, dateKey(addDays(date, 1))) },
+              ]
+            : []),
+          { label: 'Delete', icon: 'delete', tone: 'err' as const, onClick: () => onDeleteTask(t.id) },
+        ]}
       >
         <div className="m-li" style={{ borderBottom: 0, background: 'transparent' }}>
           <button
             type="button"
             role="checkbox"
-            aria-checked={t.completed}
-            aria-label={t.completed ? `Mark "${t.title}" as not done` : `Mark "${t.title}" as done`}
-            onClick={() => onToggleTodo(t.id, !t.completed)}
+            aria-checked={t.done}
+            aria-label={t.done ? `Mark "${t.text}" as not done` : `Mark "${t.text}" as done`}
+            onClick={() => onToggleTask(t.id, !t.done)}
             className="flex items-center justify-center -m-[10px]"
             style={{ width: 44, height: 44, background: 'none', border: 0, flex: 'none' }}
           >
-            <span className={`m-cb ${t.completed ? 'on' : ''}`}>{t.completed && <span className="material-symbols-outlined m-ic xs">check</span>}</span>
+            <span className={`m-cb ${t.done ? 'on' : ''}`}>{t.done && <span className="material-symbols-outlined m-ic xs">check</span>}</span>
           </button>
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className={`m-tr ${t.completed ? 'm-mut line-through' : ''}`}>{t.title}</span>
-            <span className="m-sm flex items-center" style={{ gap: 4, color: overdue ? 'var(--color-error)' : 'var(--color-on-surface-variant)' }}>
-              {overdue && <span className="m-dot" style={{ width: 6, height: 6, background: 'var(--color-error)' }} />}
-              {when}
-            </span>
+          <button type="button" onClick={() => setEditingId(t.id)} className="flex flex-col flex-1 min-w-0 text-left bg-transparent border-0 p-0 text-inherit" style={{ minHeight: 44, justifyContent: 'center' }}>
+            <span className={`m-tr ${t.done ? 'm-mut line-through' : ''}`}>{t.text} <TaskProgress value={t.done ? 100 : t.progress} /></span>
             {planned && (
               <span className="m-sm m-mut flex items-center" style={{ gap: 4 }}>
                 <span className="material-symbols-outlined m-ic xs">event</span>
                 Planned {isSameDay(new Date(planned), date) ? hhmm(planned) : `${new Date(planned).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${hhmm(planned)}`}
               </span>
             )}
-          </div>
+          </button>
           {t.estMinutes ? <span className="m-est m-num">{formatDuration(t.estMinutes)}</span> : null}
+          {subject && <span className="m-sw" style={{ background: subject.color }} aria-label={subject.name} />}
         </div>
       </SwipeRow>
     );
@@ -279,7 +270,7 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
           </span>
         </div>
 
-        {tasks.length === 0 && dayTodos.length === 0 && (
+        {tasks.length === 0 && (
           <p className="m-sm m-mut" style={{ padding: '8px 16px' }}>
             Nothing to check for {dayLabel}. Add a task below.
           </p>
@@ -297,66 +288,12 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
                   {groupDone}/{g.items.length}{groupLeft > 0 ? ` · ~${formatDuration(groupLeft)}` : ''}
                 </span>
               </div>
-              {g.items.map((t) => {
-                const planned = scheduled[t.id];
-                return (
-                <SwipeRow
-                  key={t.id}
-                  enter={added.has(t.id)}
-                  open={openRow === t.id}
-                  onOpenChange={(o) => setOpenRow(o ? t.id : null)}
-                  start={{ label: t.done ? 'Undo' : 'Done', icon: t.done ? 'undo' : 'check', tone: 'pri', onClick: () => onToggleTask(t.id, !t.done) }}
-                  end={[
-                    ...(!t.done
-                      ? [
-                          { label: 'Plan', icon: 'event', tone: 'sec' as const, onClick: () => onPlanTask(t) },
-                          { label: 'Later', icon: 'redo', tone: 'sec' as const, onClick: () => onMoveTask(t.id, dateKey(addDays(date, 1))) },
-                        ]
-                      : []),
-                    { label: 'Delete', icon: 'delete', tone: 'err' as const, onClick: () => onDeleteTask(t.id) },
-                  ]}
-                >
-                  <div className="m-li" style={{ borderBottom: 0, background: 'transparent' }}>
-                    <button
-                      type="button"
-                      role="checkbox"
-                      aria-checked={t.done}
-                      aria-label={t.done ? `Mark "${t.text}" as not done` : `Mark "${t.text}" as done`}
-                      onClick={() => onToggleTask(t.id, !t.done)}
-                      className="flex items-center justify-center -m-[10px]"
-                      style={{ width: 44, height: 44, background: 'none', border: 0, flex: 'none' }}
-                    >
-                      <span className={`m-cb ${t.done ? 'on' : ''}`}>{t.done && <span className="material-symbols-outlined m-ic xs">check</span>}</span>
-                    </button>
-                    <button type="button" onClick={() => setEditingId(t.id)} className="flex flex-col flex-1 min-w-0 text-left bg-transparent border-0 p-0 text-inherit" style={{ minHeight: 44, justifyContent: 'center' }}>
-                      <span className={`m-tr ${t.done ? 'm-mut line-through' : ''}`}>{t.text}</span>
-                      {planned && (
-                        <span className="m-sm m-mut flex items-center" style={{ gap: 4 }}>
-                          <span className="material-symbols-outlined m-ic xs">event</span>
-                          Planned {isSameDay(new Date(planned), date) ? hhmm(planned) : `${new Date(planned).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${hhmm(planned)}`}
-                        </span>
-                      )}
-                    </button>
-                    {t.estMinutes ? <span className="m-est m-num">{formatDuration(t.estMinutes)}</span> : null}
-                    {g.key !== '__other__' && <span className="m-sw" style={{ background: g.color }} aria-label={g.name} />}
-                  </div>
-                </SwipeRow>
-                );
-              })}
+              {g.items.map(taskRow)}
             </div>
           );
         })}
 
-        {dayTodos.length > 0 && (
-          <>
-            <div className="flex items-center" style={{ height: 40, padding: '0 16px', marginTop: 8 }}>
-              <span className="m-lbl m-mut">From todo</span>
-            </div>
-            {dayTodos.map(todoRow)}
-          </>
-        )}
-
-        {otherTodos.length > 0 && (
+        {unscheduledTasks.length > 0 && (
           <>
             <button
               type="button"
@@ -365,10 +302,10 @@ export function Checklist({ date, tasks, subjects, todos, scheduled, onToggleTas
               className="flex items-center w-full bg-transparent border-0 text-left"
               style={{ height: 40, padding: '0 16px', marginTop: 8, gap: 4 }}
             >
-              <span className="m-lbl m-mut">Other todos · {otherTodos.length}</span>
+              <span className="m-lbl m-mut">Unscheduled tasks · {unscheduledTasks.length}</span>
               <span className="material-symbols-outlined m-ic xs m-mut">{showOther ? 'expand_more' : 'chevron_right'}</span>
             </button>
-            {showOther && otherTodos.map(todoRow)}
+            {showOther && unscheduledTasks.map(taskRow)}
           </>
         )}
       </div>

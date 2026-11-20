@@ -4,6 +4,7 @@ import { CompactTodoRow, totalEstMinutes } from './TodoRows';
 import { formatDuration } from '../../utils/time';
 
 interface QuadrantCardProps {
+  quadrant: string;
   title: string;
   tasks: TodoTask[];
   onToggle: (id: string, completed: boolean) => void;
@@ -13,7 +14,7 @@ interface QuadrantCardProps {
 }
 
 export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(function QuadrantCard(
-  { title, tasks, onToggle, onOpenTask, onOpenQuadrant, onAdd },
+  { quadrant, title, tasks, onToggle, onOpenTask, onOpenQuadrant, onAdd },
   ref
 ) {
   const active = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
@@ -23,7 +24,8 @@ export const QuadrantCard = forwardRef<HTMLButtonElement, QuadrantCardProps>(fun
   return (
     <section
       aria-label={title}
-      className="relative bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 pt-5 px-5 pb-5 flex flex-col min-w-0 h-full min-h-0 overflow-hidden"
+      data-todo-quadrant={quadrant}
+      className="relative bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-elev-1 pt-5 px-5 pb-5 flex flex-col min-w-0 h-full min-h-0 overflow-hidden transition-colors motion-reduce:transition-none data-[todo-drop-active]:border-primary"
     >
       <div className="flex items-center justify-between gap-2 mb-4">
         {/* flex-1: the row is full-width but this button was shrink-wrapped to

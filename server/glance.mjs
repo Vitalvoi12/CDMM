@@ -61,7 +61,12 @@ function rankTodos(rows) {
   });
 }
 
-export function getGlance(db, userId, now = Date.now()) {
+export function getGlance(db, userId, now = Date.now(), day, timeZone) {
+  let dateFormat;
+  try { dateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: timeZone || 'UTC', dateStyle: 'short' }); }
+  catch { dateFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: 'UTC', dateStyle: 'short' }); }
+  const dateOf = (value) => Number.isFinite(Date.parse(value)) ? dateFormat.format(new Date(value)) : '';
+  if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) day = dateFormat.format(now);
   const settings = readSettings(db, userId);
   const subjects = new Map(
     db.prepare('SELECT id, name, color FROM subjects WHERE user_id = ?').all(userId).map((s) => [s.id, s])
@@ -79,6 +84,7 @@ export function getGlance(db, userId, now = Date.now()) {
         : [];
       return {
         id: e.id,
+        subjectId: e.subject_id,
         title: e.title || subject?.name || 'Event',
         subject: subject?.name ?? null,
         color: subject?.color || e.color || null,
@@ -108,6 +114,7 @@ export function getGlance(db, userId, now = Date.now()) {
   const s = settings.activeSession;
   const session = s && typeof s.start === 'string'
     ? {
+        id: s.id,
         subjectId: s.subjectId ?? '',
         title: s.title || subjects.get(s.subjectId)?.name || 'Focus session',
         color: s.color || subjects.get(s.subjectId)?.color || null,
@@ -115,16 +122,34 @@ export function getGlance(db, userId, now = Date.now()) {
       }
     : null;
 
-  return { now, session, events, todos, signals: normalizeSignals(settings.signals) };
+  const recent = db.prepare('SELECT subject_id, MAX(start) AS last FROM events WHERE user_id = ? GROUP BY subject_id').all(userId);
+  const lastUsed = new Map(recent.map((e) => [e.subject_id, e.last]));
+  const focusSubjects = [...subjects.values()].sort((a, b) =>
+    String(lastUsed.get(b.id) || '').localeCompare(String(lastUsed.get(a.id) || '')) || a.name.localeCompare(b.name)
+  );
+  const taskPlans = db.prepare("SELECT task_id, start FROM events WHERE user_id = ? AND kind = 'plan' AND task_id IS NOT NULL").all(userId);
+  const planned = new Set(taskPlans.map(event => event.task_id));
+  const linked = new Set(taskPlans.filter(event => dateOf(event.start) === day).map(event => event.task_id));
+  const dayTasks = db.prepare(
+    'SELECT * FROM todos WHERE user_id = ? AND (scheduled_date = ? OR scheduled_date IS NULL) ORDER BY created_at, rowid'
+  ).all(userId, day)
+    .filter(task => task.scheduled_date === day || (!task.scheduled_date && (planned.has(task.id) ? linked.has(task.id) : dateOf(task.due_date) === day)))
+    .map(task => ({
+      id: task.id, text: task.title, subjectId: task.subject_id || '',
+      done: task.completed === 1, progress: task.progress, estMinutes: task.est_minutes,
+    }));
+  return { now, focusApiVersion: 1, session, sessionAt: Number(settings.activeSessionAt) || 0,
+    subjects: focusSubjects, events, todos, taskDate: day, dayTasks,
+    signals: normalizeSignals(settings.signals) };
 }
 
 /** Tick a task off (or reopen it) from a widget or the watch. */
-export function setTodoDone(db, userId, id, done) {
-  const row = db.prepare('SELECT id FROM todos WHERE id = ? AND user_id = ?').get(id, userId);
+export function setTodoDone(db, userId, id, done, now = Date.now()) {
+  const row = db.prepare('SELECT completed, updated_at FROM todos WHERE id = ? AND user_id = ?').get(id, userId);
   if (!row) return false;
-  const now = Date.now();
+  if (Boolean(row.completed) === done) return true;
   applyChanges(db, userId, {
-    todos: [{ id, completed: done, completedAt: done ? new Date(now).toISOString() : null, updatedAt: now }],
+    todos: [{ id, completed: done, completedAt: done ? new Date(now).toISOString() : null, updatedAt: Math.max(now, row.updated_at + 1) }],
   });
   return true;
 }

@@ -1,6 +1,7 @@
+import { TaskProgress } from '../common/TaskProgress';
 import { useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { TodoTask } from '../../types';
+import type { Subject, TodoTask } from '../../types';
 import { formatDuration } from '../../utils/time';
 import { formatDueLabel, isOverdue } from '../todo/TodoRows';
 import { SwipeRow } from './SwipeRow';
@@ -31,13 +32,14 @@ function loadQuadrant(): QuadrantKey {
 }
 
 interface TodoListProps {
+  subjects: Subject[];
   byQuadrant: Record<QuadrantKey, TodoTask[]>;
   openCount: number;
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
   onOpen: (task: TodoTask) => void;
   /** Quick add from the bottom bar. */
-  onAdd: (title: string, important: boolean, urgent: boolean) => void;
+  onAdd: (title: string, subjectId: string, important: boolean, urgent: boolean) => void;
 }
 
 function hasUpcomingReminder(task: TodoTask): boolean {
@@ -51,12 +53,14 @@ function hasUpcomingReminder(task: TodoTask): boolean {
  * away, and an add bar whose Important / Urgent toggles start from the
  * picked quadrant.
  */
-export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, onAdd }: TodoListProps) {
+export function TodoList({ byQuadrant, subjects, openCount, onToggle, onDelete, onOpen, onAdd }: TodoListProps) {
   const [quadrant, setQuadrantState] = useState<QuadrantKey>(loadQuadrant);
   const q = MOBILE_QUADRANTS.find((x) => x.key === quadrant)!;
   const [important, setImportant] = useState(q.important);
   const [urgent, setUrgent] = useState(q.urgent);
   const [text, setText] = useState('');
+  const [picked, setPicked] = useState('');
+  const subjectId = subjects.some(subject => subject.id === picked) ? picked : '';
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -86,15 +90,18 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
   const submit = () => {
     const title = text.trim();
     if (!title) return;
-    onAdd(title, important, urgent);
+    onAdd(title, subjectId, important, urgent);
     setText('');
     inputRef.current?.focus();
   };
 
   const row = (t: TodoTask) => {
-    const due = formatDueLabel(t.dueDate, t.completed, t.dueHasTime);
+    const due = t.dueDate || !t.scheduledDate ? formatDueLabel(t.dueDate, t.completed, t.dueHasTime) : null;
     const overdue = isOverdue(t);
-    const sub = [due, t.estMinutes ? formatDuration(t.estMinutes) : null].filter(Boolean).join(' · ');
+    const scheduled = t.scheduledDate
+      ? new Date(t.scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      : null;
+    const sub = [subjects.find(subject => subject.id === t.subjectId)?.name, scheduled ? 'Scheduled ' + scheduled : null, due, t.estMinutes ? formatDuration(t.estMinutes) : null].filter(Boolean).join(' · ');
     return (
       <SwipeRow
         key={t.id}
@@ -117,7 +124,7 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
             <span className={`m-cb ${t.completed ? 'on' : ''}`}>{t.completed && <span className="material-symbols-outlined m-ic xs">check</span>}</span>
           </button>
           <button type="button" onClick={() => onOpen(t)} className="flex flex-col flex-1 min-w-0 text-left bg-transparent border-0 p-0 text-inherit" style={{ minHeight: 44, justifyContent: 'center' }}>
-            <span className={`m-tr ${t.completed ? 'm-mut line-through' : ''}`}>{t.title}</span>
+            <span className={`m-tr ${t.completed ? 'm-mut line-through' : ''}`}>{t.title} <TaskProgress value={t.completed ? 100 : t.progress} /></span>
             {sub && (
               <span className="m-sm flex items-center m-num" style={{ gap: 4, color: overdue ? 'var(--color-error)' : 'var(--color-on-surface-variant)' }}>
                 {overdue && <span className="m-dot" style={{ width: 6, height: 6, background: 'var(--color-error)' }} />}
@@ -144,6 +151,11 @@ export function TodoList({ byQuadrant, openCount, onToggle, onDelete, onOpen, on
         submit();
       }}
     >
+      <select aria-label="Subject" value={subjectId} onChange={e => setPicked(e.target.value)}
+        className="w-full rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2 text-base">
+        <option value="">No subject</option>
+        {subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+      </select>
       <div className="flex items-center" style={{ gap: 8 }}>
         {/* The box centres the line itself (flex), so the text sits mid-box
             whatever padding a browser adds inside a textarea. */}

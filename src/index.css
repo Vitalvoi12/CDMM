@@ -759,6 +759,65 @@ html[data-theme='dark'] .heat-num-hi {
   color: #0b0b0a;
 }
 
+[data-todo-quadrant] [data-todo-task] {
+  cursor: grab;
+  user-select: none;
+}
+
+[data-todo-dragging],
+[data-todo-dragging] * {
+  cursor: grabbing !important;
+}
+
+.task-progress-slider {
+  --task-progress-track: linear-gradient(
+    to right,
+    var(--color-primary) var(--task-progress),
+    var(--color-outline-variant) var(--task-progress)
+  );
+  appearance: none;
+  background: transparent;
+}
+
+.task-progress-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--task-progress-track);
+}
+
+.task-progress-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--task-progress-track);
+}
+
+.task-progress-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.task-progress-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.task-progress-number {
+  appearance: textfield;
+}
+
+.task-progress-number::-webkit-inner-spin-button,
+.task-progress-number::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
 /* Day notes editor (Tiptap): minimal typography for the markdown blocks. */
 .note-editor {
   font-family: var(--font-body-md);

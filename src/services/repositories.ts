@@ -282,6 +282,9 @@ class SubjectRepository {
 function cleanTodo(rec: TodoTask): TodoTask {
   return {
     ...rec,
+    uid: rec.uid || rec.id + '@cdmm',
+    subjectId: rec.subjectId || '',
+    scheduledDate: rec.scheduledDate || undefined,
     description: rec.description ?? undefined,
     dueDate: rec.dueDate ?? undefined,
     dueHasTime: rec.dueHasTime || undefined,
@@ -377,6 +380,11 @@ class TodoRepository {
       createdAt: todo.createdAt || new Date().toISOString(),
       updatedAt: Date.now(),
     };
+    if (todo.progress !== undefined) {
+      newTodo.progress = Math.max(0, Math.min(100, Math.round(todo.progress) || 0));
+      newTodo.completed = newTodo.progress === 100;
+      newTodo.completedAt = newTodo.completed ? new Date().toISOString() : undefined;
+    }
     this.todos.push(newTodo);
     save(STORAGE_KEYS.todos, this.todos);
     markDirty('todos', id);
@@ -394,10 +402,28 @@ class TodoRepository {
   update(id: string, data: Partial<TodoTask>): TodoTask | undefined {
     const idx = this.todos.findIndex((t) => t.id === id);
     if (idx === -1) return undefined;
+    if (data.progress !== undefined) {
+      const progress = Math.max(0, Math.min(100, Math.round(data.progress) || 0));
+      data = { ...data, progress, completed: progress === 100 };
+    } else if (data.completed !== undefined) {
+      data = { ...data, progress: data.completed ? 100 : 0 };
+    }
     const prev = this.todos[idx];
     const next: TodoTask = { ...prev, ...data, id, updatedAt: Date.now() };
+    if (next.urgent || next.dueDate !== prev.dueDate) next.autoUrgencyDismissed = undefined;
     if (data.completed !== undefined && data.completed !== prev.completed) {
       next.completedAt = data.completed ? data.completedAt || new Date().toISOString() : undefined;
+    }
+    if (next.subjectId !== prev.subjectId) {
+      const subject = subjectRepo.getById(next.subjectId);
+      for (const event of eventRepo.getAll()) {
+        if (event.kind !== 'plan' || event.taskId !== id) continue;
+        eventRepo.update(event.id, {
+          subjectId: next.subjectId,
+          title: subject?.name ?? next.title,
+          ...(subject && !event.description ? { description: next.title } : {}),
+        });
+      }
     }
     this.todos[idx] = next;
     save(STORAGE_KEYS.todos, this.todos);
@@ -580,6 +606,13 @@ class EventRepository {
     this.events[idx] = next;
     save(STORAGE_KEYS.events, this.events);
     markDirty('events', id);
+    if (prev.kind === 'plan' && next.kind === 'plan' && next.taskId && prev.start !== next.start) {
+      const from = dateKey(new Date(prev.start));
+      const to = dateKey(new Date(next.start));
+      if (from !== to && todoRepo.getById(next.taskId)?.scheduledDate === from) {
+        todoRepo.update(next.taskId, { scheduledDate: to });
+      }
+    }
     emitRepoChange();
     return next;
   }
@@ -860,11 +893,7 @@ class DayNoteRepository {
   }
 }
 
-/**
- * The Checklist of each calendar day (id = "YYYY-MM-DD"). Like day notes the
- * per-day record is never deleted — removing tasks stores the shorter list —
- * so it syncs through plain last-write-wins without tombstones.
- */
+/** Legacy day lists retained for offline migration and older sync payloads. */
 class DayTaskRepository {
   private lists: DayTaskList[] = load<DayTaskList[]>(STORAGE_KEYS.dayTasks, []);
 
@@ -874,81 +903,6 @@ class DayTaskRepository {
 
   getById(date: string): DayTaskList | undefined {
     return this.lists.find((l) => l.id === date);
-  }
-
-  /** The day's tasks, or [] when it has none. */
-  getTasks(date: string): DayTask[] {
-    return this.getById(date)?.tasks ?? [];
-  }
-
-  /** Replace a day's list. No-op when nothing changed. */
-  set(date: string, tasks: DayTask[]): void {
-    const idx = this.lists.findIndex((l) => l.id === date);
-    if (idx === -1 && tasks.length === 0) return;
-    if (idx !== -1 && JSON.stringify(this.lists[idx].tasks) === JSON.stringify(tasks)) return;
-    const rec = { id: date, tasks, updatedAt: Date.now() };
-    if (idx === -1) this.lists.push(rec);
-    else this.lists[idx] = rec;
-    save(STORAGE_KEYS.dayTasks, this.lists);
-    markDirty('dayTasks', date);
-    emitRepoChange();
-  }
-
-  add(date: string, task: Omit<DayTask, 'id' | 'done'>): void {
-    this.set(date, [...this.getTasks(date), { id: genId(), done: false, ...task }]);
-  }
-
-  toggle(date: string, id: string, done: boolean): void {
-    this.set(date, this.getTasks(date).map((t) => (t.id === id ? { ...t, done } : t)));
-  }
-
-  /** Rename / re-subject / re-estimate a task. `estMinutes: undefined` clears it. */
-  edit(date: string, id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }): void {
-    const task = this.getTasks(date).find((t) => t.id === id);
-    if (!task) return;
-    if (task.subjectId !== patch.subjectId) {
-      const subject = subjectRepo.getById(patch.subjectId);
-      for (const event of eventRepo.getAll()) {
-        if (event.taskId !== id) continue;
-        eventRepo.update(event.id, {
-          subjectId: patch.subjectId,
-          title: subject?.name ?? patch.text,
-          // Custom blocks keep the task in their title; subject blocks use
-          // the description for it, just as when planning a task.
-          ...(subject && !event.description ? { description: patch.text } : {}),
-        });
-      }
-    }
-    this.set(
-      date,
-      this.getTasks(date).map((t) => {
-        if (t.id !== id) return t;
-        const { estMinutes: _old, ...rest } = t;
-        const next = { ...rest, text: patch.text, subjectId: patch.subjectId };
-        return patch.estMinutes ? { ...next, estMinutes: patch.estMinutes } : next;
-      })
-    );
-  }
-
-  remove(date: string, id: string): void {
-    this.set(date, this.getTasks(date).filter((t) => t.id !== id));
-  }
-
-  /** Postpone a task to another day: it leaves `from` and goes, reopened, to the end of `to`. */
-  move(from: string, to: string, id: string): void {
-    const task = this.getTasks(from).find((t) => t.id === id);
-    if (!task || from === to) return;
-    this.remove(from, id);
-    this.set(to, [...this.getTasks(to).filter((t) => t.id !== id), { ...task, done: false }]);
-  }
-
-  /** Re-stamp a day so its current list wins LWW (undo/redo). */
-  bump(date: string): void {
-    const idx = this.lists.findIndex((l) => l.id === date);
-    if (idx === -1) return;
-    this.lists[idx] = { ...this.lists[idx], updatedAt: Date.now() };
-    save(STORAGE_KEYS.dayTasks, this.lists);
-    markDirty('dayTasks', date);
   }
 
   /** Apply a remote record (LWW). Never marks dirty. */
@@ -1018,9 +972,27 @@ export const eventEditRepo = new EventEditRepository();
 export const dayNoteRepo = new DayNoteRepository();
 export const dayTaskRepo = new DayTaskRepository();
 
+function importChecklistTask(task: DayTask, day: string, updatedAt: number): void {
+  if (!task.id || !task.text || todoRepo.getById(task.id) || tombstoneRepo.has('todos', task.id)) return;
+  const stamp = updatedAt || 1;
+  todoRepo.applyRemote({
+    id: task.id, uid: task.id + '@cdmm', title: task.text, subjectId: task.subjectId,
+    scheduledDate: day, important: false, urgent: false, completed: task.done,
+    progress: task.done ? 100 : task.progress, estMinutes: task.estMinutes,
+    createdAt: new Date(stamp).toISOString(), updatedAt: stamp,
+  });
+  markDirty('todos', task.id);
+}
+
+// Preserve offline checklist entries when upgrading a browser.
+for (const list of dayTaskRepo.getAll().sort((a, b) => b.updatedAt - a.updatedAt)) {
+  for (const task of list.tasks ?? []) importChecklistTask(task, list.id, list.updatedAt);
+}
+
+
 /**
  * Move tasks that still live on events (written before the Checklist became
- * per day, or by an older client) into the checklist of the event's day,
+ * per day, or by an older client) into Todo on the event's day,
  * under the event's subject, and clear them from the event. Item ids are
  * kept, so a second device doing the same never duplicates them.
  * Returns true when anything moved.
@@ -1030,12 +1002,9 @@ export function migrateEventChecklists(): boolean {
   for (const e of eventRepo.getAll()) {
     if (!e.checklist || e.checklist.length === 0) continue;
     const day = dateKey(new Date(e.start));
-    const tasks = dayTaskRepo.getTasks(day);
-    const known = new Set(tasks.map((t) => t.id));
-    const added = e.checklist
-      .filter((t) => t.text && !known.has(t.id))
-      .map((t) => ({ id: t.id, text: t.text, done: t.done === true, subjectId: e.subjectId || '' }));
-    if (added.length > 0) dayTaskRepo.set(day, [...tasks, ...added]);
+    for (const task of e.checklist) {
+      if (task.text) importChecklistTask({ ...task, subjectId: e.subjectId || '' }, day, e.updatedAt);
+    }
     eventRepo.update(e.id, { checklist: [] }, { restoring: true });
     moved = true;
   }

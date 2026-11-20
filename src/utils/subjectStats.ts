@@ -1,4 +1,4 @@
-import type { CalendarEvent, DayTaskList, Subject } from '../types';
+import type { CalendarEvent, Subject, TodoTask } from '../types';
 import { countsTowardStats } from './stats';
 import { addDays, dateKey, formatDuration, startOfDay, startOfWeek } from './time';
 
@@ -143,7 +143,7 @@ export interface SubjectDetail {
 }
 
 /** Everything the desktop Subjects panel shows for one subject. */
-export function subjectDetail(subjectId: string, events: CalendarEvent[], dayTasks: DayTaskList[], now: number): SubjectDetail {
+export function subjectDetail(subjectId: string, events: CalendarEvent[], todos: TodoTask[], now: number): SubjectDetail {
   const weekStart = startOfWeek(new Date(now));
   const weekEnd = addDays(weekStart, 7).getTime();
   const firstWeek = addDays(weekStart, -7 * 7);
@@ -203,14 +203,14 @@ export function subjectDetail(subjectId: string, events: CalendarEvent[], dayTas
   });
 
   const todayKey = dateKey(new Date(now));
-  const open = dayTasks
-    .filter((l) => l.id >= todayKey)
-    .sort((a, b) => a.id.localeCompare(b.id))
-    .flatMap((l) => {
-      const [y, m, d] = l.id.split('-').map(Number);
-      const day = futureDayLabel(new Date(y, m - 1, d), now);
-      return l.tasks.filter((t) => !t.done && t.subjectId === subjectId).map((t) => ({ id: t.id, text: t.text, day }));
-    });
+  const open = todos
+    .filter(task => !task.completed && task.subjectId === subjectId)
+    .map(task => ({ task, date: task.scheduledDate || (task.dueDate ? dateKey(new Date(task.dueDate)) : '') }))
+    .filter(({ date }) => !date || date >= todayKey)
+    .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))
+    .map(({ task, date }) => ({
+      id: task.id, text: task.title, day: date ? futureDayLabel(new Date(date + 'T12:00:00'), now) : 'Unscheduled',
+    }));
 
   const today = startOfDay(new Date(now));
   return {

@@ -107,9 +107,11 @@ function dirtyTodo(rec: TodoTask) {
     ...withTs(rec),
     description: rec.description ?? null,
     dueDate: rec.dueDate ?? null,
+    scheduledDate: rec.scheduledDate ?? null,
     estMinutes: rec.estMinutes ?? null,
     completedAt: rec.completedAt ?? null,
     dueHasTime: rec.dueHasTime === true,
+    autoUrgencyDismissed: rec.autoUrgencyDismissed === true,
     reminders: rec.reminders ?? [],
   } as unknown as TodoTask & { updatedAt: number };
 }
@@ -357,7 +359,7 @@ async function runCycle(): Promise<boolean> {
     if (!data.hasMore || guard > 10) break;
   }
   // Tasks still sitting on events (older data or an older client) move to
-  // their day's checklist once the pull is in; the next cycle pushes both.
+  // Todo once the pull is in; the next cycle pushes both.
   changed = migrateEventChecklists() || changed;
 
   if (hasDirty) {

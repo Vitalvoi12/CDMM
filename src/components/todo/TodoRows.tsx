@@ -1,8 +1,10 @@
+import { TaskProgress } from '../common/TaskProgress';
 import { singleKeysOn } from '../../services/shortcuts';
 import { focusSibling } from '../../services/keyboardFocus';
 import type { TodoTask } from '../../types';
 import { dateKey, formatDuration } from '../../utils/time';
 import { TodoCheckbox } from './TodoCheckbox';
+import { subjectRepo } from '../../services/repositories';
 
 /** Relative day label for a due date (mockup style). The time is shown only
  *  when the user set one: otherwise it is a fixed 18:00 placeholder. */
@@ -29,43 +31,6 @@ export function formatDueLabel(iso: string | undefined, completed: boolean, hasT
 
 export function isOverdue(task: TodoTask): boolean {
   return !!task.dueDate && !task.completed && new Date(task.dueDate).getTime() < Date.now();
-}
-
-/**
- * Todo tasks listed under a day's checklist: the ones due that day, plus on
- * today the open ones still overdue from earlier days, plus every open
- * "Urgent & Important" task on today and each later day, so they stay in
- * sight until done. A ticked one stays on the day it was ticked. Dated
- * tasks come first, by due time.
- */
-export function todosForDay(todos: TodoTask[], date: Date): TodoTask[] {
-  const day = dateKey(date);
-  const today = dateKey(new Date());
-  return todos
-    .filter((t) => {
-      const due = t.dueDate ? new Date(t.dueDate) : null;
-      const dueOk = !!due && !Number.isNaN(due.getTime());
-      if (dueOk && dateKey(due) === day) return true;
-      if (day === today && dueOk && isOverdue(t)) return true;
-      if (t.important && t.urgent) {
-        if (!t.completed) return day >= today;
-        return !!t.completedAt && dateKey(new Date(t.completedAt)) === day;
-      }
-      return false;
-    })
-    .sort((a, b) => (a.dueDate ? Date.parse(a.dueDate) : Infinity) - (b.dueDate ? Date.parse(b.dueDate) : Infinity));
-}
-
-/**
- * Open todo tasks NOT listed under the day (see todosForDay): listed apart
- * in the checklist so any of them can still be planned onto the timeline.
- * Dated ones first, by due time; undated ones keep their stored order.
- */
-export function otherOpenTodos(todos: TodoTask[], date: Date): TodoTask[] {
-  const shown = new Set(todosForDay(todos, date).map((t) => t.id));
-  return todos
-    .filter((t) => !t.completed && !shown.has(t.id))
-    .sort((a, b) => (a.dueDate ? Date.parse(a.dueDate) : Infinity) - (b.dueDate ? Date.parse(b.dueDate) : Infinity));
 }
 
 /** True when a task belongs on the "Urgent & Important" card for a given day. */
@@ -181,8 +146,13 @@ export function CompactTodoRow({
             task.completed ? 'line-through text-on-surface-variant' : 'text-on-surface'
           }`}
         >
-          {task.title}
+          {task.title} <TaskProgress value={task.completed ? 100 : task.progress} />
         </span>
+        {task.subjectId && (
+          <span className="text-caption text-on-surface-variant truncate max-w-[8rem]">
+            {subjectRepo.getById(task.subjectId)?.name}
+          </span>
+        )}
         <EstLabel task={task} />
         <RemindIcon task={task} />
         <DueLabel task={task} />
@@ -229,7 +199,7 @@ export function FullTodoRow({
             task.completed ? 'line-through text-on-surface-variant' : 'text-on-surface font-medium'
           }`}
         >
-          {task.title}
+          {task.title} <TaskProgress value={task.completed ? 100 : task.progress} />
         </span>
         {task.description && (
           <span className="font-body-sm text-body-sm lg:text-meta text-on-surface-variant mt-1 break-words block">
@@ -237,6 +207,14 @@ export function FullTodoRow({
           </span>
         )}
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+          {task.subjectId && (
+            <span className="text-caption text-on-surface-variant">{subjectRepo.getById(task.subjectId)?.name}</span>
+          )}
+          {task.scheduledDate && (
+            <span className="text-caption text-on-surface-variant">
+              Scheduled {new Date(task.scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          )}
           {task.estMinutes != null && task.estMinutes > 0 && (
             <span className="font-label-sm text-label-sm lg:text-caption inline-flex items-center gap-1 uppercase tracking-[0.1em] text-on-surface-variant">
               <span className="material-symbols-outlined text-[12px] leading-none">timer</span>

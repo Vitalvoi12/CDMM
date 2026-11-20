@@ -37,6 +37,12 @@ export function openDb(dir) {
       salt TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS focus_commands (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      command_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, command_id)
+    );
     CREATE TABLE IF NOT EXISTS sessions (
       token_hash TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -95,8 +101,11 @@ export function openDb(dir) {
       description TEXT,
       important INTEGER NOT NULL DEFAULT 0,
       urgent INTEGER NOT NULL DEFAULT 0,
+      auto_urgency_dismissed INTEGER NOT NULL DEFAULT 0,
       due_date TEXT,
       due_has_time INTEGER NOT NULL DEFAULT 0,
+      scheduled_date TEXT,
+      progress REAL,
       est_minutes INTEGER,
       subject_id TEXT,
       completed_at TEXT,
@@ -263,6 +272,23 @@ export function openDb(dir) {
   } catch {
     // column already exists — ignore
   }
+  const todoColumns = new Set(db.prepare('PRAGMA table_info(todos)').all().map(column => column.name));
+  if (!todoColumns.has('scheduled_date')) db.exec('ALTER TABLE todos ADD COLUMN scheduled_date TEXT');
+  if (!todoColumns.has('progress')) db.exec('ALTER TABLE todos ADD COLUMN progress REAL');
+  if (!todoColumns.has('auto_urgency_dismissed')) {
+    db.exec('ALTER TABLE todos ADD COLUMN auto_urgency_dismissed INTEGER NOT NULL DEFAULT 0');
+  }
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    for (const row of db.prepare("SELECT * FROM day_tasks WHERE tasks != '[]' ORDER BY updated_at DESC, id DESC").iterate()) {
+      migrateDayTasks(db, row.user_id, row.id, row.tasks, row.updated_at);
+    }
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
   return db;
 }
 
@@ -347,12 +373,15 @@ function rowToPayload(entity, row) {
     return { id: row.id, uid: row.uid, subjectId: row.subject_id, title: row.title, description: row.description, start: row.start, end: row.end, kind: row.kind, createdAt: row.created_at || undefined, recurrenceId: row.recurrence_id || undefined, color: row.color || undefined, countInStats: row.count_in_stats === 0 ? false : true, checklist: parseChecklist(row.checklist), notifyBefore: row.notify_before == null ? undefined : row.notify_before, notifyExtra: parseLeads(row.notify_extra), focus: row.focus == null ? undefined : row.focus, taskId: row.task_id || undefined, updatedAt: row.updated_at };
   }
   return {
-    id: row.id, title: row.title, description: row.description,
+    id: row.id, title: row.title, description: row.description ?? null,
     important: row.important === 1, urgent: row.urgent === 1,
-    dueDate: row.due_date,
+    autoUrgencyDismissed: row.auto_urgency_dismissed === 1,
+    dueDate: row.due_date ?? null,
     dueHasTime: row.due_has_time === 1 ? true : undefined,
     estMinutes: row.est_minutes == null ? undefined : row.est_minutes,
-    subjectId: row.subject_id || undefined,
+    subjectId: row.subject_id || '',
+    scheduledDate: row.scheduled_date || null,
+    progress: row.progress ?? undefined,
     completedAt: row.completed_at || undefined,
     reminders: parseReminders(row.reminders),
     completed: row.completed === 1,
@@ -363,7 +392,7 @@ function rowToPayload(entity, row) {
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress', 'weekly_goal'],
   events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'notify_extra', 'created_at', 'focus', 'task_id'],
-  todos: ['title', 'description', 'important', 'urgent', 'due_date', 'due_has_time', 'est_minutes', 'subject_id', 'completed_at', 'reminders', 'completed', 'created_at'],
+  todos: ['title', 'description', 'important', 'urgent', 'auto_urgency_dismissed', 'due_date', 'due_has_time', 'scheduled_date', 'progress', 'est_minutes', 'subject_id', 'completed_at', 'reminders', 'completed', 'created_at'],
   dayNotes: ['content'],
   dayTasks: ['tasks'],
   eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind', 'count_in_stats', 'deleted'],
@@ -375,7 +404,8 @@ const FROM_CLIENT = {
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
   start: 'start', end: 'end', kind: 'kind', recurrenceId: 'recurrence_id',
   countInStats: 'count_in_stats', checklist: 'checklist', notifyBefore: 'notify_before', notifyExtra: 'notify_extra', reminders: 'reminders',
-  important: 'important', urgent: 'urgent', dueDate: 'due_date', dueHasTime: 'due_has_time', estMinutes: 'est_minutes',
+  important: 'important', urgent: 'urgent', dueDate: 'due_date', dueHasTime: 'due_has_time', scheduledDate: 'scheduled_date', estMinutes: 'est_minutes',
+  autoUrgencyDismissed: 'auto_urgency_dismissed',
   completedAt: 'completed_at', completed: 'completed',
   createdAt: 'created_at', updatedAt: 'updated_at',
   content: 'content', tasks: 'tasks', eventId: 'event_id', at: 'at', deleted: 'deleted',
@@ -450,6 +480,8 @@ function parseDayTasks(value) {
         id: String(t.id || ''),
         text: String(t.text ?? ''),
         done: t.done === true,
+        ...(typeof t.progress === 'number' && Number.isFinite(t.progress)
+          ? { progress: Math.max(0, Math.min(100, Math.round(t.progress))) } : {}),
         subjectId: typeof t.subjectId === 'string' ? t.subjectId : '',
         // Estimated minutes; dropped when absent or not a positive number.
         ...(Number(t.estMinutes) > 0 ? { estMinutes: Math.round(Number(t.estMinutes)) } : {}),
@@ -457,6 +489,30 @@ function parseDayTasks(value) {
       .filter((t) => t.id && t.text);
   } catch {
     return [];
+  }
+}
+
+// The old list stays readable for legacy clients. Existing Todos and their
+// tombstones take precedence if the list arrives again.
+function migrateDayTasks(db, userId, day, tasks, updatedAt) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+  const insert = db.prepare(`
+    INSERT INTO todos (id, user_id, title, subject_id, scheduled_date, est_minutes, completed, progress, created_at, updated_at)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE NOT EXISTS (SELECT 1 FROM tombstones WHERE user_id = ? AND entity = 'todos' AND key = ?)
+    ON CONFLICT(id) DO NOTHING
+  `);
+  const stamp = updatedAt || 1;
+  for (const task of parseDayTasks(tasks)) {
+    const row = {
+      id: task.id, title: task.text, subject_id: task.subjectId, scheduled_date: day,
+      est_minutes: task.estMinutes ?? null, completed: Number(task.done),
+      progress: task.done ? 100 : Math.min(task.progress ?? 0, 99),
+      created_at: new Date(stamp).toISOString(), updated_at: stamp,
+    };
+    const result = insert.run(row.id, userId, row.title, row.subject_id, row.scheduled_date,
+      row.est_minutes, row.completed, row.progress, row.created_at, stamp, userId, row.id);
+    if (result.changes) logChange(db, userId, 'todos', row.id, false, rowToPayload('todos', row), Date.now());
   }
 }
 
@@ -498,11 +554,18 @@ export function applyChanges(db, userId, dirty) {
     for (const col of COLS[entity]) {
       const clientKey = Object.keys(FROM_CLIENT).find((k) => FROM_CLIENT[k] === col);
       let v = clientKey && Object.prototype.hasOwnProperty.call(rec, clientKey) ? rec[clientKey] : prev[col];
-      if (col === 'important' || col === 'urgent' || col === 'completed' || col === 'due_has_time') {
+      if (col === 'important' || col === 'urgent' || col === 'completed' || col === 'due_has_time' || col === 'auto_urgency_dismissed') {
         v = v ? 1 : 0;
       } else if (col === 'at') {
         // Epoch column of the plan-stability log: never store a string.
         v = Number(v) || 0;
+      } else if (col === 'scheduled_date') {
+        v = typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+      } else if (entity === 'todos' && col === 'progress') {
+        if (rec.completed === true) v = 100;
+        else if (rec.completed === false && !Object.hasOwn(rec, 'progress') && existing?.completed === 1) v = 0;
+        else if (typeof v === 'number' && Number.isFinite(v)) v = Math.max(0, Math.min(99, Math.round(v)));
+        else v = null;
       } else if (col === 'deleted') {
         // Flag column of the same log: 0/1, never a string.
         v = v ? 1 : 0;
@@ -568,6 +631,7 @@ export function applyChanges(db, userId, dirty) {
       db, userId, entity, rec.id, false,
       rowToPayload(entity, { id: rec.id, ...colVals, updated_at: ts }), now
     );
+    if (entity === 'dayTasks') migrateDayTasks(db, userId, rec.id, colVals.tasks, ts);
   };
 
   for (const entity of ENTITIES) {

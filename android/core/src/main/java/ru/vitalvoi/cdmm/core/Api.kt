@@ -5,12 +5,20 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
+class ApiException(val status: Int, message: String) : IOException(message)
+
 class UnauthorizedException : IOException("Signed out")
 
 /** The few CDMM endpoints the native apps use. Blocking: call off the main thread. */
 class Api(private val store: Store) {
 
-    fun glance(): String = request("GET", "/api/glance")
+    fun focus(command: JSONObject): String =
+        request("POST", "/api/focus", command.put("timeZone", java.time.ZoneId.systemDefault().id))
+
+    fun glance(): String {
+        val zone = android.net.Uri.encode(java.time.ZoneId.systemDefault().id)
+        return request("GET", "/api/glance?day=${java.time.LocalDate.now()}&timeZone=$zone")
+    }
 
     fun setTodoDone(id: String, done: Boolean): String =
         request("POST", "/api/glance/todo", JSONObject().put("id", id).put("completed", done))
@@ -35,7 +43,7 @@ class Api(private val store: Store) {
     private fun request(method: String, path: String, body: JSONObject? = null, auth: Boolean = true): String {
         val (status, text) = raw(method, path, body, auth)
         if (status == 401) throw UnauthorizedException()
-        if (status !in 200..299) throw IOException("HTTP $status")
+        if (status !in 200..299) throw ApiException(status, runCatching { JSONObject(text).optString("error", "HTTP $status") }.getOrDefault("HTTP $status"))
         return text
     }
 

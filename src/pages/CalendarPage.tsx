@@ -26,7 +26,7 @@ import { useCalendarNavigation } from '../hooks/useCalendarNavigation';
 import { useActiveSession } from '../hooks/useActiveSession';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSyncRefresh } from '../hooks/useServerSync';
-import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, dayTaskRepo, genId } from '../services/repositories';
+import { eventRepo, subjectRepo, todoRepo, tombstoneRepo, genId } from '../services/repositories';
 import { getEventsForDate, calculateDailyStats, liveEventForDate } from '../utils/stats';
 import { expandRecurrence, dateKey, addDays, inferRepeatFreq } from '../utils/time';
 import { weeklyGoalProgress } from '../utils/goals';
@@ -45,7 +45,8 @@ import { PanelPill, type PillItem } from '../components/mobile/PanelPill';
 import { focusStreak } from '../utils/analytics';
 import { checkpoint } from '../services/history';
 import { DEFAULT_TASK_MINUTES, type TaskDragPayload } from '../services/taskDrag';
-import type { CalendarEvent, DayTaskList, EventFilter, TodoTask } from '../types';
+import { checklistTasksForDay, toChecklistTask } from '../utils/checklist';
+import type { CalendarEvent, EventFilter, TodoTask } from '../types';
 
 const VIEWS: { id: 'day' | '3day' | 'week' | 'month' | 'year'; label: string }[] = [
   { id: 'day', label: 'Day' },
@@ -148,9 +149,7 @@ export function CalendarPage() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const [events, setEvents] = useState<CalendarEvent[]>(eventRepo.getAll());
-  // Todo tasks due on the shown day are listed at the end of the Checklist.
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
-  const [dayTasks, setDayTasks] = useState<DayTaskList[]>(() => dayTaskRepo.getAll());
   const { isActive, subjectId, title: sessionTitle, color: sessionColor, startTime, elapsed, countInStats: sessionCounted } = useActiveSession();
   const navigate = useNavigate();
 
@@ -419,42 +418,44 @@ export function CalendarPage() {
     setEvents(eventRepo.getAll());
   }, []);
 
-  // The day's own checklist (independent of events).
-  const handleDayTaskToggle = useCallback((id: string, done: boolean) => {
-    checkpoint(done ? 'Complete checklist task' : 'Reopen checklist task');
-    dayTaskRepo.toggle(dateKey(currentDate), id, done);
-    setDayTasks(dayTaskRepo.getAll());
-  }, [currentDate]);
+  const handleTodoToggle = useCallback((id: string, completed: boolean) => {
+    checkpoint(completed ? 'Complete task' : 'Reopen task');
+    todoRepo.update(id, { completed });
+    setTodos(todoRepo.getAll());
+  }, []);
 
-  const handleDayTaskAdd = useCallback((text: string, subjectId: string, estMinutes?: number) => {
+  const handleDayTaskAdd = useCallback((title: string, subjectId: string, estMinutes?: number) => {
+    if (subjectId && !subjectRepo.getById(subjectId)) return;
     checkpoint('Add checklist task');
-    dayTaskRepo.add(dateKey(currentDate), { text, subjectId, ...(estMinutes ? { estMinutes } : {}) });
-    setDayTasks(dayTaskRepo.getAll());
+    todoRepo.create({
+      title, subjectId, estMinutes, scheduledDate: dateKey(currentDate),
+      important: false, urgent: false, completed: false,
+    });
+    setTodos(todoRepo.getAll());
   }, [currentDate]);
 
   const handleDayTaskEdit = useCallback(
-    (id: string, patch: { text: string; subjectId: string; estMinutes: number | undefined }) => {
+    (id: string, { text, ...patch }: { text: string; subjectId: string; estMinutes: number | undefined; progress?: number }) => {
       checkpoint('Edit checklist task');
-      dayTaskRepo.edit(dateKey(currentDate), id, patch);
-      setDayTasks(dayTaskRepo.getAll());
+      todoRepo.update(id, { title: text, ...patch });
+      setTodos(todoRepo.getAll());
       refreshEvents();
     },
-    [currentDate, refreshEvents]
+    [refreshEvents]
   );
 
   const handleDayTaskDelete = useCallback((id: string) => {
-    checkpoint('Delete checklist task');
-    dayTaskRepo.remove(dateKey(currentDate), id);
-    setDayTasks(dayTaskRepo.getAll());
-  }, [currentDate]);
+    checkpoint('Delete task');
+    tombstoneRepo.add('todos', id);
+    todoRepo.delete(id);
+    setTodos(todoRepo.getAll());
+  }, []);
 
-  // Postpone a checklist task to another day ("YYYY-MM-DD").
   const handleDayTaskMove = useCallback((id: string, to: string) => {
-    const [y, m, d] = to.split('-').map(Number);
-    checkpoint(`Move checklist task to ${new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
-    dayTaskRepo.move(dateKey(currentDate), to, id);
-    setDayTasks(dayTaskRepo.getAll());
-  }, [currentDate]);
+    checkpoint('Move checklist task');
+    todoRepo.update(id, { scheduledDate: to });
+    setTodos(todoRepo.getAll());
+  }, []);
 
   // A Checklist task dropped on the day timeline becomes a planned block of
   // its subject (a custom block when it has none), linked back by `taskId` so
@@ -475,6 +476,10 @@ export function CalendarPage() {
         countInStats: true,
         taskId: task.taskId,
       });
+      const todo = todoRepo.getById(task.taskId);
+      if (todo?.scheduledDate && todo.scheduledDate !== dateKey(start)) {
+        todoRepo.update(todo.id, { scheduledDate: dateKey(start) });
+      }
       // The new block is a plan — make sure the timeline is showing plans.
       if (eventFilter === 'real') setEventFilter('all');
       refreshEvents();
@@ -503,7 +508,7 @@ export function CalendarPage() {
   );
 
   // Earliest planned block per task, for the checklist's "scheduled" chip.
-  const scheduledTasks = useMemo(() => {
+  const scheduledTasks = useMemo<Record<string, string>>(() => {
     const out: Record<string, string> = {};
     for (const e of events) {
       if (e.kind !== 'plan' || !e.taskId) continue;
@@ -513,18 +518,14 @@ export function CalendarPage() {
     return out;
   }, [events]);
 
-  // Checkbox on a todo task in the Checklist panel.
-  const handleTodoToggle = useCallback((id: string, completed: boolean) => {
-    checkpoint(completed ? 'Complete task' : 'Reopen task');
-    todoRepo.update(id, { completed });
-    setTodos(todoRepo.getAll());
-  }, []);
+  const unscheduledTasks = useMemo(() => todos.filter(task =>
+    !task.completed && !task.scheduledDate && !task.dueDate && !scheduledTasks[task.id]
+  ).map(toChecklistTask), [todos, scheduledTasks]);
 
   useSyncRefresh(
     useCallback(() => {
       refreshEvents();
       setTodos(todoRepo.getAll());
-      setDayTasks(dayTaskRepo.getAll());
     }, [refreshEvents])
   );
 
@@ -1079,7 +1080,7 @@ export function CalendarPage() {
   }, []);
 
   const todayKey = dateKey(new Date());
-  const tasksOn = (d: Date) => dayTasks.find((l) => l.id === dateKey(d))?.tasks ?? [];
+  const tasksOn = (d: Date) => checklistTasksForDay(todos, events, d);
   const shownTasks = tasksOn(currentDate);
   // The Check tab's copies of the neighbouring days are only drawn: never
   // touched, so their handlers do nothing.
@@ -1092,7 +1093,6 @@ export function CalendarPage() {
     onEditTask: noop,
     onDeleteTask: noop,
     onMoveTask: noop,
-    onToggleTodo: noop,
     onPlanTask: noop,
     inputRef: peekInputRef,
   };
@@ -1235,8 +1235,8 @@ export function CalendarPage() {
               pageKey={dateKey(currentDate)}
               onPrev={goToPrevious}
               onNext={goToNext}
-              prev={<Checklist peek date={prevDate} tasks={prevTasks} subjects={subjects} todos={todos} scheduled={scheduledTasks} {...peekChecklistHandlers} />}
-              next={<Checklist peek date={nextDate} tasks={nextTasks} subjects={subjects} todos={todos} scheduled={scheduledTasks} {...peekChecklistHandlers} />}
+              prev={<Checklist peek date={prevDate} tasks={prevTasks} subjects={subjects} unscheduledTasks={unscheduledTasks} scheduled={scheduledTasks} {...peekChecklistHandlers} />}
+              next={<Checklist peek date={nextDate} tasks={nextTasks} subjects={subjects} unscheduledTasks={unscheduledTasks} scheduled={scheduledTasks} {...peekChecklistHandlers} />}
               current={
             <div
               className="flex-1 min-h-0 flex flex-col"
@@ -1250,14 +1250,13 @@ export function CalendarPage() {
                 date={currentDate}
                 tasks={shownTasks}
                 subjects={subjects}
-                todos={todos}
+                unscheduledTasks={unscheduledTasks}
                 scheduled={scheduledTasks}
-                onToggleTask={handleDayTaskToggle}
+                onToggleTask={handleTodoToggle}
                 onAddTask={handleDayTaskAdd}
                 onEditTask={handleDayTaskEdit}
                 onDeleteTask={handleDayTaskDelete}
                 onMoveTask={handleDayTaskMove}
-                onToggleTodo={handleTodoToggle}
                 onPlanTask={planTaskOnPhone}
                 inputRef={taskInputRef}
               />
@@ -1287,7 +1286,7 @@ export function CalendarPage() {
                 last card must end above it at any zoom level. */}
             <aside className="col-span-12 lg:col-span-4 min-h-0 overflow-y-auto flex flex-col gap-4 max-lg:mt-1 pb-32">
               <TodayStats events={statsEvents} subjects={subjects} totalMinutes={stats.totalMinutes} />
-              <SubjectTasksPanel date={currentDate} tasks={dayTasks.find((l) => l.id === dateKey(currentDate))?.tasks ?? []} subjects={subjects} onToggleTask={handleDayTaskToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} todos={todos} onToggleTodo={handleTodoToggle} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} onPlanTask={(task) => {
+              <SubjectTasksPanel date={currentDate} tasks={shownTasks} subjects={subjects} onToggleTask={handleTodoToggle} onAddTask={handleDayTaskAdd} onDeleteTask={handleDayTaskDelete} adding={taskAdding} onAddingChange={setTaskAdding} inputRef={taskInputRef} unscheduledTasks={unscheduledTasks} scheduled={scheduledTasks} onEditTask={handleDayTaskEdit} onMoveTask={handleDayTaskMove} onPlanTask={(task) => {
                 planTaskOnPhone(task);
                 const planned = eventRepo.getAll().findLast(event => event.taskId === task.id);
                 if (planned) setEditingEvent(planned);

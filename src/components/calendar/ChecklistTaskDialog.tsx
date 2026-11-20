@@ -1,3 +1,4 @@
+import { TaskProgressField } from '../common/TaskProgress';
 import { useSheetExit } from '../../hooks/useSheetExit';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -16,7 +17,7 @@ interface ChecklistTaskDialogProps {
   /** The day the task is on. */
   date: Date;
   /** `estMinutes: undefined` clears the estimate. */
-  onSave: (patch: { text: string; subjectId: string; estMinutes: number | undefined }) => void;
+  onSave: (patch: { text: string; subjectId: string; estMinutes: number | undefined; progress?: number }) => void;
   /** Postpone the task to another day ("YYYY-MM-DD"), after saving. Absent = no day picker. */
   onMove?: (to: string) => void;
   onDelete: () => void;
@@ -36,6 +37,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLFormElement>(null);
   useSheetExit(overlayRef, panelRef);
+  const [progress, setProgress] = useState(task.done ? 100 : task?.progress ?? 0);
   const [text, setText] = useState(task.text);
   const [subjectId, setSubjectId] = useState(subjects.some((s) => s.id === task.subjectId) ? task.subjectId : '');
   // The estimate lives as text, so a custom value can be typed freely; presets
@@ -60,7 +62,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
 
   const save = () => {
     if (!canSave) return;
-    onSave({ text: text.trim(), subjectId, estMinutes: est ?? undefined });
+    onSave({ progress, text: text.trim(), subjectId, estMinutes: est ?? undefined });
     if (onMove && day !== today) onMove(day);
   };
 
@@ -112,6 +114,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
             save();
           }}
         >
+
           <div className="m-shd">
             <div className="flex flex-col min-w-0">
               <h2 className="m-h2">Edit task</h2>
@@ -175,12 +178,14 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
               />
             </div>
           )}
-          <div className="flex" style={{ gap: 8 }}>
+          <TaskProgressField value={progress} onChange={setProgress} />
+<div className="flex" style={{ gap: 8 }}>
             <button type="button" className="m-btn err sq" aria-label="Delete task" onClick={onDelete}>
               <span className="material-symbols-outlined m-ic s">delete</span>
             </button>
             <button type="submit" className="m-btn pri flex-1" disabled={!canSave}>{day === today ? 'Save' : 'Save & move'}</button>
           </div>
+
         </form>
       </Sheet>
     );
@@ -211,6 +216,7 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
           save();
         }}
       >
+
         <div className="flex items-center justify-between">
           <h2 className="font-headline-md text-headline-md lg:text-heading !text-[16px] text-on-surface">
             Edit task <span className="text-on-surface-variant font-normal">· {dayLabel}</span>
@@ -310,7 +316,8 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
           </div>
         )}
 
-        <p className="max-lg:hidden font-body-sm text-[11px] lg:text-caption text-on-surface-variant/70">
+        <TaskProgressField value={progress} onChange={setProgress} />
+<p className="max-lg:hidden font-body-sm text-[11px] lg:text-caption text-on-surface-variant/70">
           ↑ / ↓ — subject · Shift+← / → — estimate · Enter — save · Esc — close
         </p>
 
@@ -330,7 +337,8 @@ export function ChecklistTaskDialog({ task, subjects, dayLabel, date, onSave, on
             {day === today ? 'Save' : 'Save & move'}
           </button>
         </div>
-      </form>
+
+        </form>
     </div>,
     document.body
   );

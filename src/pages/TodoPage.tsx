@@ -1,11 +1,13 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { todoRepo, tombstoneRepo } from '../services/repositories';
+import { subjectRepo, todoRepo, tombstoneRepo } from '../services/repositories';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
+import { useTodoQuadrantDrag } from '../hooks/useTodoQuadrantDrag';
 import { checkpoint } from '../services/history';
 import { dateKey } from '../utils/time';
-import type { TodoReminder, TodoTask } from '../types';
+import type { TodoTask } from '../types';
 import { QuadrantCard } from '../components/todo/QuadrantCard';
 import { QuadrantDialog } from '../components/todo/QuadrantDialog';
 import { TodoForm } from '../components/todo/TodoForm';
@@ -23,11 +25,16 @@ const QUADRANTS = [
 
 type QuadrantKey = (typeof QUADRANTS)[number]['key'];
 
+function isDueBy(task: TodoTask, day: string): boolean {
+  return !!task.dueDate && dateKey(new Date(task.dueDate)) <= day;
+}
+
 export function TodoPage() {
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
   const springRef = useOverscrollSpring<HTMLDivElement>();
+  const [subjects, setSubjects] = useState(() => subjectRepo.getAll());
   const [todos, setTodos] = useState<TodoTask[]>(() => todoRepo.getAll());
   const [openQuadrant, setOpenQuadrant] = useState<QuadrantKey | null>(null);
   const [formState, setFormState] = useState<{
@@ -47,9 +54,27 @@ export function TodoPage() {
     navigate('.', { replace: true, state: null });
   }, [location.state, navigate]);
 
-  const refresh = useCallback(() => setTodos(todoRepo.getAll()), []);
+  const refresh = useCallback(() => {
+    setTodos(todoRepo.getAll());
+    setSubjects(subjectRepo.getAll());
+  }, []);
 
   useSyncRefresh(refresh);
+
+  const moveTask = useCallback((id: string, key: string) => {
+    const target = QUADRANTS.find(q => q.key === key);
+    const task = todoRepo.getById(id);
+    if (!target || !task || task.completed || (task.important === target.important && task.urgent === target.urgent)) return;
+
+    checkpoint('Move task');
+    todoRepo.update(id, {
+      important: target.important,
+      urgent: target.urgent,
+      autoUrgencyDismissed: !target.urgent && isDueBy(task, dateKey(new Date())),
+    });
+    refresh();
+  }, [refresh]);
+  const quadrantDrag = useTodoQuadrantDrag(!isMobile, moveTask);
 
   // N or A (by default, see services/shortcuts) opens a new task (plain quadrant: not urgent, not important);
   // skipped while typing or when a modal is open, same guards as the
@@ -85,7 +110,8 @@ export function TodoPage() {
   // is here — today or already past. Urgency comes from the clock, so the
   // Important flag does not gate it: a non-important task due today is still
   // urgent, it just lands in "Urgent" rather than "Urgent & Important".
-  // Persisted via the repo so sync and the edit form see urgent=true.
+  // A deliberate move back to a non-urgent quadrant dismisses this promotion
+  // for that deadline. Replacing the deadline re-enables it.
   useEffect(() => {
     const promoteDue = () => {
       const today = dateKey(new Date());
@@ -93,8 +119,8 @@ export function TodoPage() {
         (t) =>
           !t.urgent &&
           !t.completed &&
-          t.dueDate &&
-          dateKey(new Date(t.dueDate)) <= today
+          !t.autoUrgencyDismissed &&
+          isDueBy(t, today)
       );
       if (due.length === 0) return;
       for (const t of due) todoRepo.update(t.id, { urgent: true });
@@ -144,16 +170,7 @@ export function TodoPage() {
     refresh();
   };
 
-  const handleSave = (data: {
-    title: string;
-    description?: string;
-    important: boolean;
-    urgent: boolean;
-    dueDate?: string;
-    dueHasTime: boolean;
-    estMinutes?: number;
-    reminders: TodoReminder[];
-  }) => {
+  const handleSave = (data: Omit<TodoTask, 'id' | 'uid' | 'createdAt' | 'updatedAt' | 'completed'>) => {
     if (formState?.task) {
       checkpoint('Edit task');
       todoRepo.update(formState.task.id, data);
@@ -176,6 +193,7 @@ export function TodoPage() {
   const todoForm = formState && (
     <TodoForm
       task={formState.task}
+      subjects={subjects}
       defaults={{
         important: QUADRANTS.find((q) => q.key === formState.quadrant)!.important,
         urgent: QUADRANTS.find((q) => q.key === formState.quadrant)!.urgent,
@@ -191,6 +209,7 @@ export function TodoPage() {
       <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
         <TodoList
           byQuadrant={byQuadrant}
+          subjects={subjects}
           openCount={todos.filter((t) => !t.completed).length}
           onToggle={handleToggle}
           onDelete={handleDelete}
@@ -198,12 +217,13 @@ export function TodoPage() {
             const key: QuadrantKey = task.important && task.urgent ? 'ii' : task.urgent ? 'ni' : task.important ? 'in' : 'nn';
             setFormState({ task, quadrant: key });
           }}
-          onAdd={(title, important, urgent) => {
+          onAdd={(title, subjectId, important, urgent) => {
             // Urgent needs a day, so it is due today; anything else starts
             // undated — a date would make it urgent on the spot (see above).
             checkpoint('Create task');
             todoRepo.create({
               title,
+              subjectId,
               important,
               urgent,
               dueDate: urgent ? new Date(`${dateKey(new Date())}T18:00:00`).toISOString() : undefined,
@@ -230,7 +250,7 @@ export function TodoPage() {
       } else if (e.shiftKey && e.code === 'KeyD') {
         e.preventDefault(); e.stopPropagation(); if (e.repeat) return;
         checkpoint('Duplicate task');
-        todoRepo.create({ title: task.title, description: task.description, important: task.important, urgent: task.urgent, dueDate: task.dueDate, dueHasTime: task.dueHasTime, estMinutes: task.estMinutes, completed: false, reminders: task.reminders });
+        todoRepo.create({ title: task.title, subjectId: subjectRepo.getById(task.subjectId)?.id ?? '', scheduledDate: task.scheduledDate, description: task.description, important: task.important, urgent: task.urgent, dueDate: task.dueDate, dueHasTime: task.dueHasTime, estMinutes: task.estMinutes, completed: false, reminders: task.reminders });
         refresh();
       }
     }}>
@@ -241,7 +261,7 @@ export function TodoPage() {
         </p>
       </div>
 
-      <div ref={springRef} className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-lg:auto-rows-max max-lg:content-start max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-24">
+      <div ref={springRef} onPointerDown={quadrantDrag.onPointerDown} className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-lg:auto-rows-max max-lg:content-start max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-24">
         {QUADRANTS.map((q) => (
           <div key={q.key} className="min-h-0 max-lg:min-h-fit flex">
             <div className="flex-1 min-w-0">
@@ -249,6 +269,7 @@ export function TodoPage() {
             ref={(el) => {
               quadrantRefs.current[q.key] = el;
             }}
+            quadrant={q.key}
             title={q.title}
             tasks={byQuadrant[q.key]}
             onToggle={handleToggle}
@@ -260,6 +281,15 @@ export function TodoPage() {
           </div>
         ))}
       </div>
+
+      {createPortal(
+        <div ref={quadrantDrag.ghost} data-todo-drag-ghost hidden aria-hidden="true" className="pointer-events-none fixed top-0 left-0 z-[110] size-14">
+          <div className="flex size-full items-center justify-center rounded-xl border border-outline-variant bg-surface-container-lowest/80 text-on-surface shadow-elev-3 motion-safe:animate-pop-in">
+            <span className="material-symbols-outlined text-[25px] leading-none">task_alt</span>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {quadrant && (
         <QuadrantDialog

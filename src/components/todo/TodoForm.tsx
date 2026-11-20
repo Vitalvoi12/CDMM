@@ -1,5 +1,6 @@
+import { TaskProgressField } from '../common/TaskProgress';
 import { useEffect, useRef, useState } from 'react';
-import type { TodoReminder, TodoTask } from '../../types';
+import type { Subject, TodoReminder, TodoTask } from '../../types';
 import { useEscapeOverlay } from '../../services/overlays';
 import { useSheetExit } from '../../hooks/useSheetExit';
 import { useSheetDrag } from '../../hooks/useSheetDrag';
@@ -17,9 +18,13 @@ const EST_CHIPS = EST_PRESETS;
 
 interface TodoFormProps {
   task: TodoTask | null;
+  subjects: Subject[];
   defaults: { important: boolean; urgent: boolean };
   onSave: (data: {
+    progress?: number;
     title: string;
+    subjectId: string;
+    scheduledDate?: string;
     description?: string;
     important: boolean;
     urgent: boolean;
@@ -55,7 +60,11 @@ function reminderMoment(anchor: Date | null, item: NotifyItem): Date | null {
   return new Date(anchor.getTime() - item.lead * 60_000);
 }
 
-export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFormProps) {
+export function TodoForm({ task, subjects, defaults, onSave, onDelete, onCancel }: TodoFormProps) {
+  const [progress, setProgress] = useState(task?.completed ? 100 : task?.progress ?? 0);
+  const [pickedSubjectId, setSubjectId] = useState(task?.subjectId || '');
+  const subjectId = subjects.some(subject => subject.id === pickedSubjectId) ? pickedSubjectId : '';
+  const [scheduledDate, setScheduledDate] = useState(task?.scheduledDate || '');
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [important, setImportant] = useState(task?.important ?? defaults.important);
@@ -88,6 +97,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
   const isMobile = useIsMobile();
   const estimate = parseEstimate(estInput);
   const estInvalid = estimate === null;
+  const dueDateRequired = urgent && (!task?.urgent || !!task.dueDate);
 
   useEscapeOverlay(onCancel);
 
@@ -105,14 +115,17 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
-    if (urgent && !dueDate) {
+    if (dueDateRequired && !dueDate) {
       setError('Set date');
       return;
     }
     if (estInvalid) return;
     const estMinutes = estimate ?? undefined;
     onSave({
+      progress,
       title: trimmed,
+      subjectId,
+      scheduledDate: scheduledDate || undefined,
       description: description.trim() || undefined,
       important,
       urgent,
@@ -151,6 +164,24 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
     }
   };
 
+  const taskFields = (
+    <div className="grid grid-cols-2 gap-3">
+      <label className="flex flex-col gap-2 min-w-0">
+        <span className="m-lbl text-on-surface-variant">Subject</span>
+        <select value={subjectId} onChange={e => setSubjectId(e.target.value)}
+          className="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2 text-base">
+          <option value="">No subject</option>
+          {subjects.map(subject => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+        </select>
+      </label>
+      <label className="flex flex-col gap-2 min-w-0">
+        <span className="m-lbl text-on-surface-variant">Scheduled date</span>
+        <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
+          className="w-full min-w-0 rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2 text-base" />
+      </label>
+    </div>
+  );
+
   if (isMobile) {
     // Phone (the "Edit task" sheet of the mobile design): the due day is a
     // row of chips, a tap on the chosen one clears it.
@@ -174,6 +205,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
     return (
       <Sheet label={task ? 'Edit task' : 'New task'} onClose={onCancel} tall focusSelf={!!task}>
         <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="flex-1 flex flex-col" style={{ gap: 14 }}>
+
           <div className="m-shd">
             <h2 className="m-h2">{task ? 'Edit task' : 'New task'}</h2>
             <button type="button" className="m-ib" aria-label="Close" onClick={onCancel}>
@@ -188,6 +220,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             <AutoGrowTextarea multiline value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional notes" aria-label="Notes" className={chipText} />
           </label>
 
+          {taskFields}
           <div className="flex" style={{ gap: 8 }}>
             <button type="button" className={`m-chip flex-1 justify-center ${important ? 'on' : ''}`} aria-pressed={important} onClick={() => setImportant((v) => !v)}>
               <span className="material-symbols-outlined m-ic s">flag</span>Important
@@ -207,7 +240,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
 
           <div className="m-fld">
             <span className="m-lbl m-mut">
-              Due date{urgent && <span style={{ color: 'var(--color-error)' }}> *</span>}
+              Due date{dueDateRequired && <span style={{ color: 'var(--color-error)' }}> *</span>}
             </span>
             <div className="m-scx" role="radiogroup" aria-label="Due date">
               {presets.map((p) => (
@@ -275,7 +308,8 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             </p>
           )}
 
-          <div className="flex" style={{ gap: 8, marginTop: 'auto' }}>
+          <TaskProgressField value={progress} onChange={setProgress} />
+<div className="flex" style={{ gap: 8, marginTop: 'auto' }}>
             {task && onDelete && (
               <button type="button" className="m-btn err sq" aria-label="Delete task" onClick={() => onDelete(task.id)}>
                 <span className="material-symbols-outlined m-ic s">delete</span>
@@ -285,6 +319,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               {task ? 'Save' : 'Add'}
             </button>
           </div>
+
         </form>
       </Sheet>
     );
@@ -311,6 +346,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
           {task ? 'Edit Task' : 'New Task'}
         </h2>
         <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
+
           <div className="flex flex-col gap-2">
             <label htmlFor="todo-title" className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
               Title
@@ -338,6 +374,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               className="w-full bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:min-h-[44px] max-lg:!text-[16px] font-body-md text-body-md lg:text-body text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60"
             />
           </div>
+          {taskFields}
           <div className="grid grid-cols-2 gap-3">
             <Toggle label="Important" checked={important} onChange={setImportant} />
             <Toggle
@@ -353,7 +390,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
             <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-3">
               <div className="flex flex-col gap-2 min-w-0">
                 <label htmlFor="todo-due" className="font-label-sm text-label-sm lg:text-caption text-on-surface-variant uppercase tracking-[0.16em] max-lg:m-lbl">
-                  Due Date{urgent && <span className="text-error"> *</span>}
+                  Due Date{dueDateRequired && <span className="text-error"> *</span>}
                 </label>
                 <input
                   id="todo-due"
@@ -439,7 +476,8 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               </p>
             )}
           </div>
-          <div className="flex gap-3 mt-1">
+          <TaskProgressField value={progress} onChange={setProgress} />
+<div className="flex gap-3 mt-1">
             {task && onDelete && (
               <button
                 type="button"
@@ -464,6 +502,7 @@ export function TodoForm({ task, defaults, onSave, onDelete, onCancel }: TodoFor
               {task ? 'Save' : 'Add'}
             </button>
           </div>
+
         </form>
       </div>
     </div>
