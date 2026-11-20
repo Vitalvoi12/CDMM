@@ -2,7 +2,7 @@
 
 CDMM is a personal planner for study and time tracking. Plan work in the calendar, organize tasks by subject, and record how you actually spend your time.
 
-[Open CDMM](https://cdmm.vitalvoi.ru/)
+[Open CDMM](https://cdmm.vitalvoi.beer/)
 
 ## What you can do
 
