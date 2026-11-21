@@ -26,47 +26,9 @@ const scrollerOf = (page: Element | undefined): HTMLElement | null =>
 /** A pause this long in scroll events means the scroll has come to rest
  *  (fallback for browsers without `scrollend`). */
 const SETTLE_MS = 120;
-/** The finish after lift-off: quicker than iOS's own snap, which can't be tuned. */
-const FINISH_MS = 220;
-const MIN_FINISH_MS = 110;
-const EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
-/** The ease's starting slope (y1 / x1), so a flick finishes at its own speed. */
-const EASE_SLOPE = 0.61 / 0.22;
-/** Scroll samples older than this don't count toward the flick speed. */
-const VELOCITY_WINDOW_MS = 80;
-/** How far ahead a flick is projected when picking the page it lands on. */
-const PROJECT_MS = 250;
-/** Share of the page width the (projected) drag must pass to turn. */
-const TURN_FRACTION = 0.12;
-/** A flick at least this fast (px/ms) toward a side turns to it, however short. */
-const FLICK_SPEED = 0.15;
-/** After a touch turn, leftover native momentum is ignored this long: one
- *  swipe turns at most one page (Android's fling outlives the finish). */
-const AFTER_TURN_MS = 700;
-
-const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-/**
- * Phone page turning on the browser's own scrolling: the previous, current
- * and next periods sit side by side (or stacked, for `axis="y"`) in a
- * snapping scroller. The drag
- * follows the finger natively (on iOS, on the compositor at the screen's
- * refresh rate), which a JS-driven transform could never match.
- *
- * iOS's snap after lift-off is slow and can't be tuned, so at lift-off the
- * pager takes over: it stops the native scroll where it is and slides the
- * pages the rest of the way with a short transform animation (compositor
- * too), starting at the flick's speed. Without touch (or with reduced
- * motion) the native snap does the finish.
- *
- * Once the pages rest on a side page, the period changes and the scroller
- * jumps back to the middle in the same frame. The middle page now shows what
- * the side page showed, so the swap can't be seen. A touch during the finish
- * completes it at once, so quick flicks keep paging.
- *
- * Either sits inside a vertical scroller (the timeline: the three days scroll
- * together, so their hours line up) or fills a box whose pages each scroll
- * on their own (the Stat / Check / Notes tabs).
+/** Native scrolling owns both the drag and snap. Moving the pages with a
+ * second transform animation while Android is still scrolling can make the
+ * content jump or appear doubled. Re-centre only after the native snap ends.
  */
 export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, className = '', pageClassName = '', axis = 'x' }: SwipePagerProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -110,145 +72,47 @@ export function SwipePager({ pageKey, prev, current, next, onPrev, onNext, class
     if (!el) return;
     const x = axis === 'x';
     const pos = () => (x ? el.scrollLeft : el.scrollTop);
-    const setPos = (v: number) => {
-      if (x) el.scrollLeft = v;
-      else el.scrollTop = v;
-    };
     const size = () => (x ? el.clientWidth : el.clientHeight);
     const maxPos = () => (x ? el.scrollWidth : el.scrollHeight) - size();
-    const freeze = (on: boolean) => {
-      el.style[x ? 'overflowX' : 'overflowY'] = on ? 'hidden' : '';
-      el.style.scrollSnapType = on ? 'none' : '';
-    };
-    // The scroller's recent positions while the finger drags, for the flick speed.
-    let samples: { x: number; t: number }[] = [];
-    // A finish in flight; a new touch completes it at once.
-    let pending: { anims: Animation[]; commit: () => void } | null = null;
-    // Until then, scrolling without a finger is leftover momentum, not a turn.
-    let quietUntil = 0;
+    const nativeScrollEnd = Reflect.has(el, 'onscrollend');
 
     const clearTimer = () => {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       timerRef.current = null;
     };
-    const atSide = () => (pos() <= 1 ? 'prev' : pos() >= maxPos() - 1 ? 'next' : null);
     const settle = () => {
       clearTimer();
-      if (touchingRef.current || pending) return;
-      if (performance.now() < quietUntil) {
-        if (Math.abs(pos() - maxPos() / 2) > 1) centre();
-        return;
-      }
-      const side = atSide();
-      if (side) turn(side);
+      const end = maxPos();
+      if (touchingRef.current || end <= 2) return;
+      if (pos() <= 1) turn('prev');
+      else if (pos() >= end - 1) turn('next');
     };
-    const velocity = () => {
-      const now = performance.now();
-      const recent = samples.filter((s) => now - s.t <= VELOCITY_WINDOW_MS);
-      if (recent.length < 2) return 0;
-      const a = recent[0];
-      const b = recent[recent.length - 1];
-      return b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0;
-    };
-
-    /** Lift-off: stop the native scroll and slide to the page the flick
-     *  points at, then turn (or stay) in the same frame the slide ends. */
-    const finish = () => {
-      const w = size();
-      const mid = maxPos() / 2;
-      const v = velocity();
-      const offset = pos() - mid;
-      if (Math.abs(offset) < 1 || !w) return false;
-      // Turn once the drag, carried on by the flick, passes TURN_FRACTION;
-      // a clear flick the way the drag went turns regardless.
-      const projected = offset + v * PROJECT_MS;
-      const page =
-        Math.abs(v) >= FLICK_SPEED && Math.sign(v) === Math.sign(offset) ? Math.sign(v)
-        : Math.abs(projected) > w * TURN_FRACTION ? Math.sign(projected)
-        : 0;
-      // Freeze the native scroll (and its momentum) where it is.
-      freeze(true);
-      const from = pos();
-      // Pin the position too: Chrome on Android keeps flinging through
-      // overflow: hidden, and a programmatic scroll ends the fling.
-      setPos(from);
-      const target = mid + page * w;
-      const left = Math.abs(target - from);
-      const speed = Math.sign(v) === Math.sign(target - from) ? Math.abs(v) : 0;
-      const byDistance = Math.max(MIN_FINISH_MS, FINISH_MS * Math.min(1, left / w));
-      const duration = speed > 0 ? Math.min(byDistance, Math.max(MIN_FINISH_MS, (EASE_SLOPE * left) / speed)) : byDistance;
-      const panes = Array.from(el.children) as HTMLElement[];
-      const anims = panes.map((p) =>
-        p.animate([{ transform: 'translate(0, 0)' }, { transform: x ? `translate(${from - target}px, 0)` : `translate(0, ${from - target}px)` }], { duration, easing: EASE, fill: 'forwards' })
-      );
-      const commit = () => {
-        if (pending?.commit !== commit) return;
-        pending = null;
-        // One task, one paint: scroll to where the slide ended, drop the
-        // slide, then turn and re-centre.
-        freeze(false);
-        setPos(target);
-        for (const a of anims) a.cancel();
-        quietUntil = performance.now() + AFTER_TURN_MS;
-        if (page) turn(page < 0 ? 'prev' : 'next');
-      };
-      pending = { anims, commit };
-      anims[0].onfinish = commit;
-      // Backup: iOS doesn't always deliver `finish`.
-      window.setTimeout(commit, duration + 60);
-      return true;
-    };
-
-    const onScroll = () => {
-      if (pending) return;
-      // Momentum left over from the swipe that just turned: back to the middle.
-      if (!touchingRef.current && performance.now() < quietUntil) {
-        if (Math.abs(pos() - maxPos() / 2) > 1) centre();
-        return;
-      }
-      if (touchingRef.current) {
-        const t = performance.now();
-        samples.push({ x: pos(), t });
-        while (samples.length > 2 && t - samples[0].t > VELOCITY_WINDOW_MS) samples.shift();
-      }
+    const scheduleFallback = () => {
       clearTimer();
-      // The snap ends exactly on a page: turn at once, so a quick next flick
-      // already starts from the middle.
-      if (!touchingRef.current && atSide()) settle();
-      else timerRef.current = window.setTimeout(settle, SETTLE_MS);
+      if (!touchingRef.current) timerRef.current = window.setTimeout(settle, SETTLE_MS);
     };
     const onTouchStart = () => {
-      pending?.commit();
-      quietUntil = 0;
       touchingRef.current = true;
-      samples = [{ x: pos(), t: performance.now() }];
       clearTimer();
     };
     const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length) return;
       touchingRef.current = false;
-      if (e.type === 'touchend' && !reducedMotion() && finish()) return;
-      // Let go exactly on a page: no more scroll events will come.
-      timerRef.current = window.setTimeout(settle, SETTLE_MS);
+      if (!nativeScrollEnd) scheduleFallback();
     };
     const resize = new ResizeObserver(() => {
-      if (!touchingRef.current && !pending) centre();
+      if (!touchingRef.current) centre();
     });
     resize.observe(el);
-    el.addEventListener('scroll', onScroll, { passive: true });
+    if (!nativeScrollEnd) el.addEventListener('scroll', scheduleFallback, { passive: true });
     el.addEventListener('scrollend', settle);
     el.addEventListener('touchstart', onTouchStart, { passive: true });
     el.addEventListener('touchend', onTouchEnd, { passive: true });
     el.addEventListener('touchcancel', onTouchEnd, { passive: true });
     return () => {
       clearTimer();
-      if (pending) {
-        for (const a of pending.anims) a.cancel();
-        pending = null;
-        freeze(false);
-      }
       resize.disconnect();
-      el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('scroll', scheduleFallback);
       el.removeEventListener('scrollend', settle);
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchend', onTouchEnd);
