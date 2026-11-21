@@ -63,7 +63,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
                 style={{ width: 120 }}
                 value={goalHours}
                 onChange={(e) => setGoalHours(e.target.value)}
-                placeholder="No goal"
+                placeholder="—"
               />
               <span className="m-mut">hours / week</span>
             </div>
@@ -151,7 +151,7 @@ export function SubjectForm({ subject, onSave, onCancel, onDelete }: SubjectForm
                 step={0.5}
                 value={goalHours}
                 onChange={(e) => setGoalHours(e.target.value)}
-                placeholder="No goal"
+                placeholder="—"
                 className="w-28 bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2.5 px-4 max-lg:py-2 max-lg:px-3 font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface outline-none transition-colors placeholder:text-on-surface-variant/60 tabular-nums"
               />
               <span className="font-body-md text-body-md lg:text-body max-lg:!text-[10px] text-on-surface-variant">hours / week</span>
