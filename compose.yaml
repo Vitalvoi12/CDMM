@@ -3,6 +3,8 @@ services:
     image: ghcr.io/vitalvoi12/cdmm:latest
     pull_policy: always
     container_name: cdmm
+    environment:
+      - OPENROUTER_API_KEY
     restart: unless-stopped
     expose:
       - "5173"

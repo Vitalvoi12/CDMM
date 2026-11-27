@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tile_label">CDMM now</string>
-    <string name="tile_desc">The current block and the next one</string>
-    <string name="complication_label">CDMM next</string>
+    <string name="tile_label">CDMM · Фокус</string>
+    <string name="tile_desc">Занятие сейчас и следующий блок</string>
+    <string name="complication_label">CDMM · Таймер и планы</string>
 </resources>

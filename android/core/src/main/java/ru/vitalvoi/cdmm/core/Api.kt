@@ -12,6 +12,9 @@ class UnauthorizedException : IOException("Signed out")
 /** The few CDMM endpoints the native apps use. Blocking: call off the main thread. */
 class Api(private val store: Store) {
 
+    fun assistant(text: String, id: String): String = request("POST", "/api/assistant/command",
+        JSONObject().put("text", text).put("id", id).put("timeZone", java.time.ZoneId.systemDefault().id))
+
     fun focus(command: JSONObject): String =
         request("POST", "/api/focus", command.put("timeZone", java.time.ZoneId.systemDefault().id))
 

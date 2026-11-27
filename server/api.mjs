@@ -1,3 +1,4 @@
+import { assistantConfirmation, executeAssistantCommand, getAssistantHistory, interpretAssistantCommand } from './assistant.mjs';
 import { randomUUID } from 'node:crypto';
 import { focusCommand } from './focus.mjs';
 import {
@@ -14,6 +15,7 @@ const MAX_BODY = 5 * 1024 * 1024; // 5 MB
 
 const loginLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 const registerLimiter = rateLimit({ windowMs: 3600_000, max: 20 });
+const assistantLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 const pairLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 
 function sendJson(res, status, obj) {
@@ -174,6 +176,30 @@ export async function handleApi(db, req, res, pathname) {
       }
     }
     return sendJson(res, 200, out), true;
+  }
+
+  if (['/api/assistant/preview', '/api/assistant/command'].includes(pathname) && method === 'POST') {
+    if (!assistantLimiter(userId)) return sendJson(res, 429, { error: 'Too many requests' }), true;
+    try {
+      const body = await readBody(req);
+      if (pathname.endsWith('/preview')) {
+        return sendJson(res, 200, await interpretAssistantCommand(body)), true;
+      }
+      if (typeof body?.id !== 'string' || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(body.id)) {
+        return sendJson(res, 400, { error: 'Expected a request UUID' }), true;
+      }
+      if (typeof body.timeZone !== 'string' || !body.timeZone || body.timeZone.length > 100) {
+        return sendJson(res, 400, { error: 'Expected an IANA time zone' }), true;
+      }
+      const cached = db.prepare('SELECT 1 FROM assistant_requests WHERE user_id = ? AND id = ?').get(userId, body.id);
+      const command = cached ? null : assistantConfirmation(body.text) ?? await interpretAssistantCommand(body, {
+        history: typeof body.timeZone === 'string' ? getAssistantHistory(db, userId, body.timeZone) : [],
+      });
+      const result = executeAssistantCommand(db, userId, command, body.timeZone ?? null, body.id, body.text ?? null);
+      return sendJson(res, 200, result), true;
+    } catch (e) {
+      return sendJson(res, e.status || 500, { error: e.status ? e.message : 'Assistant preview failed' }), true;
+    }
   }
 
   if (pathname === '/api/glance' && method === 'GET') {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { settingsRepo } from '../services/repositories';
+import { useSyncRefresh } from './useServerSync';
 import type { ThemeMode } from '../types';
 
 const META_ID = 'theme-color-meta';
@@ -33,6 +34,7 @@ function applyTheme(theme: ThemeMode) {
  */
 export function useTheme() {
   const [theme, setThemeState] = useState<ThemeMode>(readTheme);
+  useSyncRefresh(useCallback(() => setThemeState(readTheme()), []));
 
   useEffect(() => {
     applyTheme(theme);

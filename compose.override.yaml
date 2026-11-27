@@ -1,6 +1,8 @@
-# Local override for this host: ports 80/443 are taken by nginx/xray,
-# so Caddy is not started; cdmm is published directly on 5173.
+# Host deployment: nginx handles HTTPS; use the image built from this project.
 services:
   cdmm:
+    image: cdmm:local
+    pull_policy: never
+    build: .
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"

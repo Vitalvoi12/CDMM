@@ -15,7 +15,7 @@ class WearApp : Application() {
         Cdmm.device = Device.WATCH
         Cdmm.onUpdated = ::redraw
         Signals.ensureChannels(this)
-        Cdmm.startSync(this)
+        FocusRepository.schedule(this)
     }
 
     companion object {

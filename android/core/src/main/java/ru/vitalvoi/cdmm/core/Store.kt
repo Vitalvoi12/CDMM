@@ -42,7 +42,7 @@ class Store(context: Context) {
     }
 
     companion object {
-        const val DEFAULT_SERVER = "https://cdmm.vitalvoi.ru"
+        const val DEFAULT_SERVER = "https://cdmm.vitalvoi.beer"
         private const val KEY_SERVER = "server"
         private const val KEY_TOKEN = "token"
         private const val KEY_USER = "username"

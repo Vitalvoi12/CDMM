@@ -63,9 +63,17 @@ class MainActivity : ComponentActivity() {
             }
         })
 
-        if (savedInstanceState == null) web.loadUrl(store.server) else web.restoreState(savedInstanceState)
+        if (savedInstanceState == null) web.loadUrl(store.server + assistantRoute(intent).orEmpty()) else web.restoreState(savedInstanceState)
         askForNotifications()
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        assistantRoute(intent)?.let { web.loadUrl(store.server + it) }
+    }
+
+    private fun assistantRoute(intent: Intent): String? = intent.getStringExtra("cdmmAssistantRoute")
+        ?.takeIf { it in setOf("/", "/study", "/todo", "/subjects", "/statistics", "/settings") }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)

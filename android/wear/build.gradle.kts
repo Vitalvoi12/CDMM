@@ -11,8 +11,8 @@ android {
         applicationId = "ru.vitalvoi.cdmm"
         minSdk = 30
         targetSdk = 36
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = (project.findProperty("versionName") as String?) ?: "0.1"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 2
+        versionName = (project.findProperty("versionName") as String?) ?: "0.2.0"
     }
     signingConfigs {
         System.getenv("CDMM_KEYSTORE")?.let { path ->

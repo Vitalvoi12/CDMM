@@ -427,8 +427,16 @@ html[data-theme='dark'],
   --logo-now: #8FD3B5;
 }
 
+/* Hide scrollbars throughout the app while preserving native scrolling. */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
 ::-webkit-scrollbar {
   display: none;
+  width: 0;
+  height: 0;
 }
 
 .material-symbols-outlined {
@@ -742,6 +750,9 @@ html, body {
  * swipe sideways themselves (SwipeRow) keep pan-y and stay out of it. */
 .swipe-pager :is(.overflow-y-auto, .overflow-y-scroll, .max-lg\:overflow-y-auto) {
   touch-action: pan-x pan-y;
+  /* These panes have no horizontal range. Let a sideways gesture chain to
+   * the pager; the mobile scroller rule's `none` otherwise traps it here. */
+  overscroll-behavior-x: auto;
 }
 /* In a vertical pager (month / year) a page's own scroller hands a swipe
  * that starts at its end over to the pager, which turns the page. */

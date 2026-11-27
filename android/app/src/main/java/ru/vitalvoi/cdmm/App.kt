@@ -8,11 +8,13 @@ import kotlinx.coroutines.launch
 import ru.vitalvoi.cdmm.core.Cdmm
 import ru.vitalvoi.cdmm.core.Device
 import ru.vitalvoi.cdmm.core.Signals
+import ru.vitalvoi.cdmm.core.Store
 import ru.vitalvoi.cdmm.widget.Widgets
 
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
+        getString(R.string.cdmm_preview_server).takeIf { it.isNotBlank() }?.let { Store(this).server = it }
         Cdmm.device = Device.PHONE
         Cdmm.onUpdated = { context -> scope.launch { Widgets.redraw(context) } }
         Signals.ensureChannels(this)

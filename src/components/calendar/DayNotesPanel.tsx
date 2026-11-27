@@ -92,7 +92,7 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
     editable: !peek,
     editorProps: {
       attributes: { class: 'note-editor outline-none', spellcheck: 'true' },
-      // Escape leaves the note (saving it via onBlur), so the calendar's
+      // Escape saves and leaves the note, so the calendar's
       // keyboard shortcuts work again without clicking elsewhere.
       handleKeyDown: (view, e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.isComposing) {
@@ -101,6 +101,7 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
           return true;
         }
         if (e.key !== 'Escape') return false;
+        flush();
         (view.dom as HTMLElement).blur();
         return true;
       },
@@ -216,7 +217,7 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
         expanded ? 'flex-[1.6_1_0]' : 'flex-none'
       }`}
     >
-      {expanded && onExpandedChange && <EscapeToCollapse onCollapse={onExpandedChange} editor={editor} />}
+      {expanded && onExpandedChange && <EscapeToCollapse onCollapse={onExpandedChange} editor={editor} flush={flush} />}
       <div className="flex items-center gap-3 flex-none">
         <h2 className="font-label-sm text-label-sm max-lg:!text-[8px] text-on-surface-variant tracking-[0.16em] lg:text-section">
           Notes
@@ -289,19 +290,24 @@ export function DayNotesPanel({ date, dateKey, autoFocus, onAutoFocused, peek = 
 }
 
 /**
- * While mounted, Escape folds the note (via the shared overlay stack, so a
- * window opened over it closes first) and leaves the editor, which saves.
+ * Escape saves and blurs a focused editor; a later press folds the note.
+ * The shared overlay stack lets a window opened over it close first.
  * Not modal: the page's shortcuts stay on while the note is open.
  */
-function EscapeToCollapse({ onCollapse, editor }: { onCollapse: (open: boolean) => void; editor: Editor | null }) {
+function EscapeToCollapse({ onCollapse, editor, flush }: { onCollapse: (open: boolean) => void; editor: Editor | null; flush: () => void }) {
   // A stable callback: re-registering would move the note above windows
   // opened after it.
-  const latest = useRef({ onCollapse, editor });
+  const latest = useRef({ onCollapse, editor, flush });
   useEffect(() => {
-    latest.current = { onCollapse, editor };
+    latest.current = { onCollapse, editor, flush };
   });
   const collapse = useCallback(() => {
-    (latest.current.editor?.view.dom as HTMLElement | undefined)?.blur();
+    latest.current.flush();
+    const editor = latest.current.editor;
+    if (editor?.view.hasFocus()) {
+      (editor.view.dom as HTMLElement).blur();
+      return;
+    }
     latest.current.onCollapse(false);
   }, []);
   useEscapeOverlay(collapse, false);

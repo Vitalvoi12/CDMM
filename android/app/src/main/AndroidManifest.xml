@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <queries>
+        <intent><action android:name="android.speech.RecognitionService" /></intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".App"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="CDMM"
+        android:label="${cdmmLabel}"
         android:supportsRtl="true"
         android:theme="@style/Theme.Cdmm">
 
@@ -20,6 +28,32 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".AssistantActivity"
+            android:exported="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity="${applicationId}.assistant"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Cdmm.Panel"
+            android:windowSoftInputMode="adjustResize|stateAlwaysHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+            android:name=".AssistantLauncher"
+            android:targetActivity=".AssistantActivity"
+            android:enabled="${cdmmPreviewEnabled}"
+            android:exported="true"
+            android:label="CDMM Test · Помощник">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <receiver
             android:name=".widget.NowWidgetReceiver"

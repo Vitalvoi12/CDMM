@@ -30,6 +30,15 @@ export function openDb(dir) {
   db.exec('PRAGMA foreign_keys = ON');
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS assistant_requests (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      id TEXT NOT NULL,
+      text TEXT NOT NULL,
+      zone TEXT NOT NULL,
+      result TEXT NOT NULL,
+      PRIMARY KEY (user_id, id)
+    );
+
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,

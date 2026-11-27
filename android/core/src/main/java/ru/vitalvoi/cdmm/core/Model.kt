@@ -15,6 +15,7 @@ data class GlanceEvent(
     val end: Long,
     /** Reminder leads, minutes before the start. */
     val leads: List<Int>,
+    val subjectId: String = "",
 )
 
 data class GlanceTodo(
@@ -28,7 +29,10 @@ data class GlanceTodo(
 )
 
 /** The running focus session. */
-data class GlanceSession(val title: String, val color: Int?, val start: Long)
+data class GlanceSession(val title: String, val color: Int?, val start: Long, val id: String = "", val subjectId: String = "")
+
+data class FocusSubject(val id: String, val name: String, val color: Int?)
+data class FocusTask(val id: String, val text: String, val done: Boolean, val subjectId: String)
 
 enum class SignalKind { REMINDER, START, END, TODO }
 enum class SignalMode { OFF, VIBRATE, SOUND, BOTH }
@@ -53,6 +57,11 @@ data class Glance(
     val todos: List<GlanceTodo>,
     val phone: DeviceSignals,
     val watch: DeviceSignals,
+    val subjects: List<FocusSubject> = emptyList(),
+    val sessionAt: Long = 0,
+    val taskDate: String = "",
+    val dayTasks: List<FocusTask> = emptyList(),
+    val focusSupported: Boolean = false,
 ) {
     fun signals(device: Device) = if (device == Device.PHONE) phone else watch
 
@@ -101,7 +110,7 @@ data class Glance(
             return Glance(
                 fetchedAt = o.optLong("now", System.currentTimeMillis()),
                 session = o.optJSONObject("session")?.let {
-                    GlanceSession(it.optString("title", "Focus session"), color(it.opt("color")), time(it.optString("start")) ?: 0)
+                    GlanceSession(it.optString("title", "Focus session"), color(it.opt("color")), time(it.optString("start")) ?: 0, it.optString("id"), it.optString("subjectId"))
                 },
                 events = o.optJSONArray("events").objects().mapNotNull { e ->
                     GlanceEvent(
@@ -113,6 +122,7 @@ data class Glance(
                         start = time(e.optString("start")) ?: return@mapNotNull null,
                         end = time(e.optString("end")) ?: return@mapNotNull null,
                         leads = e.optJSONArray("leads").ints(),
+                        subjectId = e.optString("subjectId"),
                     )
                 },
                 todos = o.optJSONArray("todos").objects().map { t ->
@@ -128,6 +138,11 @@ data class Glance(
                 },
                 phone = device(signals?.optJSONObject("phone"), Device.PHONE),
                 watch = device(signals?.optJSONObject("watch"), Device.WATCH),
+                sessionAt = o.optLong("sessionAt"),
+                focusSupported = o.optInt("focusApiVersion") >= 1,
+                taskDate = o.optString("taskDate"),
+                dayTasks = o.optJSONArray("dayTasks").objects().map { FocusTask(it.optString("id"), it.optString("text"), it.optBoolean("done"), it.optString("subjectId")) },
+                subjects = o.optJSONArray("subjects").objects().map { FocusSubject(it.optString("id"), it.optString("name"), color(it.opt("color"))) },
             )
         }
 

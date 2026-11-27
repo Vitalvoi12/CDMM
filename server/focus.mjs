@@ -5,10 +5,10 @@ import { getGlance, setTodoDone } from './glance.mjs';
 function fail(status, message) { throw Object.assign(new Error(message), { status }); }
 const validId = (s) => typeof s === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(s);
 
-export function focusCommand(db, userId, body, now = Date.now()) {
+export function focusCommand(db, userId, body, now = Date.now(), { nested = false } = {}) {
   if (!body || !validId(body.commandId) || !validId(body.sessionId)) fail(400, 'Invalid command');
   if (!['start', 'finish', 'rate', 'task'].includes(body.action)) fail(400, 'Unknown action');
-  db.exec('BEGIN IMMEDIATE');
+  if (!nested) db.exec('BEGIN IMMEDIATE');
   try {
     const seen = db.prepare('SELECT 1 FROM focus_commands WHERE user_id = ? AND command_id = ?').get(userId, body.commandId);
     if (!seen) {
@@ -59,7 +59,7 @@ export function focusCommand(db, userId, body, now = Date.now()) {
       }
       db.prepare('INSERT INTO focus_commands (user_id, command_id, created_at) VALUES (?, ?, ?)').run(userId, body.commandId, now);
     }
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+    if (!nested) db.exec('COMMIT');
+  } catch (e) { if (!nested) db.exec('ROLLBACK'); throw e; }
   return getGlance(db, userId, now, body.day, body.timeZone);
 }

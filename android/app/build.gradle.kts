@@ -3,11 +3,17 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+val previewServer = providers.gradleProperty("cdmmPreviewServer").orNull
+
 android {
     namespace = "ru.vitalvoi.cdmm"
     compileSdk = 37
     defaultConfig {
         applicationId = "ru.vitalvoi.cdmm"
+        if (previewServer != null) applicationIdSuffix = ".preview"
+        manifestPlaceholders["cdmmLabel"] = if (previewServer == null) "CDMM" else "CDMM Test"
+        manifestPlaceholders["cdmmPreviewEnabled"] = (previewServer != null).toString()
+        resValue("string", "cdmm_preview_server", previewServer.orEmpty())
         minSdk = 26
         targetSdk = 36
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
@@ -30,7 +36,10 @@ android {
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        resValues = true
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

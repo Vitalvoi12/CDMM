@@ -28,13 +28,13 @@ class NowTileService : TileService() {
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
         val store = Store(this)
-        val glance = store.glance()
+        val glance = FocusRepository(this).glance()
         val signedIn = store.token != null
         val now = System.currentTimeMillis()
 
         val timeline = TimelineBuilders.Timeline.Builder()
         if (!signedIn) {
-            timeline.addTimelineEntry(entry(message("Open CDMM on the watch to pair"), null, null))
+            timeline.addTimelineEntry(entry(message("Откройте CDMM на часах для подключения"), null, null))
         } else {
             // Edges within the next 12 h cut the timeline into stretches.
             val edges = glance.events.flatMap { listOf(it.start, it.end) }
@@ -75,21 +75,21 @@ class NowTileService : TileService() {
         val next = glance.next(at)
         val col = LayoutElementBuilders.Column.Builder()
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-        col.addContent(text(if (current?.live == true) "FOCUS" else "NOW", 11f, current?.color ?: ACCENT))
-        col.addContent(text(current?.title ?: "Free", 18f, TEXT, maxLines = 2))
+        col.addContent(text(if (current?.live == true) "ФОКУС" else "СЕЙЧАС", 11f, current?.color ?: ACCENT))
+        col.addContent(text(current?.title ?: "Свободно", 18f, TEXT, maxLines = 2))
         col.addContent(
             text(
                 when {
-                    current == null -> next?.let { "until ${Format.time(it.start)}" } ?: "Nothing planned"
-                    current.live -> "since ${Format.time(current.start)}"
-                    else -> "until ${Format.time(current.end!!)}"
+                    current == null -> next?.let { "до ${Format.time(it.start)}" } ?: "Нет планов"
+                    current.live -> "с ${Format.time(current.start)}"
+                    else -> "до ${Format.time(current.end!!)}"
                 },
                 13f, MUTED,
             ),
         )
         if (next != null) {
             col.addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(10f)).build())
-            col.addContent(text("NEXT · ${Format.whenLabel(next.start)}", 11f, next.color ?: ACCENT))
+            col.addContent(text("ДАЛЬШЕ · ${Format.whenLabel(next.start)}", 11f, next.color ?: ACCENT))
             col.addContent(text(next.title, 14f, TEXT))
         }
         return clickBox(col.build())

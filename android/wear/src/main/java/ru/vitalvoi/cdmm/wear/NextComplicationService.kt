@@ -6,6 +6,10 @@ import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
 import androidx.wear.watchface.complications.data.LongTextComplicationData
 import androidx.wear.watchface.complications.data.PlainComplicationText
+import androidx.wear.watchface.complications.data.CountUpTimeReference
+import androidx.wear.watchface.complications.data.TimeDifferenceComplicationText
+import androidx.wear.watchface.complications.data.TimeDifferenceStyle
+import java.time.Instant
 import androidx.wear.watchface.complications.data.ShortTextComplicationData
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
@@ -23,19 +27,33 @@ class NextComplicationService : SuspendingComplicationDataSourceService() {
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         val store = Store(this)
-        if (store.token == null) return build(request.complicationType, "CDMM", "—", "CDMM · pair the watch")
+        if (store.token == null) return build(request.complicationType, "CDMM", "—", "CDMM · подключите часы")
         val now = System.currentTimeMillis()
-        val glance = store.glance()
+        val glance = FocusRepository(this).glance()
         val current = glance.current(now)
         val next = glance.next(now)
         return when {
-            current?.live == true ->
-                build(request.complicationType, current.title, Format.time(current.start), "${current.title} · since ${Format.time(current.start)}")
+            current?.live == true -> {
+                val timer = TimeDifferenceComplicationText.Builder(TimeDifferenceStyle.STOPWATCH,
+                    CountUpTimeReference(Instant.ofEpochMilli(current.start))).build()
+                val tap = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                val description = PlainComplicationText.Builder("${current.title} · идёт занятие").build()
+                when (request.complicationType) {
+                    ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(timer, description)
+                        .setTitle(PlainComplicationText.Builder(current.title.take(7)).build()).setTapAction(tap).build()
+                    ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(
+                        TimeDifferenceComplicationText.Builder(TimeDifferenceStyle.STOPWATCH,
+                            CountUpTimeReference(Instant.ofEpochMilli(current.start))).setText("${current.title} · ^1").build(), description)
+                        .setTapAction(tap).build()
+                    else -> null
+                }
+            }
             current != null ->
-                build(request.complicationType, current.title, Format.time(current.end!!), "${current.title} · until ${Format.time(current.end!!)}")
+                build(request.complicationType, current.title, Format.time(current.end!!), "${current.title} · до ${Format.time(current.end!!)}")
             next != null ->
                 build(request.complicationType, next.title, Format.time(next.start), "${next.title} · ${Format.whenLabel(next.start, now)}")
-            else -> build(request.complicationType, "CDMM", "—", "Nothing planned")
+            else -> build(request.complicationType, "CDMM", "—", "Нет планов")
         }
     }
 
