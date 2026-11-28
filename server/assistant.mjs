@@ -105,6 +105,14 @@ export async function interpretAssistantCommand(body, {
       }, usage: null };
     }
   }
+  if (previous?.action === 'list_todos' && previous.shownTodos?.length) {
+    const plan = /^(?:поставь|запланируй|перенеси)\s+(первую|последнюю)(?:\s+(?:задачу|таску))?(?:\s+из\s+(?:них|списка))?\s+(?:на\s+)?сегодня\s+(?:на|в)\s+([01]?\d|2[0-3]):([0-5]\d)[.!?]*$/iu.exec(text);
+    if (plan) {
+      const targetIndex = plan[1].toLowerCase() === 'первую' ? 1 : previous.shownTodos.length;
+      const start = localTime.slice(0, 10) + 'T' + plan[2].padStart(2, '0') + ':' + plan[3];
+      return { action: 'plan_todo', args: { targetIndex: String(targetIndex), start }, usage: null };
+    }
+  }
   if (!key) throw failure(503, 'OpenRouter is not configured');
 
   const explicitTodoEdit = /^(?:поменяй|измени|обнови|переименуй|отредактируй|перенеси)(?=\s)/iu.test(text) &&
