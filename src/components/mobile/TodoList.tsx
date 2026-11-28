@@ -7,7 +7,6 @@ import { formatDueLabel, isOverdue } from '../todo/TodoRows';
 import { SwipeRow } from './SwipeRow';
 import { useNewKeys } from '../../hooks/useNewKeys';
 import { useBelowDock } from './belowDock';
-import { undo, undoLabel } from '../../services/history';
 import { AutoGrowTextarea } from '../common/AutoGrowTextarea';
 
 export type QuadrantKey = 'ii' | 'in' | 'ni' | 'nn';
@@ -34,7 +33,6 @@ function loadQuadrant(): QuadrantKey {
 interface TodoListProps {
   subjects: Subject[];
   byQuadrant: Record<QuadrantKey, TodoTask[]>;
-  openCount: number;
   onToggle: (id: string, completed: boolean) => void;
   onDelete: (id: string) => void;
   onOpen: (task: TodoTask) => void;
@@ -53,7 +51,7 @@ function hasUpcomingReminder(task: TodoTask): boolean {
  * away, and an add bar whose Important / Urgent toggles start from the
  * picked quadrant.
  */
-export function TodoList({ byQuadrant, subjects, openCount, onToggle, onDelete, onOpen, onAdd }: TodoListProps) {
+export function TodoList({ byQuadrant, subjects, onToggle, onDelete, onOpen, onAdd }: TodoListProps) {
   const [quadrant, setQuadrantState] = useState<QuadrantKey>(loadQuadrant);
   const q = MOBILE_QUADRANTS.find((x) => x.key === quadrant)!;
   const [important, setImportant] = useState(q.important);
@@ -84,7 +82,6 @@ export function TodoList({ byQuadrant, subjects, openCount, onToggle, onDelete, 
   const tasks = byQuadrant[quadrant];
   const active = useMemo(() => tasks.filter((t) => !t.completed), [tasks]);
   const done = useMemo(() => tasks.filter((t) => t.completed), [tasks]);
-  const undoName = undoLabel();
   const added = useNewKeys(tasks.map((t) => t.id), quadrant);
 
   const submit = () => {
@@ -200,14 +197,6 @@ export function TodoList({ byQuadrant, subjects, openCount, onToggle, onDelete, 
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <header className="m-hdr" style={{ paddingLeft: 16 }}>
-        <h1 className="m-h1 flex-1">Todo</h1>
-        <span className="m-sm m-mut" style={{ paddingRight: 8 }}>{openCount} open</span>
-        <button type="button" className="m-ib" aria-label={undoName ? `Undo: ${undoName.toLowerCase()}` : 'Undo'} disabled={!undoName} onClick={() => undo()}>
-          <span className="material-symbols-outlined m-ic">undo</span>
-        </button>
-      </header>
-
       <div className="flex-none" style={{ padding: '8px 12px 4px' }}>
         <div className="m-seg m-quad" role="tablist" aria-label="Quadrant">
           {MOBILE_QUADRANTS.map((x) => {

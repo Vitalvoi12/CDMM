@@ -1,5 +1,7 @@
 import { assistantConfirmation, executeAssistantCommand, getAssistantHistory, interpretAssistantCommand } from './assistant.mjs';
 import { randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import geminiVoices from './gemini-voices.json' with { type: 'json' };
 import { focusCommand } from './focus.mjs';
 import {
   userHasData, getState, importSnapshot, applyChanges, getChanges, getCursor,
@@ -16,7 +18,37 @@ const MAX_BODY = 5 * 1024 * 1024; // 5 MB
 const loginLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 const registerLimiter = rateLimit({ windowMs: 3600_000, max: 20 });
 const assistantLimiter = rateLimit({ windowMs: 60_000, max: 10 });
+const transcriptionLimiter = rateLimit({ windowMs: 60_000, max: 10 });
+const speechLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 const pairLimiter = rateLimit({ windowMs: 60_000, max: 10 });
+
+async function synthesizeSpeech({ model, voice, input, responseFormat, signal }) {
+  const audio = await fetch('https://openrouter.ai/api/v1/audio/speech', {
+    method: 'POST', signal,
+    headers: { Authorization: 'Bearer ' + process.env.OPENROUTER_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, voice, input, response_format: responseFormat }),
+  });
+  const mediaType = audio.headers.get('content-type')?.split(';')[0];
+  if (!audio.ok || (responseFormat === 'wav' ? mediaType !== 'audio/wav' : !mediaType?.startsWith('audio/'))) {
+    await audio.body?.cancel();
+    throw new Error(`Speech provider returned HTTP ${audio.status} (${mediaType})`);
+  }
+  const samples = Buffer.from(await audio.arrayBuffer());
+  if (!samples.length) throw new Error('Empty speech response');
+  if (responseFormat === 'mp3') return samples;
+
+  return new Promise((resolve, reject) => {
+    const encoder = execFile('ffmpeg', [
+      '-loglevel', 'error', '-f', 'wav', '-i', 'pipe:0',
+      '-c:a', 'libmp3lame', '-b:a', '64k', '-f', 'mp3', 'pipe:1',
+    ], { encoding: 'buffer', signal, maxBuffer: 4 * 1024 * 1024 }, (error, mp3) => {
+      if (error) reject(error);
+      else resolve(mp3);
+    });
+    encoder.stdin.on('error', reject);
+    encoder.stdin.end(samples);
+  });
+}
 
 function sendJson(res, status, obj) {
   const body = JSON.stringify(obj);
@@ -176,6 +208,88 @@ export async function handleApi(db, req, res, pathname) {
       }
     }
     return sendJson(res, 200, out), true;
+  }
+
+  if (pathname === '/api/assistant/transcribe' && method === 'POST') {
+    if (!transcriptionLimiter(userId)) return sendJson(res, 429, { error: 'Too many requests' }), true;
+    try {
+      const { pcm } = await readBody(req);
+      if (typeof pcm !== 'string' || pcm.length > 640000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(pcm)) {
+        return sendJson(res, 400, { error: 'Invalid recording' }), true;
+      }
+      const samples = Buffer.from(pcm, 'base64');
+      if (!samples.length || samples.length % 2 || samples.toString('base64') !== pcm) {
+        return sendJson(res, 400, { error: 'Invalid recording' }), true;
+      }
+      // PCM16, mono, 16 kHz. Construct the header here to enforce the duration limit.
+      const wav = Buffer.alloc(44 + samples.length);
+      wav.write('RIFF');
+      wav.writeUInt32LE(wav.length - 8, 4);
+      wav.write('WAVEfmt ', 8);
+      wav.writeUInt32LE(16, 16);
+      wav.writeUInt16LE(1, 20);
+      wav.writeUInt16LE(1, 22);
+      wav.writeUInt32LE(16000, 24);
+      wav.writeUInt32LE(32000, 28);
+      wav.writeUInt16LE(2, 32);
+      wav.writeUInt16LE(16, 34);
+      wav.write('data', 36);
+      wav.writeUInt32LE(samples.length, 40);
+      samples.copy(wav, 44);
+      const transcribe = model => fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+        method: 'POST', signal: AbortSignal.timeout(12000),
+        headers: { Authorization: 'Bearer ' + process.env.OPENROUTER_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, language: 'ru',
+          input_audio: { data: wav.toString('base64'), format: 'wav' } }),
+      });
+      let upstream = await transcribe('microsoft/mai-transcribe-2');
+      if (upstream.status === 429 || upstream.status >= 500) {
+        await upstream.body?.cancel();
+        upstream = await transcribe('elevenlabs/scribe-v2');
+      }
+      if (!upstream.ok) throw Error();
+      const { text } = await upstream.json();
+      if (typeof text !== 'string' || text.length > 1000) throw Error();
+      return sendJson(res, 200, { text: text.trim() }), true;
+    } catch (error) {
+      return sendJson(res, error.status || 503, { error: 'Распознавание записи недоступно' }), true;
+    }
+  }
+
+  if (pathname === '/api/assistant/speech' && method === 'POST') {
+    if (!speechLimiter(userId)) return sendJson(res, 429, { error: 'Too many requests' }), true;
+    try {
+      const { id } = await readBody(req);
+      const row = typeof id === 'string' && db.prepare('SELECT result FROM assistant_requests WHERE user_id = ? AND id = ?').get(userId, id);
+      if (!row) return sendJson(res, 404, { error: 'Ответ не найден' }), true;
+      const reply = JSON.parse(row.result);
+      const parts = reply.list?.items?.length ? [
+        reply.list.title, ...reply.list.items.map(item => item.text),
+        ...(reply.list.remaining ? ['И ещё ' + reply.list.remaining] : []),
+      ] : [reply.message];
+      const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+      const minuteForm = new Intl.PluralRules('ru');
+      const narration = parts.join('. ').replace(/в TODO/g, 'в списке задач').replace(/TODO/g, 'туду')
+        .replace(/ · /g, ', ')
+        .replace(/\b\d{4}-\d{2}-\d{2}\b/g, value => {
+          const date = new Date(value + 'T12:00Z');
+          return Number.isFinite(+date) ? dateFormat.format(date).replace(/ г\.$/, ' года') : value;
+        })
+        .replace(/(\d+) мин(?![а-яё])/giu, (_, n) => n + ' ' + ({ one: 'минута', few: 'минуты' }[minuteForm.select(+n)] ?? 'минут'));
+      const settings = db.prepare('SELECT data FROM settings WHERE user_id = ?').get(userId);
+      const selected = settings && JSON.parse(settings.data)?.assistantVoice;
+      const voice = geminiVoices.includes(selected) ? selected : process.env.CDMM_GEMINI_VOICE || 'Kore';
+      const input = narration.length > 2400
+        ? narration.slice(0, 2250).replace(/\s+\S*$/, '') + '. Продолжение на экране.' : narration;
+      const mp3 = await synthesizeSpeech({
+        model: 'google/gemini-3.8-flash-lite-tts',
+        voice, input, responseFormat: 'wav',
+        signal: AbortSignal.timeout(16000),
+      });
+      return sendJson(res, 200, { mp3: mp3.toString('base64') }), true;
+    } catch {
+      return sendJson(res, 503, { error: 'Озвучка временно недоступна' }), true;
+    }
   }
 
   if (['/api/assistant/preview', '/api/assistant/command'].includes(pathname) && method === 'POST') {

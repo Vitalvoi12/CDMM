@@ -1,5 +1,12 @@
 package ru.vitalvoi.cdmm
 
+import android.media.MediaPlayer
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.BulletSpan
+import android.text.style.StyleSpan
+import java.io.File
+import java.io.FileInputStream
 import android.Manifest
 import android.app.KeyguardManager
 import android.content.Context
@@ -71,8 +78,12 @@ class AssistantActivity : ComponentActivity() {
     private var busy = false
     private var pendingText: String? = null
     private var requestId: String? = null
+    private var recording: CommandRecording? = null
+    private var transcriptionGeneration = 0
     private var recognizer: SpeechRecognizer? = null
     private var speech: TextToSpeech? = null
+    private var playback: MediaPlayer? = null
+    private var speechGeneration = 0
     private var speechReady = false
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
         if (allowed) listen() else {
@@ -146,7 +157,7 @@ class AssistantActivity : ComponentActivity() {
         caption = label(12f, coral).apply { text = "Помощник" }
         card.addView(caption)
         status = label(18f, ink).apply {
-            text = savedInstanceState?.getString("status") ?: "Чем помочь?"
+            text = savedInstanceState?.getCharSequence("status") ?: "Чем помочь?"
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         }
         val scroll = ScrollView(this).apply {
@@ -181,7 +192,8 @@ class AssistantActivity : ComponentActivity() {
         panel.addView(card, MATCH_PARENT, WRAP_CONTENT)
         val controls = FrameLayout(this)
         mic = button(R.drawable.panel_mic, "Говорить", true) {
-            if (recognizer != null) recognizer?.stopListening() else listen()
+            val active = recording
+            if (active != null) active.stop() else if (recognizer != null) recognizer?.stopListening() else listen()
         }
         mode = button(R.drawable.panel_keyboard, "Ввести текст") { if (typing) send() else edit(true) }
         meter = VoiceMeter(this)
@@ -211,7 +223,7 @@ class AssistantActivity : ComponentActivity() {
     }
 
     private fun edit(enabled: Boolean) {
-        if (enabled) releaseRecognizer()
+        if (enabled) { stopSpeech(); releaseRecognizer() }
         typing = enabled
         input.visibility = if (enabled) View.VISIBLE else View.GONE
         mode.setImageResource(if (enabled) R.drawable.panel_send else R.drawable.panel_keyboard)
@@ -230,6 +242,8 @@ class AssistantActivity : ComponentActivity() {
     }
 
     private fun releaseRecognizer() {
+        recording?.close()
+        recording = null
         val current = recognizer
         recognizer = null
         current?.cancel()
@@ -241,25 +255,30 @@ class AssistantActivity : ComponentActivity() {
     }
 
     private fun listen() {
-        if (busy || isFinishing || recognizer != null || !unlocked()) return
+        if (busy || isFinishing || recording != null || recognizer != null || !unlocked()) return
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             permission.launch(Manifest.permission.RECORD_AUDIO)
             return
         }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+        val capture = if (android.os.Build.VERSION.SDK_INT >= 33) {
+            runCatching { CommandRecording() }.getOrNull()
+        } else null
+        if (capture == null && !SpeechRecognizer.isRecognitionAvailable(this)) {
             edit(true)
             status.text = "Диктовка недоступна. Введи команду текстом."
             return
         }
-        speech?.stop()
+        stopSpeech()
         edit(false)
-        val current = SpeechRecognizer.createSpeechRecognizer(this)
+        recording = capture
+        val current = if (SpeechRecognizer.isRecognitionAvailable(this)) SpeechRecognizer.createSpeechRecognizer(this) else null
+        var androidText: String? = null
         recognizer = current
         caption.text = "Диктовка"
         status.text = "Слушаю…"
         mic.setImageResource(R.drawable.panel_stop)
         mic.contentDescription = "Завершить диктовку"
-        current.setRecognitionListener(object : RecognitionListener {
+        current?.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {}
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(rmsdB: Float) { if (recognizer === current) meter.target = (rmsdB + 2) / 12 }
@@ -268,18 +287,23 @@ class AssistantActivity : ComponentActivity() {
             override fun onEvent(eventType: Int, params: Bundle?) {}
             override fun onPartialResults(results: Bundle?) {
                 if (recognizer !== current) return
-                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let { status.text = it }
+                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let {
+                    androidText = it
+                    status.text = it
+                }
             }
             override fun onResults(results: Bundle?) {
                 if (recognizer !== current) return
-                releaseRecognizer()
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                if (capture != null) { androidText = text ?: androidText; return }
+                releaseRecognizer()
                 if (text.isNullOrBlank()) { status.text = "Не расслышал. Повтори команду."; return }
                 input.setText(text)
                 send()
             }
             override fun onError(error: Int) {
                 if (recognizer !== current) return
+                if (capture != null) return
                 releaseRecognizer()
                 status.text = when (error) {
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Не расслышал. Повтори команду."
@@ -288,17 +312,68 @@ class AssistantActivity : ComponentActivity() {
                 }
             }
         })
-        current.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        current?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            if (capture == null) {
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, CommandRecording.END_SILENCE_MS)
+            }
+            if (capture != null && android.os.Build.VERSION.SDK_INT >= 33) {
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, capture.audioSource)
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, CommandRecording.ENCODING)
+                putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, CommandRecording.RATE)
+            }
         })
+        capture?.start(
+            level = { value -> runOnUiThread { if (recording === capture) meter.target = value } },
+            finished = { pcm -> runOnUiThread {
+                if (recording === capture && !isFinishing) {
+                    releaseRecognizer()
+                    transcribe(pcm, androidText)
+                }
+            } },
+        )
+    }
+
+    private fun transcribe(pcm: ByteArray, androidText: String?) {
+        if (pcm.isEmpty() && androidText.isNullOrBlank()) {
+            status.text = "Не расслышал. Повтори команду."
+            return
+        }
+        busy = true
+        mic.isEnabled = false
+        mode.isEnabled = false
+        caption.text = "Распознаю…"
+        val generation = ++transcriptionGeneration
+        Thread {
+            val text = if (pcm.isEmpty()) null else runCatching { Api(Store(this)).transcribe(pcm) }.getOrNull()
+            runOnUiThread {
+                if (generation != transcriptionGeneration || isFinishing || isDestroyed) return@runOnUiThread
+                busy = false
+                mic.isEnabled = true
+                mode.isEnabled = true
+                caption.text = "Помощник"
+                if (!text.isNullOrBlank()) {
+                    input.setText(text)
+                    send()
+                } else if (!androidText.isNullOrBlank()) {
+                    status.text = "Проверь распознанный текст"
+                    input.setText(androidText)
+                    edit(true)
+                } else {
+                    status.text = "Не удалось распознать запись. Повтори или введи команду."
+                }
+            }
+        }.start()
     }
 
     private fun send() {
         if (busy || !unlocked()) return
         val text = input.text.toString().trim()
         if (text.isEmpty()) return
+        stopSpeech()
         edit(false)
         val id = requestId?.takeIf { pendingText == text } ?: UUID.randomUUID().toString()
         requestId = id
@@ -322,14 +397,14 @@ class AssistantActivity : ComponentActivity() {
                     requestId = null
                     pendingText = null
                     input.text.clear()
-                    status.text = message
+                    status.text = formatReply(reply, message)
                     status.alpha = 0.4f
                     status.animate().alpha(1f).setDuration(200).start()
                     val route = reply.optString("clientRoute")
                     if (route.isNotEmpty()) {
                         startActivity(Intent(this, MainActivity::class.java).putExtra("cdmmAssistantRoute", route))
                         finish()
-                    } else if (speechReady && hasWindowFocus()) speech?.speak(message, TextToSpeech.QUEUE_FLUSH, null, id)
+                    } else if (hasWindowFocus()) speak(id, message)
                 }.onFailure { error ->
                     status.text = when (error) {
                         is UnauthorizedException -> "Войди в CDMM на телефоне."
@@ -341,10 +416,71 @@ class AssistantActivity : ComponentActivity() {
         }.start()
     }
 
+    private fun formatReply(reply: JSONObject, message: String): CharSequence {
+        val list = reply.optJSONObject("list") ?: return message
+        val items = list.optJSONArray("items") ?: return message
+        if (items.length() == 0) return message
+        val result = SpannableStringBuilder(list.getString("title"))
+        result.setSpan(StyleSpan(Typeface.BOLD), 0, result.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        for (i in 0 until items.length()) {
+            val row = items.getJSONObject(i)
+            val color = runCatching { Color.parseColor(row.optString("color")) }.getOrDefault(muted)
+            result.append("\n")
+            val start = result.length
+            result.append(row.getString("text"))
+            result.setSpan(BulletSpan(dp(8), color, dp(5)), start, result.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        if (list.optInt("remaining") > 0) result.append("\nЕщё: ").append(list.getInt("remaining").toString())
+        return result
+    }
+
+    private fun stopSpeech() {
+        speechGeneration++
+        playback?.release()
+        playback = null
+        speech?.stop()
+    }
+
+    private fun speak(id: String, message: String) {
+        stopSpeech()
+        val generation = speechGeneration
+        Thread {
+            val result = runCatching {
+                val audio = Api(Store(this)).assistantSpeech(id)
+                val file = File.createTempFile("speech-", ".mp3", cacheDir)
+                try {
+                    file.writeBytes(audio)
+                    val player = MediaPlayer()
+                    try {
+                        FileInputStream(file).use { player.setDataSource(it.fd) }
+                        player.prepare()
+                        player
+                    } catch (error: Exception) {
+                        player.release()
+                        throw error
+                    }
+                } finally { file.delete() }
+            }
+            runOnUiThread {
+                if (generation != speechGeneration || isFinishing || isDestroyed || !hasWindowFocus()) {
+                    result.getOrNull()?.release()
+                    return@runOnUiThread
+                }
+                result.onSuccess { player ->
+                    playback = player
+                    player.setOnCompletionListener { if (playback === it) stopSpeech() }
+                    player.start()
+                }.onFailure {
+                    if (speechReady) speech?.speak(message, TextToSpeech.QUEUE_FLUSH, null, id)
+                }
+            }
+        }.start()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString("input", input.text.toString())
-        outState.putString("status", status.text.toString())
+        outState.putCharSequence("status", status.text)
         outState.putBoolean("typing", typing || busy)
         outState.putString("pendingText", pendingText)
         outState.putString("requestId", requestId)
@@ -352,11 +488,19 @@ class AssistantActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (recognizer != null) {
+        if (caption.text == "Распознаю…") {
+            transcriptionGeneration++
+            busy = false
+            mic.isEnabled = true
+            mode.isEnabled = true
+            caption.text = "Помощник"
+            status.text = "Диктовка остановлена"
+        }
+        if (recognizer != null || recording != null) {
             releaseRecognizer()
             status.text = "Диктовка остановлена"
         }
-        speech?.stop()
+        stopSpeech()
     }
 
     override fun onDestroy() {

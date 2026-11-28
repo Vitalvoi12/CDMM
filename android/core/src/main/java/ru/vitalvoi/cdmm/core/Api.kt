@@ -15,6 +15,16 @@ class Api(private val store: Store) {
     fun assistant(text: String, id: String): String = request("POST", "/api/assistant/command",
         JSONObject().put("text", text).put("id", id).put("timeZone", java.time.ZoneId.systemDefault().id))
 
+    fun transcribe(pcm: ByteArray): String {
+        val audio = android.util.Base64.encodeToString(pcm, android.util.Base64.NO_WRAP)
+        return JSONObject(request("POST", "/api/assistant/transcribe", JSONObject().put("pcm", audio))).getString("text")
+    }
+
+    fun assistantSpeech(id: String): ByteArray {
+        val reply = request("POST", "/api/assistant/speech", JSONObject().put("id", id))
+        return android.util.Base64.decode(JSONObject(reply).getString("mp3"), android.util.Base64.DEFAULT)
+    }
+
     fun focus(command: JSONObject): String =
         request("POST", "/api/focus", command.put("timeZone", java.time.ZoneId.systemDefault().id))
 

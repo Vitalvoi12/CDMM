@@ -26,6 +26,35 @@ test('requests one bounded OpenRouter tool call using the phone time zone', asyn
   assert.equal(result.action, 'list_schedule');
 });
 
+test('a spoken duration change updates the named event without a date', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'cdmm-assistant-'));
+  const db = openDb(dir);
+  t.after(() => { db.close(); rmSync(dir, { recursive: true, force: true }); });
+  db.prepare('INSERT INTO users VALUES (?, ?, ?, ?, ?)').run('alice', 'alice', 'unused', 'unused', Date.now());
+  const timeZone = 'Europe/Moscow';
+  const run = (id, action, args) => executeAssistantCommand(db, 'alice', { action, args }, timeZone, id, id);
+  const title = 'Встреча';
+  run('create', 'create_event', { title, start: '2026-11-29T23:30', end: '2026-11-29T23:45' });
+  const command = await interpretAssistantCommand({ text: 'Поменяй длительность эвента Встреча на 1 час', timeZone }, {
+    key: 'test',
+    request: async (url, options) => {
+      const { tools } = JSON.parse(options.body);
+      assert.deepEqual(tools.map(({ function: { name } }) => name), ['update_event', 'clarify']);
+      assert.deepEqual(tools[0].function.parameters.required, ['title']);
+      return Response.json({ choices: [{ message: { tool_calls: [{
+        function: { name: 'update_event', arguments: JSON.stringify({ title, durationMinutes: '60' }) },
+      }] } }] });
+    },
+  });
+  assert.match(run('resize', command.action, command.args).message, /^Обновлено: /);
+  const [event] = getState(db, 'alice').events;
+  assert.equal(event.start, '2026-11-29T20:30:00.000Z');
+  assert.equal(event.end, '2026-11-29T21:30:00.000Z');
+  run('create-another', 'create_event', { title, start: '2026-11-30T10:00', end: '2026-11-30T10:30' });
+  assert.match(run('ambiguous', command.action, command.args).message, /укажи дату/);
+  assert.equal(getState(db, 'alice').events.find(({ id }) => id === event.id).end, event.end);
+});
+
 test('assistant writes syncable changes and replays a request only once', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'cdmm-assistant-'));
   const db = openDb(dir);
@@ -33,7 +62,7 @@ test('assistant writes syncable changes and replays a request only once', (t) =>
   db.prepare('INSERT INTO users VALUES (?, ?, ?, ?, ?)').run('alice', 'alice', 'unused', 'unused', Date.now());
   const run = (id, action, args) => executeAssistantCommand(db, 'alice', { action, args }, 'Europe/Moscow', id, id);
   assert.deepEqual(run('subjects-empty', 'list_subjects', {}).context.shownSubjects, []);
-  run('subject', 'create_subject', { name: 'Математика' });
+  run('subject', 'create_subject', { name: 'математика' });
   assert.deepEqual(run('subjects', 'list_subjects', {}).context.shownSubjects, ['Математика']);
   run('other-subject', 'create_subject', { name: 'Физика' });
   run('show-subjects', 'list_subjects', {});
@@ -44,7 +73,7 @@ test('assistant writes syncable changes and replays a request only once', (t) =>
   assert.deepEqual(getState(db, 'alice').subjects.map(({ name }) => name), ['Математика']);
   run('goal', 'update_subject', { name: 'Математика', weeklyGoalMinutes: '180' });
   assert.equal(getState(db, 'alice').subjects[0].weeklyGoalMinutes, 180);
-  run('note', 'write_day_note', { date: '2026-11-29', mode: 'append', content: 'Проверка' });
+  run('note', 'write_day_note', { date: '2026-11-29', mode: 'append', content: 'проверка' });
   assert.equal(run('read-note', 'read_day_note', { date: '2026-11-29' }).message, 'Проверка');
   assert.equal(run('open-todo', 'open_screen', { screen: 'todo' }).clientRoute, '/todo');
   run('create-series', 'create_event', { title: 'Повтор', start: '2026-11-27T10:00',
@@ -66,6 +95,10 @@ test('assistant writes syncable changes and replays a request only once', (t) =>
   assert.deepEqual(getAssistantHistory(db, 'bob', 'Europe/Moscow'), []);
   assert.throws(() => executeAssistantCommand(db, 'alice', null, 'Europe/Moscow', 'todo', 'different'),
     { status: 409 });
+  const visible = run('open-list', 'list_todos', { quadrant: 'all', status: 'open', scheduledDate: args.scheduledDate });
+  assert.equal(visible.list.items.length, 1);
+  assert.equal(visible.list.items[0].color, null);
+  assert.ok(!visible.list.items[0].text.includes(args.scheduledDate));
   const original = getState(db, 'alice').todos[0];
   run('edit', 'update_todo', { title: args.title, estMinutes: '45' });
   const edited = getState(db, 'alice').todos;
@@ -75,6 +108,7 @@ test('assistant writes syncable changes and replays a request only once', (t) =>
   assert.equal(edited[0].estMinutes, 45);
   run('complete', 'complete_todo', { title: args.title });
   assert.ok(getState(db, 'alice').todos[0].completedAt);
+  assert.equal(run('remaining', 'list_todos', { quadrant: 'all', status: 'open' }).list, undefined);
   assert.equal(getState(db, 'alice').todos[0].dueDate, '2026-11-30T15:00:00.000Z');
   run('a', 'create_event', { title: 'Математика', start: '2026-11-29T16:00', end: '2026-11-29T17:00' });
   run('b', 'create_event', { title: 'Английский', start: '2026-11-29T17:00', end: '2026-11-29T17:30' });
@@ -113,6 +147,27 @@ test('assistant writes syncable changes and replays a request only once', (t) =>
   assert.equal(getState(db, 'alice').events.length, 2);
 });
 
+test('offers task choices for a partial title and resumes the original edit by number', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'cdmm-assistant-'));
+  const db = openDb(dir);
+  t.after(() => { db.close(); rmSync(dir, { recursive: true, force: true }); });
+  db.prepare('INSERT INTO users VALUES (?, ?, ?, ?, ?)').run('alice', 'alice', 'unused', 'unused', Date.now());
+  const timeZone = 'Europe/Moscow';
+  const run = (id, action, args) => executeAssistantCommand(db, 'alice', { action, args }, timeZone, id, id);
+  run('math', 'create_todo', { title: 'Подготовить доклад по математике' });
+  run('english', 'create_todo', { title: 'Выучить английские слова' });
+  const suggestion = run('edit', 'update_todo', { title: 'Доклад по математике', estMinutes: '60' });
+  assert.match(suggestion.list.items[0].text, /Подготовить доклад/);
+  assert.ok(getState(db, 'alice').todos.every((todo) => todo.estMinutes == null));
+  const history = getAssistantHistory(db, 'alice', timeZone);
+  const choice = await interpretAssistantCommand({ text: 'Первую', timeZone }, { history, key: '' });
+  assert.deepEqual(choice.args, { estMinutes: '60', targetIndex: '1' });
+  run('choice', choice.action, choice.args);
+  const tasks = getState(db, 'alice').todos;
+  assert.equal(tasks.find((todo) => todo.id === suggestion.todoReferences[0].id).estMinutes, 60);
+  assert.ok(tasks.find((todo) => todo.title.includes('английские')).estMinutes == null);
+});
+
 test('clarification cannot ask for a deletion confirmation', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'cdmm-assistant-clarify-'));
   const db = openDb(dir);
@@ -123,4 +178,44 @@ test('clarification cannot ask for a deletion confirmation', (t) => {
   }, 'Europe/Moscow', 'request', 'Удали событие');
   assert.equal(result.message, 'Не удалось разобрать команду. Укажи действие и название задачи, события или предмета.');
   assert.equal(result.pendingDeletion, undefined);
+});
+
+test('a time-specific question keeps only matching calendar events and tasks', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'cdmm-assistant-'));
+  const db = openDb(dir);
+  t.after(() => { db.close(); rmSync(dir, { recursive: true, force: true }); });
+  db.prepare('INSERT INTO users VALUES (?, ?, ?, ?, ?)').run('alice', 'alice', 'unused', 'unused', Date.now());
+  const timeZone = 'Europe/Moscow';
+  const date = '2026-11-29';
+  const run = (id, action, args) => executeAssistantCommand(db, 'alice', { action, args }, timeZone, id, id);
+  run('morning', 'create_event', { title: 'Завтрак', start: date + 'T09:00', end: date + 'T09:30' });
+  run('lesson', 'create_event', { title: 'Урок', start: date + 'T11:00', end: date + 'T12:00' });
+  const ask = (text, name, args) => interpretAssistantCommand({ text, timeZone }, {
+    key: 'test',
+    now: new Date(date + 'T06:00:00Z'),
+    request: async () => Response.json({ choices: [{ message: { tool_calls: [{
+      function: { name, arguments: JSON.stringify(args) },
+    }] } }] }),
+  });
+  const command = await ask('Какой эвент у меня на 11:00?', 'list_schedule', { date });
+  const result = run('eleven', command.action, command.args);
+  assert.equal(result.message, 'Урок 11:00–12:00');
+  assert.ok(result.eventReference);
+  assert.deepEqual(result.context.shownEvents.map(({ title }) => title), ['Урок']);
+  assert.match(run('empty', 'list_schedule', { date, time: '11:30' }).message, /нет/);
+  assert.equal(run('active', 'list_schedule', { date, time: '11:30', timeMatch: 'active' }).message, result.message);
+  assert.equal(run('free', 'find_free_time', { date, from: '10:00', to: '13:00', durationMinutes: '60' }).message,
+    'Свободное время: 10:00–11:00, 12:00–13:00');
+  run('task-first', 'create_todo', { title: 'Доклад', estMinutes: '45' });
+  run('task-slot', 'plan_todo', { start: date + 'T11:00' });
+  run('task-second', 'create_todo', { title: 'Сдать эссе', dueDate: date + 'T11:00' });
+  const planned = await ask('Какая задача у меня на 11:00?', 'list_todos', { scheduledDate: date });
+  const task = run('planned-query', planned.action, planned.args);
+  assert.equal(task.message, 'Доклад, 45 мин, в календаре 11:00–11:45');
+  assert.ok(task.todoReference);
+  assert.match(run('finish-it', 'complete_todo', {}).message, /Доклад/);
+  assert.match(run('reopen-it', 'reopen_todo', {}).message, /Доклад/);
+  const deadline = await ask('Какую задачу надо сдать к 11:00?', 'list_todos', {});
+  assert.match(run('deadline-query', deadline.action, deadline.args).message, /^Сдать эссе/);
+  assert.deepEqual(run('date-query', 'list_todos', { scheduledDate: date }).context.args, { scheduledDate: date });
 });

@@ -9,6 +9,7 @@ RUN npm run build
 
 # ---- run stage ----
 FROM node:24-alpine AS run
+RUN apk add --no-cache ffmpeg
 WORKDIR /app
 ENV NODE_ENV=production
 ENV DATA_DIR=/app/data

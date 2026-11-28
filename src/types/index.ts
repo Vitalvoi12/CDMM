@@ -163,6 +163,7 @@ export interface WeeklyStatistics {
 export type ThemeMode = 'light' | 'dark';
 
 export interface TodoTask {
+  inProgress?: boolean;
   subjectId: string;
   /** Local calendar date, independent of the deadline. */
   scheduledDate?: string;
@@ -251,6 +252,8 @@ export interface SyncedSession {
 }
 
 export interface UserSettings {
+  assistantVoice?: string;
+  assistantVoiceAt?: number;
   theme: ThemeMode;
   /** Live session, or null when idle. */
   activeSession?: SyncedSession | null;

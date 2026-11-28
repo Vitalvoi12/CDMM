@@ -3,6 +3,7 @@ import type { DeviceSignalSettings, SignalDevice, SignalKind, SignalMode, Vibrat
 import { settingsRepo } from '../../services/repositories';
 import { subscribeSync, syncOnce } from '../../services/serverSync';
 import { apiFetch } from '../../services/auth';
+import geminiVoices from '../../../server/gemini-voices.json';
 import { DEFAULT_SIGNALS, SIGNAL_KINDS, SIGNAL_MODES, VIBRATION_PATTERNS } from '../../services/signals';
 
 const DEVICES: { id: SignalDevice; label: string }[] = [
@@ -12,6 +13,11 @@ const DEVICES: { id: SignalDevice; label: string }[] = [
 
 const selectClass =
   'w-full min-w-0 appearance-none cursor-pointer bg-surface-container-low border border-outline-variant focus:border-primary rounded-xl py-2 px-3 max-lg:min-h-[40px] max-lg:!text-[16px] font-body-md text-[14px] lg:text-body text-on-surface outline-none transition-colors';
+
+function readVoice(): string {
+  const voice = settingsRepo.get().assistantVoice;
+  return voice && geminiVoices.includes(voice) ? voice : '';
+}
 
 function readSignals(): DeviceSignalSettings {
   return settingsRepo.get().signals ?? DEFAULT_SIGNALS;
@@ -23,11 +29,15 @@ function readSignals(): DeviceSignalSettings {
  */
 export function DevicesPanel({ mobile }: { mobile: boolean }) {
   const [signals, setSignals] = useState(readSignals);
+  const [voice, setVoice] = useState(readVoice);
   const [code, setCode] = useState('');
   const [pairing, setPairing] = useState(false);
   const [pairMessage, setPairMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  useEffect(() => subscribeSync(() => setSignals(readSignals())), []);
+  useEffect(() => subscribeSync(() => {
+    setSignals(readSignals());
+    setVoice(readVoice());
+  }), []);
 
   const change = (device: SignalDevice, key: SignalKind | 'pattern', value: SignalMode | VibrationPattern) => {
     const next = { ...signals, [device]: { ...signals[device], [key]: value } };
@@ -69,6 +79,18 @@ export function DevicesPanel({ mobile }: { mobile: boolean }) {
 
   return (
     <>
+      <label className={card} style={cardStyle}>
+        <span className={label}>Голос помощника</span>
+        <select className={selectClass} value={voice} onChange={(event) => {
+          const selected = event.target.value;
+          setVoice(selected);
+          settingsRepo.setAssistantVoice(selected);
+          void syncOnce().catch(() => { /* retried by background sync */ });
+        }}>
+          <option value="">По умолчанию</option>
+          {geminiVoices.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
+      </label>
       <div className={card} style={cardStyle}>
         {!mobile && <span className={label}>Signals</span>}
         <div className="grid items-center gap-x-2 gap-y-2" style={{ gridTemplateColumns: 'minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr)' }}>

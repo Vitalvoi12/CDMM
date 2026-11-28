@@ -283,6 +283,7 @@ export function openDb(dir) {
   }
   const todoColumns = new Set(db.prepare('PRAGMA table_info(todos)').all().map(column => column.name));
   if (!todoColumns.has('scheduled_date')) db.exec('ALTER TABLE todos ADD COLUMN scheduled_date TEXT');
+  if (!todoColumns.has('in_progress')) db.exec('ALTER TABLE todos ADD COLUMN in_progress INTEGER NOT NULL DEFAULT 0');
   if (!todoColumns.has('progress')) db.exec('ALTER TABLE todos ADD COLUMN progress REAL');
   if (!todoColumns.has('auto_urgency_dismissed')) {
     db.exec('ALTER TABLE todos ADD COLUMN auto_urgency_dismissed INTEGER NOT NULL DEFAULT 0');
@@ -393,6 +394,7 @@ function rowToPayload(entity, row) {
     progress: row.progress ?? undefined,
     completedAt: row.completed_at || undefined,
     reminders: parseReminders(row.reminders),
+    inProgress: row.in_progress === 1,
     completed: row.completed === 1,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
@@ -401,13 +403,14 @@ function rowToPayload(entity, row) {
 const COLS = {
   subjects: ['name', 'color', 'icon', 'progress', 'weekly_goal'],
   events: ['uid', 'subject_id', 'title', 'description', 'start', 'end', 'kind', 'recurrence_id', 'color', 'count_in_stats', 'checklist', 'notify_before', 'notify_extra', 'created_at', 'focus', 'task_id'],
-  todos: ['title', 'description', 'important', 'urgent', 'auto_urgency_dismissed', 'due_date', 'due_has_time', 'scheduled_date', 'progress', 'est_minutes', 'subject_id', 'completed_at', 'reminders', 'completed', 'created_at'],
+  todos: ['in_progress', 'title', 'description', 'important', 'urgent', 'auto_urgency_dismissed', 'due_date', 'due_has_time', 'scheduled_date', 'progress', 'est_minutes', 'subject_id', 'completed_at', 'reminders', 'completed', 'created_at'],
   dayNotes: ['content'],
   dayTasks: ['tasks'],
   eventEdits: ['event_id', 'at', 'from_start', 'from_end', 'to_start', 'to_end', 'title', 'subject_id', 'kind', 'count_in_stats', 'deleted'],
 };
 
 const FROM_CLIENT = {
+  inProgress: 'in_progress',
   name: 'name', color: 'color', icon: 'icon', progress: 'progress', weeklyGoalMinutes: 'weekly_goal',
   focus: 'focus', taskId: 'task_id',
   uid: 'uid', subjectId: 'subject_id', title: 'title', description: 'description',
@@ -563,7 +566,7 @@ export function applyChanges(db, userId, dirty) {
     for (const col of COLS[entity]) {
       const clientKey = Object.keys(FROM_CLIENT).find((k) => FROM_CLIENT[k] === col);
       let v = clientKey && Object.prototype.hasOwnProperty.call(rec, clientKey) ? rec[clientKey] : prev[col];
-      if (col === 'important' || col === 'urgent' || col === 'completed' || col === 'due_has_time' || col === 'auto_urgency_dismissed') {
+      if (col === 'in_progress' || col === 'important' || col === 'urgent' || col === 'completed' || col === 'due_has_time' || col === 'auto_urgency_dismissed') {
         v = v ? 1 : 0;
       } else if (col === 'at') {
         // Epoch column of the plan-stability log: never store a string.
@@ -698,6 +701,10 @@ export function applyChanges(db, userId, dirty) {
       if (curAt > inAt) {
         merged.activeSession = current.activeSession ?? null;
         merged.activeSessionAt = curAt;
+      }
+      if ((Number(current.assistantVoiceAt) || 0) > (Number(incoming.assistantVoiceAt) || 0)) {
+        merged.assistantVoice = current.assistantVoice;
+        merged.assistantVoiceAt = current.assistantVoiceAt;
       }
       // Phone/watch signal choices carry their own clock too.
       if ((Number(current.signalsAt) || 0) > (Number(incoming.signalsAt) || 0)) {

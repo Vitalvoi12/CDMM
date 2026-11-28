@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { applyChanges, getState } from "./db.mjs";
 import { focusCommand } from "./focus.mjs";
-import { setTodoDone } from "./glance.mjs";
+import { normalizeSignals, setTodoDone, SIGNAL_KINDS, SIGNAL_MODES, SIGNAL_PATTERNS } from "./glance.mjs";
+import geminiVoices from './gemini-voices.json' with { type: 'json' };
 
+const todoActions = ['update_todo', 'complete_todo', 'delete_todo', 'plan_todo', 'reopen_todo'];
 const todoSelectors = ['title', 'targetIndex', 'targetEstimate', 'targetDate', 'targetDeadline', 'targetDescription', 'targetSubject'];
 
 const actions = {
@@ -10,28 +12,34 @@ const actions = {
   update_subject: ['name', 'color', 'weeklyGoalMinutes'],
   read_day_note: ['date'],
   write_day_note: ['date', 'content', 'mode'],
-  update_event: ['title', 'date', 'newTitle', 'start', 'end', 'description', 'notifyBefore', 'scope'],
-  duplicate_event: ['title', 'date', 'start'],
+  update_event: ['title', 'date', 'time', 'newTitle', 'start', 'end', 'durationMinutes', 'description', 'notifyBefore', 'scope'],
+  duplicate_event: ['title', 'date', 'time', 'start'],
   focus_start: ['subject'],
   focus_finish: [],
   focus_rate: ['rating'],
+  focus_status: [],
   focus_summary: ['from', 'to', 'subject'],
   set_theme: ['theme'],
+  set_voice: ['voice'],
+  set_signal: ['device', 'signal', 'value'],
+  answer: ['message'],
   open_screen: ['screen'],
   sync_now: [],
   create_subject: ['name'],
   rename_subject: ['name', 'newName'],
   delete_subject: ['name'],
   create_todo: ['title', 'scheduledDate', 'dueDate', 'subject', 'estMinutes'],
-  update_todo: [...todoSelectors, 'newTitle', 'description', 'subject', 'scheduledDate', 'dueDate', 'estMinutes', 'importance', 'urgency', 'progress', 'reminderAt'],
+  update_todo: [...todoSelectors, 'stage', 'newTitle', 'description', 'subject', 'scheduledDate', 'dueDate', 'estMinutes', 'importance', 'urgency', 'progress', 'reminderAt'],
   complete_todo: todoSelectors,
+  reopen_todo: todoSelectors,
   delete_todo: todoSelectors,
-  list_todos: ['quadrant', 'scheduledDate'],
+  list_todos: ['quadrant', 'scheduledDate', 'status', ...todoSelectors, 'at', 'deadlineAt'],
   plan_todo: [...todoSelectors, 'start', 'estMinutes'],
-  list_schedule: ['date'],
+  list_schedule: ['date', 'time', 'timeMatch', 'title', 'subject'],
+  find_free_time: ['date', 'from', 'to', 'durationMinutes'],
   delete_event: ['title', 'date', 'time', 'scope'],
   create_event: ['title', 'start', 'end', 'subject', 'repeat', 'until', 'kind'],
-  move_event: ['title', 'date', 'start'],
+  move_event: ['title', 'date', 'time', 'start'],
   swap_events: ['date', 'first', 'second'],
   clarify: ['detail'],
 };
@@ -52,11 +60,14 @@ const clarificationQuestions = {
   action: 'Не удалось разобрать команду. Укажи действие и название задачи, события или предмета.',
 };
 
-const optionalFields = ['subject', 'scheduledDate', 'dueDate', 'time', 'estMinutes', 'repeat', 'until', 'kind', 'scope'];
+const optionalFields = ['status', 'subject', 'scheduledDate', 'dueDate', 'time', 'estMinutes', 'repeat', 'until', 'kind', 'scope'];
 const isOptional = (action, field) => optionalFields.includes(field) ||
-  (action === 'delete_event' && field === 'date') || ['update_todo', 'complete_todo', 'delete_todo'].includes(action) || (action === 'plan_todo' && field !== 'start') ||
+  (action === 'delete_event' && field === 'date') || ['update_todo', 'complete_todo', 'delete_todo', 'reopen_todo'].includes(action) || (action === 'plan_todo' && field !== 'start') ||
+  action === 'list_todos' ||
+  (action === 'find_free_time' && field !== 'date') ||
+  (action === 'list_schedule' && ['title', 'timeMatch'].includes(field)) ||
   (action === 'update_subject' && ['color', 'weeklyGoalMinutes'].includes(field)) ||
-  (action === 'update_event' && !['title', 'date'].includes(field)) ||
+  (action === 'update_event' && field !== 'title') ||
   (action === 'write_day_note' && field === 'content');
 
 function failure(status, message) {
@@ -82,6 +93,18 @@ export async function interpretAssistantCommand(body, {
   } catch {
     throw failure(400, 'Invalid time zone');
   }
+  const previous = history.at(-1);
+  if (previous?.choosingTodo && todoActions.includes(previous.action)) {
+    const choice = /^(?:номер\s+|№\s*)?([1-9]\d*|первую|вторую|третью|четвёртую|четвертую|пятую)[.!?]?$/iu.exec(text);
+    if (choice) {
+      const ordinals = ['первую', 'вторую', 'третью', 'четвертую', 'пятую'];
+      const word = choice[1].toLowerCase().replace('ё', 'е');
+      return { action: previous.action, args: {
+        ...Object.fromEntries(Object.entries(previous.args).filter(([field]) => !todoSelectors.includes(field))),
+        targetIndex: /^\d/.test(word) ? word : String(ordinals.indexOf(word) + 1),
+      }, usage: null };
+    }
+  }
   if (!key) throw failure(503, 'OpenRouter is not configured');
 
   const explicitTodoEdit = /^(?:поменяй|измени|обнови|переименуй|отредактируй|перенеси)(?=\s)/iu.test(text) &&
@@ -90,12 +113,14 @@ export async function interpretAssistantCommand(body, {
     /(?:таск|задач|туду|todo)/iu.test(text) &&
     /(?:\d{1,2}[:.]\d{2}|(?:на|в)\s+\d{1,2}(?!\d)|таймлайн|в календарь)/iu.test(text) &&
     !/(?:дедлайн|крайний срок|напоминани)/iu.test(text);
+  const eventDurationEdit = /^(?:поменяй|измени|установи|сделай|увеличь|уменьши)\s+длительность\s+(?:события|эвента|ивента)(?=\s|$)/iu.test(text);
   const scopedActions =
+    eventDurationEdit ? ['update_event'] :
     schedulingTask ? ['plan_todo'] :
     /недельн\p{L}*\s+цел|цвет\s+предмет/iu.test(text) ? ['update_subject'] :
     /заметк\p{L}*\s+дня/iu.test(text) ? ['read_day_note', 'write_day_note'] :
     /фокус/iu.test(text) && /(?:сесси|оцени|сколько|статистик)/iu.test(text)
-      ? ['focus_start', 'focus_finish', 'focus_rate', 'focus_summary'] : null;
+      ? ['focus_start', 'focus_finish', 'focus_rate', 'focus_status', 'focus_summary'] : null;
   const offeredActions = Object.fromEntries(Object.entries(actions).filter(([name]) =>
     (!scopedActions || name === 'clarify' || scopedActions.includes(name)) && (!explicitTodoEdit || name !== 'create_todo')));
   const numberedList = history.at(-1)?.shownTodos;
@@ -113,9 +138,16 @@ export async function interpretAssistantCommand(body, {
         provider: { require_parameters: true, max_price: { prompt: 0.12, completion: 0.50 } },
         messages: [
           { role: 'system', content: [
-            'Interpret one Russian CDMM instruction. Return exactly one tool call.',
+            'You are the Russian-speaking CDMM assistant. Understand questions, requests and follow-ups. Return exactly one tool call.',
+            'For small talk, general tips or how to use CDMM, use answer with a short natural Russian message. Never guess personal data, claim a change, or claim external actions in answer. Use the corresponding tool for personal data and changes.',
+            '«Какой эвент в 11:00?» uses list_schedule with time 11:00, date today by default and timeMatch start. «Что идёт сейчас?» uses list_schedule with the current local date and time and timeMatch active. Use active for events in progress, start for appointments starting at a stated time. For a named event include title. Never drop the time or title to read the entire day.',
+            'Use find_free_time for free slots or checking availability within a day. from and to are local HH:mm (default 09:00 to 21:00), durationMinutes is minimum minutes (default 30). For «свободен ли я с 11 до 12 завтра?» use from 11:00, to 12:00 and durationMinutes 60.',
+            'For a specific task use list_todos with the same selectors as task edits. A task on the calendar at a specific time uses at (local date-time), a task due at that time uses deadlineAt, and a deadline on a day uses targetDeadline. A planned day without a time uses scheduledDate. For «задача на 11» without a day use today. For «задача с оценкой час» use targetEstimate 60. Use reopen_todo to undo completion.',
+            'Use focus_status to answer whether a focus timer is running and how long. Use set_voice with an exact Gemini voice name or default. Use set_signal for phone or watch, signal reminder, start, end, todo or pattern, and value off, vibrate, sound, both or a vibration pattern short, long, double, triple.',
             'After showing TODOs, requests like «удали первое», «убери вторую из списка», or «удали ту, где оценка час» are delete_todo. Never list again unless asked to list.',
             'For update_todo, complete_todo and delete_todo, targetIndex is the 1-based number in the latest shownTodos. Use title, targetEstimate (existing minutes), targetDate (existing scheduled day), targetDeadline (existing due day or local date-time), targetDescription (existing note text) and targetSubject to disambiguate. Combine selectors when supplied.',
+            'When the latest command has choosingTodo and the user chooses one of its shownTodos, continue that action with the previous requested changes. Use only the new selection as the target, clearing all previous target selectors.',
+            'If the user requests a task change but the title is incomplete or missing, call the corresponding task action with the selectors you have. The server can offer task choices.',
             'Only use targetIndex when the user actually says a number or ordinal, and only for the latest numbered list.',
             'For «переименуй задачу Заметки, ту, что на час, в Учёба» use update_todo with exactly title Заметки, targetEstimate 60 and newTitle Учёба. Do not copy a task note into description or invent any other edit.',
             'Never use a title as targetSubject. Only set targetSubject when the current request explicitly names a subject or references a known subject.',
@@ -123,11 +155,12 @@ export async function interpretAssistantCommand(body, {
             'When a user answers a question about which task to use, continue the previous requested action with the new selector and keep the earlier requested changes.',
             'Use update_todo for changing an existing task, even if the user only mentions the changed field. Never use create_todo to edit, reschedule or rename an existing task.',
             'For update_todo, title is the old exact title. If referring to the last task (e.g. «поменяй её»), omit title or copy it from history. Set only requested fields; newTitle is the replacement title.',
+            'Kanban: «беру доклад в работу» means update_todo title доклад stage active. Moving back to «к выполнению» uses stage backlog. Use complete_todo for done. «Что я начал, но ещё не закончил?» means list_todos status active, quadrant all.',
             'For update_todo use «clear» to remove subject, scheduledDate, dueDate, or estMinutes. Use true or false as strings for importance and urgency, and a whole percentage as a string for progress.',
             'Create or add a TODO even if it includes a subject, planned day, deadline and estimated duration. These are fields of one task.',
             'For create_todo, estMinutes is a string containing whole minutes; «длительность 2 часа» means estMinutes 120.',
             'Example «поставь туду сделать ДЗ по информатике на сегодня, длительность 2 часа» is create_todo with title сделать ДЗ, subject информатика, scheduledDate equal to the YYYY-MM-DD part of localTime, estMinutes 120.',
-            '«Удали предмет» always uses delete_subject, not create_subject or delete_event. «Переименуй предмет» and capitalization changes use rename_subject. Preserve the requested casing in newName.',
+            '«Удали предмет» always uses delete_subject, not create_subject or delete_event. «Переименуй предмет» and capitalization changes use rename_subject. Preserve the rest of the requested casing after the initial capital.',
             'Use clarify only when information is missing, a request is unsupported, or it combines independent actions.',
             'For clarify, detail must be one of title, date, time, subject, action. Never ask for confirmation.',
             'A complete request to delete an event must call delete_event even if the user has not confirmed. CDMM finds the event and handles confirmation.',
@@ -135,18 +168,18 @@ export async function interpretAssistantCommand(body, {
             'Resolve relative dates against the supplied local time. Dates are YYYY-MM-DD,',
             'date-times are YYYY-MM-DDTHH:mm in that same zone. Never invent missing titles or times.',
             'Use recent commands only to resolve references in the current instruction.',
-            'A recent schedule result includes the events actually shown to the user. If the user refers to that single event, copy its exact title, date and time into delete_event.',
+            'A recent schedule result includes the events actually shown to the user. If the user refers to that single event, copy its exact title, date and original start time into delete_event, update_event, move_event or duplicate_event. Keep the requested new date-time separate in start.',
             'For delete_event use the exact event title, date if specified, and time (HH:mm) if specified. For update_event or delete_event of a repeated event, use scope single, following (this and future) or series (whole series) only as requested. A single occurrence is the default. An explicitly requested entire series uses scope series.',
             'For moving an event, date is the date before moving and start is the new local date-time.',
             'Commands like «сдвинь», «перенеси», «на полчаса позже» explicitly change an event and require move_event.',
             'Example: recent create_event titled Повторение starts 2026-11-28T16:00; current «сдвинь его на полчаса позже» means move_event with title Повторение, date 2026-11-28, start 2026-11-28T16:30.',
             'For «какие у меня есть предметы», «покажи предметы» or other requests to read the subject list, call list_subjects. Ignore earlier TODO context when the current request explicitly asks for subjects.',
-            'Use update_subject to change color (hex RGB) or weeklyGoalMinutes (whole minutes or clear). «Поставь недельную цель по математике 3 часа» is update_subject with name Математика and weeklyGoalMinutes 180. Use update_event to change named fields; date identifies the existing occurrence. To change duration calculate the new end using the previous start, or ask for the missing time. Use duplicate_event for copying to a new start.',
+            'Use update_subject to change color (hex RGB) or weeklyGoalMinutes (whole minutes or clear). «Поставь недельную цель по математике 3 часа» is update_subject with name Математика and weeklyGoalMinutes 180. Use update_event to change named fields. Include date only when the user specifies the occurrence date. To change duration use durationMinutes (whole minutes as a string), leaving start and end unset unless the user explicitly changes the start. For «поменяй длительность эвента Тренировка на 1 час» use update_event with title Тренировка and durationMinutes 60. The server looks up the event and calculates the end. Use duplicate_event for copying to a new start.',
             'Use read_day_note, write_day_note (mode append for add, replace only when explicitly requested, or clear), focus_start, focus_finish, focus_rate (1, 2 or 3), focus_summary (inclusive date range) and set_theme (light or dark) when requested.',
             'Day checklists are TODOs scheduled that day. Use list_todos with scheduledDate for reading, create_todo with scheduledDate for adding, and targetDate to select a checklist task for editing, finishing or deleting. Use plan_todo for putting an existing task onto the timeline. «Поставь эту таску на сегодня на 18:00» means plan_todo with start at 18:00 today. When «эту таску» refers to the last task, omit task selectors. The requested date is the new start, not targetDate. Omit estMinutes unless the user explicitly gives a new duration.',
             'For update_todo reminderAt is a local date-time to add a notification, or clear to remove notifications. For create_event repeat can be daily, weekly, monthly or yearly and requires an inclusive until date. Event kind can be plan or real.',
             'Use open_screen when asked to open a page. Screen is calendar, study, todo, subjects, statistics or settings. Use sync_now when explicitly asked to sync.',
-            'Use list_schedule only for calendar events. Use list_todos for reading TODO tasks, without requiring a date.',
+            'Use list_schedule only for calendar events. Use list_todos for reading TODO tasks, without requiring a date. For открытые, невыполненные or оставшиеся use status open; for выполненные use status completed; otherwise omit status.',
             'For list_todos, quadrant neither means «не важные и не срочные», important means important only, urgent means urgent only, both means important and urgent, all means no priority filter.',
             'After creating a subject, a follow-up like «добавь по нему задачу» uses its name as subject.',
             'Inflect Russian words in dialogue, but copy referenced subject and event names exactly.',
@@ -184,6 +217,21 @@ export async function interpretAssistantCommand(body, {
         actions[name].some((field) =>
           !isOptional(name, field) && !Object.hasOwn(args, field))) {
       throw new Error('Invalid tool call');
+    }
+    if (['list_schedule', 'list_todos'].includes(name)) {
+      const clock = /(?:^|\s)(?:в|на|к)\s+([01]?\d|2[0-3]):([0-5]\d)\b/iu.exec(text);
+      if (clock) {
+        const time = clock[1].padStart(2, '0') + ':' + clock[2];
+        if (name === 'list_schedule') args.time = time;
+        if (name === 'list_todos' && !args.at && !args.deadlineAt) {
+          const field = /дедлайн|крайний срок|сдать|срок сдачи|(?:^|\s)к\s+\d/iu.test(text) ? 'deadlineAt' : 'at';
+          args[field] = (args.targetDeadline?.slice(0, 10) ?? args.scheduledDate ?? args.targetDate ?? localTime.slice(0, 10)) + 'T' + time;
+          if (field === 'at') {
+            delete args.scheduledDate;
+            delete args.targetDate;
+          }
+        }
+      }
     }
     if (name === 'write_day_note' && args.mode === 'replace' && /^(?:добавь|допиши|добавить|дописать)\s/iu.test(text)) {
       args.mode = 'append';
@@ -272,6 +320,10 @@ export function executeAssistantCommand(db, userId, command, zone, id, text) {
   }
 }
 
+function capitalize(value) {
+  return value.replace(/^[^\p{L}]*\p{L}/u, prefix => prefix.toLocaleUpperCase('ru'));
+}
+
 function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
   const reply = (message, context = { action, args }) => ({
     action, message, usage: usage ?? null, context, at: Date.now(),
@@ -280,6 +332,7 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     const detail = Object.hasOwn(clarificationQuestions, args.detail) ? args.detail : 'action';
     return reply(clarificationQuestions[detail], { action, args: { detail } });
   }
+  if (action === 'answer') return reply(args.message, { action });
   const state = getState(db, userId);
   const iso = (ms) => new Date(ms).toISOString();
   const localTime = (value) => calendarTime(value, zone);
@@ -291,10 +344,12 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
   };
   const subjectId = args.subject && !(action === 'update_todo' && args.subject === 'clear') ? find(state.subjects, args.subject, (s) => s.name).id : '';
   const now = Date.now();
-  const base = { id: randomUUID(), title: args.title, subjectId, createdAt: iso(now) };
+  const base = { id: randomUUID(), title: args.title === undefined ? undefined : capitalize(args.title.trim()), subjectId, createdAt: iso(now) };
   const save = (entity, records) => applyChanges(db, userId, {
     [entity]: records.map((record) => ({ ...record, updatedAt: Math.max(now, (record.updatedAt || 0) + 1) })),
   });
+  const subjectColors = new Map(state.subjects.map(({ id, color }) => [id, color]));
+  const item = (record, text) => ({ text, color: subjectColors.get(record.subjectId) ?? null });
   if (action === 'list_subjects') {
     const subjects = [...state.subjects].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
     const shown = subjects.slice(0, 20);
@@ -304,6 +359,7 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
       ? 'Предметы: ' + shownSubjects.join(', ') + (remaining ? '. Ещё предметов: ' + remaining : '')
       : 'В CDMM пока нет предметов.';
     return { ...reply(message, { action, args, shownSubjects }),
+      list: { title: 'Предметы', items: shown.map(s => ({ text: s.name, color: s.color })), remaining },
       subjectReferences: shown.map(({ id, updatedAt }) => ({ id, updatedAt })) };
   }
   const requestSubjectDeletion = (subject) => ({
@@ -341,7 +397,7 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     return reply('Предмет обновлён: ' + subject.name);
   }
   if (action === 'create_subject') {
-    const name = args.name.trim();
+    const name = capitalize(args.name.trim());
     if (state.subjects.some((subject) => normalize(subject.name) === normalize(name))) {
       return reply('Предмет уже есть: ' + name);
     }
@@ -351,7 +407,7 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
   if (action === 'rename_subject' || action === 'delete_subject') {
     const subject = find(state.subjects, args.name, (record) => record.name);
     if (action === 'delete_subject') return requestSubjectDeletion(subject);
-    const name = args.newName.trim();
+    const name = capitalize(args.newName.trim());
     if (state.subjects.some((record) => record.id !== subject.id && normalize(record.name) === normalize(name))) {
       return reply('Предмет с таким названием уже есть: ' + name);
     }
@@ -364,8 +420,8 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     if (action === 'read_day_note') return reply(note?.content || 'На этот день заметки нет.');
     if (!['append', 'replace', 'clear'].includes(args.mode)) throw failure(422, 'Уточни, как изменить заметку');
     if (args.mode !== 'clear' && !args.content) throw failure(422, 'Укажи текст заметки');
-    const content = args.mode === 'clear' ? '' : args.mode === 'append' && note?.content
-      ? note.content + '\n' + args.content : args.content;
+    const addition = args.mode === 'clear' ? '' : capitalize(args.content);
+    const content = args.mode === 'append' && note?.content ? note.content + '\n' + addition : addition;
     save('dayNotes', [{ id: args.date, updatedAt: note?.updatedAt, content }]);
     return reply('Заметка обновлена за ' + args.date);
   }
@@ -381,6 +437,34 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     applyChanges(db, userId, { settings: { data: { theme: args.theme },
       updatedAt: Math.max(now, (state.settings?.updatedAt || 0) + 1) } });
     return reply(args.theme === 'dark' ? 'Включена тёмная тема CDMM' : 'Включена светлая тема CDMM');
+  }
+  if (action === 'set_voice' || action === 'set_signal') {
+    const data = {};
+    if (action === 'set_voice') {
+      const voice = geminiVoices.find((name) => normalize(name) === normalize(args.voice));
+      if (!voice && args.voice !== 'default') throw failure(422, 'Укажи название голоса Gemini');
+      data.assistantVoice = voice ?? '';
+      data.assistantVoiceAt = Math.max(now, (Number(settings.assistantVoiceAt) || 0) + 1);
+    } else {
+      const { device, signal, value } = args;
+      if (!['phone', 'watch'].includes(device) ||
+          (signal === 'pattern' ? !SIGNAL_PATTERNS.includes(value) :
+            !SIGNAL_KINDS.includes(signal) || !SIGNAL_MODES.includes(value))) {
+        throw failure(422, 'Уточни устройство и тип сигнала');
+      }
+      data.signals = normalizeSignals(settings.signals);
+      data.signals[device][signal] = value;
+      data.signalsAt = Math.max(now, (Number(settings.signalsAt) || 0) + 1);
+    }
+    applyChanges(db, userId, { settings: { data, updatedAt: Math.max(now, (state.settings?.updatedAt || 0) + 1) } });
+    return reply(action === 'set_voice' ? 'Голос помощника: ' + (data.assistantVoice || 'по умолчанию') : 'Настройки сигналов обновлены.');
+  }
+  if (action === 'focus_status') {
+    const session = settings.activeSession;
+    if (!session) return reply('Сейчас фокус-сессия не идёт.');
+    const name = session.title || state.subjects.find(({ id }) => id === session.subjectId)?.name;
+    const minutes = Math.max(0, Math.floor((now - Date.parse(session.start)) / 60_000));
+    return reply('Фокус-сессия' + (name ? ' «' + name + '»' : '') + ' идёт уже ' + minutes + ' мин.');
   }
   if (['focus_start', 'focus_finish', 'focus_rate'].includes(action)) {
     const operation = action.slice(6);
@@ -414,7 +498,7 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
       throw failure(422, 'Уточни длительность задачи в минутах');
     }
     save('todos', [{ ...base, scheduledDate: args.scheduledDate, dueDate, dueHasTime, estMinutes }]);
-    return { ...reply('Добавлено в TODO: ' + args.title), todoReference: base.id };
+    return { ...reply('Добавлено в TODO: ' + base.title), todoReference: base.id };
   }
   const day = new Intl.DateTimeFormat('sv-SE', { timeZone: zone, dateStyle: 'short' });
   const localDateTime = new Intl.DateTimeFormat('sv-SE', { timeZone: zone, dateStyle: 'short', timeStyle: 'short' });
@@ -424,44 +508,57 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     description: todo.description?.slice(0, 160),
     subject: state.subjects.find((subject) => subject.id === todo.subjectId)?.name,
   });
-  const describeTodo = (todo) => {
+  const describeTodo = (todo, listDate, includeStatus = false) => {
     const details = todoDetails(todo);
     return [details.title, details.subject, details.estMinutes && details.estMinutes + ' мин',
-      details.scheduledDate && 'запланировано на ' + details.scheduledDate,
+      details.scheduledDate && details.scheduledDate !== listDate && 'запланировано на ' + details.scheduledDate,
       details.dueDate && 'дедлайн ' + (todo.dueHasTime ? details.dueDate.replace('T', ' ') : details.dueDate.slice(0, 10)), details.description,
-      details.completed && 'выполнено'].filter(Boolean).join(', ');
+      details.completed ? 'выполнено' : includeStatus && (todo.inProgress ? 'в работе' : 'не выполнено')].filter(Boolean).join(', ');
   };
   let todo;
-  if (['update_todo', 'complete_todo', 'delete_todo', 'plan_todo'].includes(action)) {
+  if (todoActions.includes(action)) {
     const previous = latestAssistantResult(db, userId, zone);
     const listed = previous?.todoReferences ?? [];
-    const priorId = previous?.todoReference ?? (listed.length === 1 && !previous.moreTodos ? listed[0].id : null);
+    const priorId = previous?.todoReference ?? (!previous?.context?.choosingTodo && listed.length === 1 && !previous.moreTodos ? listed[0].id : null);
     const indexed = args.targetIndex === undefined ? null : listed[Number(args.targetIndex) - 1];
-    if (args.targetIndex !== undefined && (!/^[1-9]\d*$/.test(args.targetIndex) || !indexed)) {
-      return reply('В последнем списке нет задачи с таким номером. Назови её или запроси список снова.');
-    }
+    const validIndex = args.targetIndex === undefined || (/^[1-9]\d*$/.test(args.targetIndex) && indexed);
     const hasSelector = todoSelectors.some((key) => args[key] !== undefined);
-    const candidates = state.todos.filter((record) => {
+    const selectors = (record) => {
+      const details = todoDetails(record);
+      return [
+        args.title && normalize(record.title) === normalize(args.title),
+        args.targetEstimate && record.estMinutes === Number(args.targetEstimate),
+        args.targetDate && record.scheduledDate === args.targetDate,
+        args.targetDeadline && (args.targetDeadline.includes('T') ? details.dueDate === args.targetDeadline
+          : details.dueDate?.slice(0, 10) === args.targetDeadline),
+        args.targetDescription && normalize(record.description ?? '').includes(normalize(args.targetDescription)),
+        args.targetSubject && normalize(details.subject ?? '') === normalize(args.targetSubject),
+      ];
+    };
+    const candidates = validIndex ? state.todos.filter((record) => {
       if (indexed && (record.id !== indexed.id || record.updatedAt !== indexed.updatedAt)) return false;
       if (!hasSelector && record.id !== priorId) return false;
-      const details = todoDetails(record);
-      return (!args.title || normalize(record.title) === normalize(args.title)) &&
-        (!args.targetEstimate || record.estMinutes === Number(args.targetEstimate)) &&
-        (!args.targetDate || record.scheduledDate === args.targetDate) &&
-        (!args.targetDeadline || (args.targetDeadline.includes('T') ? details.dueDate === args.targetDeadline
-          : details.dueDate?.slice(0, 10) === args.targetDeadline)) &&
-        (!args.targetDescription || normalize(record.description ?? '').includes(normalize(args.targetDescription))) &&
-        (!args.targetSubject || normalize(details.subject ?? '') === normalize(args.targetSubject));
-    });
-    if (!candidates.length) return reply(indexed ? 'Эта задача изменилась или исчезла. Запроси список снова.'
-      : 'Не удалось найти задачу. Назови её или укажи номер из списка.');
-    if (candidates.length > 1) {
-      const shown = candidates.slice(0, 8);
+      return !selectors(record).includes(false);
+    }) : [];
+    if (candidates.length !== 1) {
+      const words = (value) => normalize(value).match(/[\p{L}\p{N}]+/gu) ?? [];
+      const queryWords = words(args.title ?? '');
+      const options = candidates.length ? candidates : state.todos.map((record) => {
+        const titleWords = words(record.title);
+        const overlap = queryWords.filter((word) => titleWords.some((other) =>
+          word === other || (word.length >= 4 && other.length >= 4 && word.slice(0, 4) === other.slice(0, 4)))).length;
+        return { record, score: 2 * selectors(record).filter(Boolean).length + overlap / (queryWords.length || 1) };
+      }).sort((a, b) => b.score - a.score || Number(a.record.completed) - Number(b.record.completed)
+        || b.record.updatedAt - a.record.updatedAt).map(({ record }) => record);
+      if (!options.length) return reply('В TODO пока нет задач.');
+      const shown = options.slice(0, 5);
+      const question = 'Какую задачу выбрать? Назови её номер.';
       return {
-        ...reply('Какую задачу выбрать? ' + shown.map((record, index) => (index + 1) + '. ' + describeTodo(record)).join('. '),
-          { action, args, shownTodos: shown.map(todoDetails) }),
+        ...reply(question + ' ' + shown.map((record, index) => (index + 1) + '. ' + describeTodo(record)).join('. '),
+          { action, args, shownTodos: shown.map(todoDetails), choosingTodo: true }),
+        list: { title: question, items: shown.map(t => item(t, describeTodo(t))), remaining: options.length - shown.length },
         todoReferences: shown.map(({ id, updatedAt }) => ({ id, updatedAt })),
-        moreTodos: candidates.length > shown.length,
+        moreTodos: options.length > shown.length,
       };
     }
     [todo] = candidates;
@@ -474,8 +571,13 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
   }
   if (action === 'update_todo') {
     const patch = {};
-    if (args.newTitle !== undefined) patch.title = args.newTitle.trim();
-    if (args.description !== undefined) patch.description = args.description;
+    if (args.stage !== undefined) {
+      if (!['backlog', 'active'].includes(args.stage)) throw failure(422, 'Уточни колонку');
+      patch.inProgress = args.stage === 'active';
+      if (todo.completed) Object.assign(patch, { completed: false, completedAt: null, progress: 0 });
+    }
+    if (args.newTitle !== undefined) patch.title = capitalize(args.newTitle.trim());
+    if (args.description !== undefined) patch.description = capitalize(args.description);
     if (args.subject !== undefined) patch.subjectId = subjectId;
     if (args.scheduledDate !== undefined) {
       if (args.scheduledDate !== 'clear') localTime(args.scheduledDate + 'T12:00');
@@ -540,40 +642,79 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     return { ...reply('Задача добавлена в календарь: ' + todo.title + ', ' + args.start.replace('T', ' ')),
       todoReference: todo.id };
   }
-  if (action === 'complete_todo') {
-    setTodoDone(db, userId, todo.id, true, now);
-    return reply('Выполнено: ' + todo.title);
+  if (action === 'complete_todo' || action === 'reopen_todo') {
+    const completed = action === 'complete_todo';
+    setTodoDone(db, userId, todo.id, completed, now);
+    return { ...reply((completed ? 'Выполнено: ' : 'Снова открыта задача: ') + todo.title), todoReference: todo.id };
   }
   const showTime = new Intl.DateTimeFormat('ru-RU', { timeZone: zone, timeStyle: 'short' });
   const label = (event) => event.title || state.subjects.find((subject) => subject.id === event.subjectId)?.name || 'Событие';
   const describe = (event) => label(event) + ' ' + showTime.format(new Date(event.start)) + '–' + showTime.format(new Date(event.end));
   if (action === 'list_todos') {
-    const { quadrant } = args;
+    const quadrant = args.quadrant ?? 'all';
+    const prior = args.targetIndex ? latestAssistantResult(db, userId, zone)?.todoReferences?.[Number(args.targetIndex) - 1] : null;
+    const at = args.at ? localTime(args.at) : null;
+    const deadlineAt = args.deadlineAt ? localTime(args.deadlineAt) : null;
+    const planned = new Map();
+    if (at !== null) {
+      for (const event of state.events) {
+        if (event.kind === 'plan' && event.taskId && Math.floor(Date.parse(event.start) / 60_000) === at / 60_000) planned.set(event.taskId, event);
+      }
+    }
+    const targeted = todoSelectors.some((key) => args[key] !== undefined) || at !== null || deadlineAt !== null;
     if (!Object.hasOwn(todoQuadrants, quadrant)) throw failure(422, 'Уточни квадрант TODO');
     if (args.scheduledDate) localTime(args.scheduledDate + 'T12:00');
     const today = day.format(now);
     const dueAt = (todo) => Date.parse(todo.dueDate) || Infinity;
+    if (args.status && !['open', 'active', 'completed'].includes(args.status)) throw failure(422, 'Уточни статус задач');
     const tasks = state.todos.filter((todo) => {
+      const details = todoDetails(todo);
+      if (args.targetIndex && (prior?.id !== todo.id || prior.updatedAt !== todo.updatedAt)) return false;
+      if (args.title && !normalize(todo.title).includes(normalize(args.title))) return false;
+      if (args.targetEstimate && todo.estMinutes !== Number(args.targetEstimate)) return false;
+      if (args.targetDate && todo.scheduledDate !== args.targetDate) return false;
+      if (args.targetDeadline && (args.targetDeadline.includes('T') ? details.dueDate !== args.targetDeadline
+        : details.dueDate?.slice(0, 10) !== args.targetDeadline)) return false;
+      if (args.targetDescription && !normalize(todo.description ?? '').includes(normalize(args.targetDescription))) return false;
+      if (args.targetSubject && normalize(details.subject ?? '') !== normalize(args.targetSubject)) return false;
+      if (at !== null && !planned.has(todo.id)) return false;
+      if (deadlineAt !== null && (!todo.dueHasTime || Math.floor(dueAt(todo) / 60_000) !== deadlineAt / 60_000)) return false;
+      if (args.status === 'active' && !todo.inProgress) return false;
+      if (args.status && Boolean(todo.completed) !== (args.status === 'completed')) return false;
       const urgent = todo.urgent || (!todo.completed && !todo.autoUrgencyDismissed &&
         dueAt(todo) !== Infinity && day.format(dueAt(todo)) <= today);
       const group = todo.important ? (urgent ? 'both' : 'important') : (urgent ? 'urgent' : 'neither');
       return (!args.scheduledDate || todo.scheduledDate === args.scheduledDate) && (quadrant === 'all' || quadrant === group);
     }).sort((first, second) => Number(first.completed) - Number(second.completed) || dueAt(first) - dueAt(second));
+    if (!tasks.length && targeted) return reply('По этому запросу задач не нашлось.');
+    const describeMatch = (todo) => {
+      const event = planned.get(todo.id);
+      const details = describeTodo(todo, args.scheduledDate, targeted && at === null && deadlineAt === null);
+      return event ? details + ', в календаре ' + showTime.format(new Date(event.start)) + '–' + showTime.format(new Date(event.end)) : details;
+    };
+    if (tasks.length === 1 && targeted) {
+      const [match] = tasks;
+      return { ...reply(describeMatch(match), { action, args, shownTodos: [todoDetails(match)] }),
+        todoReference: match.id, todoReferences: [{ id: match.id, updatedAt: match.updatedAt }] };
+    }
+    if (!tasks.length && args.status === 'active') return reply('В работе пока нет задач.');
     if (!tasks.length) return reply('Задач ' + todoQuadrants[quadrant] + ' нет.');
     const listed = tasks.slice(0, 12);
     const shown = listed.map(todoDetails);
-    const summary = listed.map((todo, index) => (index + 1) + '. ' + describeTodo(todo));
+    const summary = listed.map((todo, index) => (index + 1) + '. ' + describeMatch(todo));
     const remaining = tasks.length - shown.length;
     return {
       ...reply('Задачи ' + todoQuadrants[quadrant] + ': ' + summary.join('. ') +
         (remaining ? '. Ещё задач: ' + remaining : ''), { action, args, shownTodos: shown }),
+      list: { title: (args.status === 'active' ? 'В работе' : args.status === 'open' ? 'Открытые задачи' : args.status === 'completed' ? 'Выполненные задачи' : 'Задачи') + (quadrant === 'all' ? '' : ' ' + todoQuadrants[quadrant]) + (args.scheduledDate ? ' · ' + args.scheduledDate : ''), items: listed.map(t => item(t, describeMatch(t))), remaining },
       moreTodos: remaining > 0,
       todoReferences: listed.map(({ id, updatedAt }) => ({ id, updatedAt })),
     };
   }
   if (action === 'delete_listed_todos') {
-    const references = latestAssistantResult(db, userId, zone)?.todoReferences;
-    if (!references?.length) return reply('Сначала попроси показать список TODO, который хочешь удалить.');
+    const previous = latestAssistantResult(db, userId, zone);
+    const references = previous?.todoReferences;
+    if (!references?.length || previous.context?.choosingTodo) return reply('Сначала попроси показать список TODO, который хочешь удалить.');
     return {
       ...reply('Удалить перечисленные задачи TODO (' + references.length + ')? Скажи «да» или «отмена».'),
       pendingDeletion: { entity: 'todos', references },
@@ -660,7 +801,8 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
       matches.every((event) => event.recurrenceId === matches[0].recurrenceId)) return requestEventDeletion(matches[0]);
     if (matches.length > 1) {
       const options = matches.slice(0, 4).map((event) => day.format(new Date(event.start)) + ' ' + describe(event));
-      return reply('Нашёл несколько событий. Уточни дату и время: ' + options.join(', '));
+      return { ...reply('Нашёл несколько событий. Уточни дату и время: ' + options.join(', ')),
+        list: { title: 'Уточни дату и время', items: options.map((text, i) => item(matches[i], text)), remaining: matches.length - options.length } };
     }
     return requestEventDeletion(matches[0]);
   }
@@ -708,20 +850,30 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     }
     return reply('Добавлено на ' + args.start.slice(0, 10) + ': ' + describe(event));
   }
-  localTime(args.date + 'T12:00');
-  const events = state.events.filter((event) => day.format(new Date(event.start)) === args.date)
-    .sort((first, second) => Date.parse(first.start) - Date.parse(second.start));
   if (action === 'update_event' || action === 'duplicate_event') {
-    const event = find(events, args.title, label);
+    if (args.date) localTime(args.date + 'T12:00');
+    const matches = state.events.filter((event) => normalize(label(event)) === normalize(args.title) &&
+      (!args.date || day.format(new Date(event.start)) === args.date) &&
+      (!args.time || showTime.format(new Date(event.start)) === args.time));
+    if (!matches.length) return reply('Событие «' + args.title + '» не найдено.');
+    if (matches.length > 1) return reply('Нашёл несколько событий «' + args.title + '». Повтори команду и укажи дату.');
+    const [event] = matches;
     const duplicate = action === 'duplicate_event';
     const patch = {};
-    if (args.newTitle !== undefined) patch.title = args.newTitle;
-    if (args.description !== undefined) patch.description = args.description;
+    if (args.newTitle !== undefined) patch.title = capitalize(args.newTitle.trim());
+    if (args.description !== undefined) patch.description = capitalize(args.description);
     if (args.start !== undefined) {
       patch.start = iso(localTime(args.start));
       if (args.end === undefined) patch.end = iso(Date.parse(patch.start) + Date.parse(event.end) - Date.parse(event.start));
     }
     if (args.end !== undefined) patch.end = iso(localTime(args.end));
+    const duration = Number(args.durationMinutes);
+    if (args.durationMinutes !== undefined) {
+      if (!/^[1-9]\d{0,7}$/.test(args.durationMinutes) || args.end !== undefined) {
+        throw failure(422, 'Уточни длительность события в минутах');
+      }
+      patch.end = iso(Date.parse(patch.start ?? event.start) + duration * 60_000);
+    }
     if (Date.parse(patch.end ?? event.end) <= Date.parse(patch.start ?? event.start)) throw failure(422, 'Конец события должен быть после начала');
     if (args.notifyBefore !== undefined) {
       if (args.notifyBefore !== 'clear' && !/^\d{1,5}$/.test(args.notifyBefore)) throw failure(422, 'Уточни напоминание в минутах');
@@ -730,36 +882,80 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     }
     if (!Object.keys(patch).length) return reply('Что изменить в событии «' + label(event) + '»?');
     const updated = { ...event, ...patch };
-    if (duplicate) Object.assign(updated, { id: base.id, uid: base.id + '@cdmm', recurrenceId: null, taskId: null, createdAt: iso(now) });
+    if (duplicate) Object.assign(updated, { title: capitalize(label(updated)), id: base.id, uid: base.id + '@cdmm', recurrenceId: null, taskId: null, createdAt: iso(now) });
     const selection = duplicate ? [event] : selectOccurrences(event, args.scope);
     const startShift = patch.start ? Date.parse(patch.start) - Date.parse(event.start) : 0;
     const endShift = patch.end ? Date.parse(patch.end) - Date.parse(event.end) : 0;
     const changes = selection.map((record) => record.id === event.id ? updated : {
-      ...record, ...patch, start: iso(Date.parse(record.start) + startShift), end: iso(Date.parse(record.end) + endShift),
+      ...record, ...patch, start: iso(Date.parse(record.start) + startShift), end: iso(args.durationMinutes === undefined
+        ? Date.parse(record.end) + endShift
+        : Date.parse(record.start) + startShift + duration * 60_000),
     });
     if (changes.some((record) => Date.parse(record.end) <= Date.parse(record.start))) throw failure(422, 'У одного из повторений конец окажется раньше начала');
     save('events', changes);
     return reply(changes.length > 1 ? 'Обновлено событий: ' + changes.length
       : (duplicate ? 'Скопировано: ' : 'Обновлено: ') + describe(updated));
   }
+  localTime(args.date + 'T12:00');
+  if (action === 'find_free_time') {
+    const from = localTime(args.date + 'T' + (args.from ?? '09:00'));
+    const to = localTime(args.date + 'T' + (args.to ?? '21:00'));
+    const duration = Number(args.durationMinutes ?? 30);
+    if (to <= from || !Number.isInteger(duration) || duration < 1 || duration > 1440) {
+      throw failure(422, 'Уточни период и длительность свободного окна');
+    }
+    const busy = state.events.map((event) => [Date.parse(event.start), Date.parse(event.end)])
+      .filter(([start, end]) => start < to && end > from && end > start)
+      .sort(([a], [b]) => a - b);
+    const slots = [];
+    let cursor = from;
+    for (const [start, end] of [...busy, [to, to]]) {
+      if (start - cursor >= duration * 60_000) slots.push(showTime.format(cursor) + '–' + showTime.format(start));
+      cursor = Math.max(cursor, end);
+    }
+    if (!slots.length) return reply('В это время свободного окна на ' + duration + ' мин. нет.');
+    const shown = slots.slice(0, 5);
+    return reply('Свободное время: ' + shown.join(', ') +
+      (slots.length > shown.length ? '. Ещё окон: ' + (slots.length - shown.length) : ''));
+  }
   if (action === 'list_schedule') {
-    const shownEvents = events.slice(0, 8).map((event) => ({
-      title: label(event), date: args.date, time: showTime.format(new Date(event.start)),
+    const { time, timeMatch = 'start', title } = args;
+    if (!['start', 'active'].includes(timeMatch)) throw failure(422, 'Уточни время события');
+    const at = time ? localTime(args.date + 'T' + time) : null;
+    const events = state.events.filter((event) => {
+      if (title && !normalize(label(event)).includes(normalize(title))) return false;
+      if (subjectId && event.subjectId !== subjectId) return false;
+      const start = Date.parse(event.start);
+      if (at === null) return day.format(start) === args.date;
+      if (timeMatch === 'active') return start <= at && at < Date.parse(event.end);
+      return day.format(start) === args.date && showTime.format(start) === time;
+    }).sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+    const shown = events.slice(0, 8);
+    const shownEvents = shown.map((event) => ({
+      title: label(event), date: day.format(new Date(event.start)), time: showTime.format(new Date(event.start)),
     }));
-    const result = reply(events.map(describe).join('. ') || 'На этот день событий нет',
+    const remaining = events.length - shown.length;
+    const empty = time ? 'В ' + time + ' подходящих событий нет.' : 'На этот день подходящих событий нет.';
+    const result = reply(shown.map(describe).join('. ') + (remaining ? '. Ещё событий: ' + remaining : '') || empty,
       { action, args, shownEvents });
     if (events.length === 1) {
       result.eventReference = { id: events[0].id, updatedAt: events[0].updatedAt };
     }
+    if ((!time && !title && !subjectId) || events.length > 1) {
+      result.list = { title: 'Расписание · ' + args.date + (time ? ' · ' + time : ''), items: shown.map(e => item(e, describe(e))), remaining };
+    }
     return result;
   }
+  const events = state.events.filter((event) => day.format(new Date(event.start)) === args.date)
+    .sort((first, second) => Date.parse(first.start) - Date.parse(second.start));
   const moved = (event, start) => {
     if (event.recurrenceId || event.kind !== 'plan') throw failure(422, 'Этот прототип переносит отдельные плановые события');
     const duration = Date.parse(event.end) - Date.parse(event.start);
     return { ...event, start: iso(start), end: iso(start + duration) };
   };
   if (action === 'move_event') {
-    const event = moved(find(events, args.title, label), localTime(args.start));
+    const candidates = args.time ? events.filter((event) => showTime.format(new Date(event.start)) === args.time) : events;
+    const event = moved(find(candidates, args.title, label), localTime(args.start));
     save('events', [event]);
     return reply('Перенесено на ' + args.start.slice(0, 10) + ': ' + describe(event),
       { action, args: { title: label(event), date: args.start.slice(0, 10), start: args.start } });

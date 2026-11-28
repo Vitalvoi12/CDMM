@@ -5,9 +5,11 @@ import { subjectRepo, todoRepo, tombstoneRepo } from '../services/repositories';
 import { useSyncRefresh } from '../hooks/useServerSync';
 import { useOverscrollSpring } from '../hooks/useOverscrollSpring';
 import { useTodoQuadrantDrag } from '../hooks/useTodoQuadrantDrag';
-import { checkpoint } from '../services/history';
+import { syncOnce } from '../services/serverSync';
+import { checkpoint, undo, undoLabel } from '../services/history';
 import { dateKey } from '../utils/time';
 import type { TodoTask } from '../types';
+import { KanbanBoard, stageOf, type Stage } from '../components/todo/KanbanBoard';
 import { QuadrantCard } from '../components/todo/QuadrantCard';
 import { QuadrantDialog } from '../components/todo/QuadrantDialog';
 import { TodoForm } from '../components/todo/TodoForm';
@@ -31,6 +33,12 @@ function isDueBy(task: TodoTask, day: string): boolean {
 
 export function TodoPage() {
   const isMobile = useIsMobile();
+  const [board, setBoard] = useState(() => localStorage.getItem('cdmm.todo-view') === 'kanban');
+  const viewSwitch = <div role="group" aria-label="Todo view" className="inline-flex shrink-0 rounded-xl border border-outline-variant bg-surface-container-low p-1">
+    {['Matrix', 'Kanban'].map((name, i) => <button key={name} type="button" aria-pressed={board === Boolean(i)}
+      className={'rounded-lg px-3 py-1 text-caption ' + (board === Boolean(i) ? 'bg-secondary-container text-on-secondary-container' : 'text-on-surface-variant')}
+      onClick={() => { setBoard(Boolean(i)); localStorage.setItem('cdmm.todo-view', i ? 'kanban' : 'matrix'); }}>{name}</button>)}
+  </div>;
   const location = useLocation();
   const navigate = useNavigate();
   const springRef = useOverscrollSpring<HTMLDivElement>();
@@ -158,6 +166,7 @@ export function TodoPage() {
     checkpoint(completed ? 'Complete task' : 'Reopen task');
     todoRepo.update(id, { completed });
     refresh();
+    if (board) void syncOnce().catch(() => { /* Background sync retries offline changes. */ });
   };
 
   const handleDelete = (id: string) => {
@@ -204,13 +213,51 @@ export function TodoPage() {
     />
   );
 
+  const changeStage = (id: string, stage: Stage) => {
+    const task = todoRepo.getById(id);
+    if (!task || stageOf(task) === stage) return;
+    checkpoint('Move task');
+    todoRepo.update(id, {
+      inProgress: stage === 'active',
+      ...(task.completed !== (stage === 'done') ? { completed: stage === 'done' } : {}),
+    });
+    refresh();
+    void syncOnce().catch(() => { /* Background sync retries offline changes. */ });
+  };
+  const undoName = undoLabel();
+  const mobileHeader = (
+    <header className="m-hdr" style={{ paddingLeft: 16 }}>
+      <h1 className="m-h1 flex-1">Todo</h1>
+      {viewSwitch}
+      <button type="button" className="m-ib" aria-label={undoName ? `Undo: ${undoName.toLowerCase()}` : 'Undo'}
+        disabled={!undoName} onClick={() => {
+          undo();
+          refresh();
+          if (board) void syncOnce().catch(() => { /* Background sync retries offline changes. */ });
+        }}>
+        <span className="material-symbols-outlined m-ic">undo</span>
+      </button>
+    </header>
+  );
+  if (board) return <div className="flex w-full min-h-0 flex-1 flex-col overflow-hidden">
+    {isMobile ? mobileHeader : (
+      <header className="mb-8 flex items-center justify-between">
+        <h1 className="text-title">Todo</h1>{viewSwitch}
+      </header>
+    )}
+    <KanbanBoard tasks={todos} subjects={subjects} onMove={changeStage} onToggle={handleToggle}
+      onOpen={task => setFormState({ task, quadrant: task.important ? task.urgent ? 'ii' : 'in' : task.urgent ? 'ni' : 'nn' })}
+      onAdd={() => setFormState({ task: null, quadrant: 'nn' })}/>
+    {todoForm}
+  </div>;
+
   if (isMobile) {
     return (
       <div className="flex flex-col w-full flex-1 min-h-0 relative overflow-hidden">
+        {mobileHeader}
         <TodoList
           byQuadrant={byQuadrant}
           subjects={subjects}
-          openCount={todos.filter((t) => !t.completed).length}
           onToggle={handleToggle}
           onDelete={handleDelete}
           onOpen={(task) => {
@@ -255,10 +302,7 @@ export function TodoPage() {
       }
     }}>
       <div className="mb-8 max-lg:mb-3 flex-shrink-0">
-        <h1 className="text-title text-on-surface mb-1">Todo</h1>
-        <p className="text-lead text-on-surface-variant">
-          {todos.filter((t) => !t.completed).length} open tasks
-        </p>
+        <div className="flex items-center justify-between"><h1 className="text-title text-on-surface mb-1">Todo</h1>{viewSwitch}</div>
       </div>
 
       <div ref={springRef} onPointerDown={quadrantDrag.onPointerDown} className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 max-lg:auto-rows-max max-lg:content-start max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pb-24">
