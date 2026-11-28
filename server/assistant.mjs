@@ -12,7 +12,7 @@ const actions = {
   update_subject: ['name', 'color', 'weeklyGoalMinutes'],
   read_day_note: ['date'],
   write_day_note: ['date', 'content', 'mode'],
-  update_event: ['title', 'date', 'time', 'newTitle', 'start', 'end', 'durationMinutes', 'description', 'notifyBefore', 'scope'],
+  update_event: ['title', 'date', 'time', 'newTitle', 'start', 'end', 'durationMinutes', 'description', 'subject', 'kind', 'focus', 'notifyBefore', 'addReminders', 'replaceReminder', 'scope'],
   duplicate_event: ['title', 'date', 'time', 'start'],
   focus_start: ['subject'],
   focus_finish: [],
@@ -38,7 +38,7 @@ const actions = {
   list_schedule: ['date', 'time', 'timeMatch', 'title', 'subject'],
   find_free_time: ['date', 'from', 'to', 'durationMinutes'],
   delete_event: ['title', 'date', 'time', 'scope'],
-  create_event: ['title', 'start', 'end', 'subject', 'repeat', 'until', 'kind'],
+  create_event: ['title', 'start', 'end', 'subject', 'repeat', 'until', 'kind', 'focus', 'notifyBefore'],
   move_event: ['title', 'date', 'time', 'start'],
   swap_events: ['date', 'first', 'second'],
   clarify: ['detail'],
@@ -60,7 +60,7 @@ const clarificationQuestions = {
   action: 'Не удалось разобрать команду. Укажи действие и название задачи, события или предмета.',
 };
 
-const optionalFields = ['status', 'subject', 'scheduledDate', 'dueDate', 'time', 'estMinutes', 'repeat', 'until', 'kind', 'scope'];
+const optionalFields = ['focus', 'notifyBefore', 'status', 'subject', 'scheduledDate', 'dueDate', 'time', 'estMinutes', 'repeat', 'until', 'kind', 'scope'];
 const isOptional = (action, field) => optionalFields.includes(field) ||
   (action === 'delete_event' && field === 'date') || ['update_todo', 'complete_todo', 'delete_todo', 'reopen_todo'].includes(action) || (action === 'plan_todo' && field !== 'start') ||
   action === 'list_todos' ||
@@ -127,7 +127,7 @@ export async function interpretAssistantCommand(body, {
     schedulingTask ? ['plan_todo'] :
     /недельн\p{L}*\s+цел|цвет\s+предмет/iu.test(text) ? ['update_subject'] :
     /заметк\p{L}*\s+дня/iu.test(text) ? ['read_day_note', 'write_day_note'] :
-    /фокус/iu.test(text) && /(?:сесси|оцени|сколько|статистик)/iu.test(text)
+    /фокус/iu.test(text) && !/(?:событи|эвент|ивент)/iu.test(text) && /(?:сесси|оцени|сколько|статистик)/iu.test(text)
       ? ['focus_start', 'focus_finish', 'focus_rate', 'focus_status', 'focus_summary'] : null;
   const offeredActions = Object.fromEntries(Object.entries(actions).filter(([name]) =>
     (!scopedActions || name === 'clarify' || scopedActions.includes(name)) && (!explicitTodoEdit || name !== 'create_todo')));
@@ -182,6 +182,7 @@ export async function interpretAssistantCommand(body, {
             'Commands like «сдвинь», «перенеси», «на полчаса позже» explicitly change an event and require move_event.',
             'Example: recent create_event titled Повторение starts 2026-11-28T16:00; current «сдвинь его на полчаса позже» means move_event with title Повторение, date 2026-11-28, start 2026-11-28T16:30.',
             'For «какие у меня есть предметы», «покажи предметы» or other requests to read the subject list, call list_subjects. Ignore earlier TODO context when the current request explicitly asks for subjects.',
+            'For calendar event edits use update_event. subject is the new subject name or clear, kind is real or plan, focus is 1 (scattered), 2 (okay), 3 (deep) or clear. For event reminders use comma-separated minutes before start, with 0 at start. addReminders preserves existing reminders. notifyBefore replaces the full list or clear removes all. To change one lead while keeping others use replaceReminder as old,new.',
             'Use update_subject to change color (hex RGB) or weeklyGoalMinutes (whole minutes or clear). «Поставь недельную цель по математике 3 часа» is update_subject with name Математика and weeklyGoalMinutes 180. Use update_event to change named fields. Include date only when the user specifies the occurrence date. To change duration use durationMinutes (whole minutes as a string), leaving start and end unset unless the user explicitly changes the start. For «поменяй длительность эвента Тренировка на 1 час» use update_event with title Тренировка and durationMinutes 60. The server looks up the event and calculates the end. Use duplicate_event for copying to a new start.',
             'Use read_day_note, write_day_note (mode append for add, replace only when explicitly requested, or clear), focus_start, focus_finish, focus_rate (1, 2 or 3), focus_summary (inclusive date range) and set_theme (light or dark) when requested.',
             'Day checklists are TODOs scheduled that day. Use list_todos with scheduledDate for reading, create_todo with scheduledDate for adding, and targetDate to select a checklist task for editing, finishing or deleting. Use plan_todo for putting an existing task onto the timeline. «Поставь эту таску на сегодня на 18:00» means plan_todo with start at 18:00 today. When «эту таску» refers to the last task, omit task selectors. The requested date is the new start, not targetDate. Omit estMinutes unless the user explicitly gives a new duration.',
@@ -350,7 +351,7 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     if (matches.length !== 1) throw failure(422, 'Уточни название: «' + key + '»');
     return matches[0];
   };
-  const subjectId = args.subject && !(action === 'update_todo' && args.subject === 'clear') ? find(state.subjects, args.subject, (s) => s.name).id : '';
+  const subjectId = args.subject && !(['update_todo', 'update_event'].includes(action) && args.subject === 'clear') ? find(state.subjects, args.subject, (s) => s.name).id : '';
   const now = Date.now();
   const base = { id: randomUUID(), title: args.title === undefined ? undefined : capitalize(args.title.trim()), subjectId, createdAt: iso(now) };
   const save = (entity, records) => applyChanges(db, userId, {
@@ -814,6 +815,39 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     }
     return requestEventDeletion(matches[0]);
   }
+  function applyEventSettings(record) {
+    if (args.subject !== undefined) record.subjectId = subjectId;
+    if (args.kind !== undefined) record.kind = args.kind;
+    if (!['real', 'plan'].includes(record.kind) || (record.kind === 'real' && !record.subjectId)) {
+      throw failure(422, 'Для фактического события нужен предмет');
+    }
+    if (args.focus !== undefined) {
+      if (!['1', '2', '3', 'clear'].includes(args.focus) || (record.kind !== 'real' && args.focus !== 'clear')) {
+        throw failure(422, 'Оценку фокуса от 1 до 3 можно задать фактическому событию');
+      }
+      record.focus = args.focus === 'clear' ? null : Number(args.focus);
+    }
+    if (args.kind === 'plan') record.focus = null;
+    const modes = ['notifyBefore', 'addReminders', 'replaceReminder'].filter(key => args[key] !== undefined);
+    if (modes.length > 1) throw failure(422, 'Уточни, как изменить напоминания');
+    if (!modes.length) return;
+    const mode = modes[0];
+    const value = args[mode];
+    const clear = mode === 'notifyBefore' && value === 'clear';
+    const parts = clear ? [] : value.split(',').map(part => part.trim());
+    if (parts.some(part => !/^\d{1,5}$/.test(part))) throw failure(422, 'Укажи напоминания в минутах');
+    const minutes = parts.map(Number);
+    const existing = [record.notifyBefore, ...(record.notifyExtra ?? [])].filter(Number.isFinite);
+    let leads = minutes;
+    if (mode === 'addReminders') leads = existing.concat(minutes);
+    if (mode === 'replaceReminder') {
+      if (minutes.length !== 2 || !existing.includes(minutes[0])) throw failure(422, 'Уточни, какое напоминание изменить');
+      leads = existing.map(lead => lead === minutes[0] ? minutes[1] : lead);
+    }
+    const [first, ...extra] = new Set(leads);
+    record.notifyBefore = first ?? null;
+    record.notifyExtra = extra;
+  }
   if (action === 'create_event') {
     const start = localTime(args.start);
     const end = localTime(args.end);
@@ -821,6 +855,7 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
     const kind = args.kind ?? 'plan';
     if (!['plan', 'real'].includes(kind) || (kind === 'real' && !subjectId)) throw failure(422, 'Для фактического события укажи предмет');
     const event = { ...base, uid: base.id + '@cdmm', kind, start: iso(start), end: iso(end) };
+    applyEventSettings(event);
     if (!args.repeat) save('events', [event]);
     else {
       if (!['daily', 'weekly', 'monthly', 'yearly'].includes(args.repeat) || !args.until) throw failure(422, 'Укажи частоту повторения и дату окончания');
@@ -883,12 +918,8 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
       patch.end = iso(Date.parse(patch.start ?? event.start) + duration * 60_000);
     }
     if (Date.parse(patch.end ?? event.end) <= Date.parse(patch.start ?? event.start)) throw failure(422, 'Конец события должен быть после начала');
-    if (args.notifyBefore !== undefined) {
-      if (args.notifyBefore !== 'clear' && !/^\d{1,5}$/.test(args.notifyBefore)) throw failure(422, 'Уточни напоминание в минутах');
-      patch.notifyBefore = args.notifyBefore === 'clear' ? null : Number(args.notifyBefore);
-      patch.notifyExtra = null;
-    }
-    if (!Object.keys(patch).length) return reply('Что изменить в событии «' + label(event) + '»?');
+    const editsSettings = ['subject', 'kind', 'focus', 'notifyBefore', 'addReminders', 'replaceReminder'].some(key => args[key] !== undefined);
+    if (!Object.keys(patch).length && !editsSettings) return reply('Что изменить в событии «' + label(event) + '»?');
     const updated = { ...event, ...patch };
     if (duplicate) Object.assign(updated, { title: capitalize(label(updated)), id: base.id, uid: base.id + '@cdmm', recurrenceId: null, taskId: null, createdAt: iso(now) });
     const selection = duplicate ? [event] : selectOccurrences(event, args.scope);
@@ -900,6 +931,7 @@ function applyCommand(db, userId, { action, args, usage }, zone, requestId) {
         : Date.parse(record.start) + startShift + duration * 60_000),
     });
     if (changes.some((record) => Date.parse(record.end) <= Date.parse(record.start))) throw failure(422, 'У одного из повторений конец окажется раньше начала');
+    if (editsSettings) changes.forEach(applyEventSettings);
     save('events', changes);
     return reply(changes.length > 1 ? 'Обновлено событий: ' + changes.length
       : (duplicate ? 'Скопировано: ' : 'Обновлено: ') + describe(updated));
